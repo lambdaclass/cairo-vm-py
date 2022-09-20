@@ -5,7 +5,10 @@ use cairo_rs::{
     vm::errors::memory_errors::MemoryError,
 };
 use num_bigint::BigInt;
-use pyo3::{exceptions::PyTypeError, prelude::*};
+use pyo3::{
+    exceptions::{PyRuntimeError, PyTypeError},
+    prelude::*,
+};
 
 #[derive(FromPyObject, Debug, Clone)]
 pub enum PyMaybeRelocatable {
@@ -40,11 +43,11 @@ impl PyRelocatable {
     pub fn __sub__(&self, value: PyMaybeRelocatable, py: Python) -> PyResult<PyObject> {
         match value {
             PyMaybeRelocatable::Int(value) => {
-                return Ok(PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                Ok(PyMaybeRelocatable::RelocatableValue(PyRelocatable {
                     index: self.index,
                     offset: self.offset - bigint_to_usize(&value).unwrap(),
                 })
-                .to_object(py));
+                .to_object(py))
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
                 if self.index == address.index && self.offset >= address.offset {
@@ -53,7 +56,9 @@ impl PyRelocatable {
                             .to_object(py),
                     );
                 }
-                todo!()
+                Err(PyRuntimeError::new_err(
+                    "Invalid operation between Relocatables",
+                ))
             }
         }
     }
@@ -69,7 +74,7 @@ impl From<PyMaybeRelocatable> for MaybeRelocatable {
             PyMaybeRelocatable::RelocatableValue(rel) => {
                 MaybeRelocatable::RelocatableValue(Relocatable::from((rel.index, rel.offset)))
             }
-            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(BigInt::from(num)),
+            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num),
         }
     }
 }
