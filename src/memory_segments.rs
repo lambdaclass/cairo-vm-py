@@ -1,30 +1,36 @@
 //use cairo_rs::vm::vm_memory::memory::Memory;
-use cairo_rs::vm::vm_memory::memory_segments::MemorySegmentManager;
+use cairo_rs::{
+    hint_processor::proxies::memory_proxy::{get_memory_proxy, MemoryProxy},
+    vm::vm_memory::{memory::Memory, memory_segments::MemorySegmentManager},
+};
 use pyo3::prelude::*;
 use std::{cell::RefCell, rc::Rc};
 
-use crate::memory::PyMemory;
+use crate::relocatable::PyRelocatable;
 
 #[pyclass(name = "MemorySegmentManager", unsendable)]
 pub struct PySegmentManager {
     pub segment_manager: Rc<RefCell<MemorySegmentManager>>,
+    pub memory: Rc<RefCell<MemoryProxy>>,
 }
 
 #[pymethods]
 impl PySegmentManager {
     #[new]
     fn new() -> PySegmentManager {
-        let segments = MemorySegmentManager::new();
-
         PySegmentManager {
-            segment_manager: Rc::new(RefCell::new(segments)),
+            segment_manager: Rc::new(RefCell::new(MemorySegmentManager::new())),
+            memory: Rc::new(RefCell::new(get_memory_proxy(&Rc::new(RefCell::new(
+                Memory::new(),
+            ))))),
         }
     }
 
-    pub fn add(&self, pymemory: &PyMemory) -> PyResult<()> {
-        self.segment_manager
+    pub fn add(&self) -> PyResult<PyRelocatable> {
+        Ok(self
+            .memory
             .borrow_mut()
-            .add(&mut pymemory.memory.borrow_mut().memory_borrow_mut());
-        Ok(())
+            .add_segment(&mut self.segment_manager.borrow_mut())
+            .into())
     }
 }

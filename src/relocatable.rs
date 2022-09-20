@@ -130,8 +130,14 @@ impl ToPyObject for PyMaybeRelocatable {
     }
 }
 
-// impl Into<Relocatable> for PyRelocatable {
-//     fn into(&self) -> Relocatable {
+impl From<Relocatable> for PyRelocatable {
+    fn from(val: Relocatable) -> Self {
+        PyRelocatable::new((val.segment_index, val.offset))
+    }
+}
 
-//     }
-// }
+impl From<Relocatable> for PyMaybeRelocatable {
+    fn from(val: Relocatable) -> Self {
+        PyMaybeRelocatable::RelocatableValue(val.into())
+    }
+}

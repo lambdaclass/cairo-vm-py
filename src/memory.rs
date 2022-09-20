@@ -1,10 +1,7 @@
-use crate::{
-    memory_segments::PySegmentManager,
-    relocatable::{PyMaybeRelocatable, PyRelocatable},
-};
+use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
 use cairo_rs::{
     hint_processor::proxies::memory_proxy::{get_memory_proxy, MemoryProxy},
-    types::relocatable::{MaybeRelocatable, Relocatable},
+    types::relocatable::MaybeRelocatable,
     vm::vm_memory::memory::Memory,
 };
 use num_bigint::BigInt;
@@ -63,12 +60,6 @@ impl PyMemory {
             .borrow_mut()
             .insert_value(&key, value)
             .map_err(|_| PyValueError::new_err(MEMORY_SET_ERROR_MSG))
-    }
-
-    pub fn add_segment(&self, segments: &PySegmentManager) -> PyResult<()> {
-        segments.add(self);
-        // segments.segment_manager.borrow_mut().add(&mut self.memory.borrow_mut().memory.borrow_mut());
-        Ok(())
     }
 }
 
