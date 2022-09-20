@@ -44,7 +44,12 @@ impl PySegmentManager {
             .into())
     }
 
-    pub fn write_arg(&self, ptr: PyRelocatable, arg: BigInt, py: Python) -> PyResult<PyObject> {
+    pub fn write_arg(
+        &self,
+        ptr: PyRelocatable,
+        arg: Vec<BigInt>,
+        py: Python,
+    ) -> PyResult<PyObject> {
         let result = self.memory.borrow_mut().write_arg(
             &mut self.segment_manager.borrow_mut(),
             &Relocatable::from(ptr),
