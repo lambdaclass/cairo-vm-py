@@ -4,18 +4,17 @@ use cairo_rs::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::vm_memory::memory::Memory,
 };
-use num_bigint::BigInt;
 use pyo3::{
-    exceptions::{PyKeyError, PyTypeError, PyValueError},
+    exceptions::{PyKeyError, PyValueError},
     prelude::*,
 };
 use std::{cell::RefCell, rc::Rc};
 
 const MEMORY_GET_ERROR_MSG: &str = "Failed to get value from Cairo memory";
 const MEMORY_SET_ERROR_MSG: &str = "Failed to set value to Cairo memory";
-const MEMORY_SET_TYPE_ERROR_MSG: &str = "Failed to set downcast Python value";
+// const MEMORY_SET_TYPE_ERROR_MSG: &str = "Failed to set downcast Python value";
 
-#[pyclass(unsendable)]
+#[pyclass(name = "Memory", unsendable)]
 pub struct PyMemory {
     pub memory: Rc<RefCell<MemoryProxy>>,
 }
@@ -33,7 +32,7 @@ impl PyMemory {
     }
 
     #[getter]
-    pub fn __getitem__(&self, key: &PyRelocatable, py: Python) -> PyResult<Option<PyObject>> {
+    pub fn __getitem__(&self, key: PyRelocatable, py: Python) -> PyResult<Option<PyObject>> {
         let key = Relocatable::from(key);
         match self.memory.borrow().get(&key) {
             Ok(Some(maybe_reloc)) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),
@@ -43,18 +42,9 @@ impl PyMemory {
     }
 
     #[setter]
-    pub fn __setitem__(&self, key: &PyRelocatable, value: &PyAny) -> PyResult<()> {
+    pub fn __setitem__(&self, key: PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
         let key = Relocatable::from(key);
-
-        let value = if let Ok(num) = value.extract::<BigInt>() {
-            MaybeRelocatable::from(num)
-        } else if let Ok(pyrelocatable) = value.extract::<PyRelocatable>() {
-            MaybeRelocatable::from(Relocatable::from(pyrelocatable))
-        } else if let Ok(py_maybe_reloc) = value.extract::<PyMaybeRelocatable>() {
-            py_maybe_reloc.to_maybe_relocatable()
-        } else {
-            return Err(PyTypeError::new_err(MEMORY_SET_TYPE_ERROR_MSG));
-        };
+        let value = MaybeRelocatable::from(value);
 
         self.memory
             .borrow_mut()
