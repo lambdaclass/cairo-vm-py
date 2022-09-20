@@ -1,6 +1,8 @@
 mod memory;
 mod memory_segments;
 mod relocatable;
+pub mod execute_hint;
+pub mod utils;
 
 use crate::memory::PyMemory;
 use crate::memory_segments::PySegmentManager;
