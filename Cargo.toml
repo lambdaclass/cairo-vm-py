@@ -12,3 +12,4 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.16.5", features = ["extension-module", "num-bigint"] }
 cairo-rs = { path = "../cairo-rs" }
 num-bigint = "0.4"
+lazy_static = "1.4.0"

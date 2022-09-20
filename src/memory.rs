@@ -1,7 +1,7 @@
 use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
 use cairo_rs::{
     hint_processor::proxies::memory_proxy::{get_memory_proxy, MemoryProxy},
-    types::relocatable::MaybeRelocatable,
+    types::relocatable::{MaybeRelocatable, Relocatable},
     vm::vm_memory::memory::Memory,
 };
 use num_bigint::BigInt;
@@ -34,7 +34,7 @@ impl PyMemory {
 
     #[getter]
     pub fn __getitem__(&self, key: &PyRelocatable, py: Python) -> PyResult<Option<PyObject>> {
-        let key = key.to_relocatable();
+        let key = Relocatable::from(key);
         match self.memory.borrow().get(&key) {
             Ok(Some(maybe_reloc)) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),
             Ok(None) => Ok(None),
@@ -44,12 +44,12 @@ impl PyMemory {
 
     #[setter]
     pub fn __setitem__(&self, key: &PyRelocatable, value: &PyAny) -> PyResult<()> {
-        let key = key.to_relocatable();
+        let key = Relocatable::from(key);
 
         let value = if let Ok(num) = value.extract::<BigInt>() {
             MaybeRelocatable::from(num)
         } else if let Ok(pyrelocatable) = value.extract::<PyRelocatable>() {
-            MaybeRelocatable::from(pyrelocatable.to_relocatable())
+            MaybeRelocatable::from(Relocatable::from(pyrelocatable))
         } else if let Ok(py_maybe_reloc) = value.extract::<PyMaybeRelocatable>() {
             py_maybe_reloc.to_maybe_relocatable()
         } else {

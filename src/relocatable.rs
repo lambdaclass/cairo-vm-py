@@ -2,9 +2,10 @@ use cairo_rs::{
     bigint,
     hint_processor::hint_processor_utils::bigint_to_usize,
     types::relocatable::{MaybeRelocatable, Relocatable},
+    vm::errors::memory_errors::MemoryError,
 };
 use num_bigint::BigInt;
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyTypeError, prelude::*};
 
 #[derive(FromPyObject, Debug, Clone)]
 pub enum PyMaybeRelocatable {
@@ -88,13 +89,32 @@ impl PyMaybeRelocatable {
     pub fn to_maybe_relocatable(&self) -> MaybeRelocatable {
         MaybeRelocatable::from(self)
     }
+
+    pub fn maybe_relocatable_result_to_py(
+        result: Result<MaybeRelocatable, MemoryError>,
+        py: Python,
+    ) -> PyResult<PyObject> {
+        Ok(PyMaybeRelocatable::from(
+            result.map_err(|err| PyTypeError::new_err(format!("{:?}", err)))?,
+        )
+        .to_object(py))
+    }
 }
 
-impl PyRelocatable {
-    pub fn to_relocatable(&self) -> Relocatable {
+impl From<PyRelocatable> for Relocatable {
+    fn from(val: PyRelocatable) -> Self {
         Relocatable {
-            segment_index: self.index,
-            offset: self.offset,
+            segment_index: val.index,
+            offset: val.offset,
+        }
+    }
+}
+
+impl From<&PyRelocatable> for Relocatable {
+    fn from(val: &PyRelocatable) -> Self {
+        Relocatable {
+            segment_index: val.index,
+            offset: val.offset,
         }
     }
 }
