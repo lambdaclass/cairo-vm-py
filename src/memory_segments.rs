@@ -9,7 +9,10 @@ use num_bigint::BigInt;
 use pyo3::prelude::*;
 use std::{cell::RefCell, rc::Rc};
 
-use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
+use crate::{
+    pybigint::PyBigInt,
+    relocatable::{PyMaybeRelocatable, PyRelocatable},
+};
 
 lazy_static! {
     pub static ref VM_PRIME: BigInt = BigInt::parse_bytes(
@@ -47,7 +50,7 @@ impl PySegmentManager {
     pub fn write_arg(
         &self,
         ptr: PyRelocatable,
-        arg: Vec<BigInt>,
+        arg: Vec<PyBigInt>,
         py: Python,
     ) -> PyResult<PyObject> {
         let result = self.memory.borrow_mut().write_arg(

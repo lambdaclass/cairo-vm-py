@@ -1,5 +1,6 @@
 mod memory;
 mod memory_segments;
+mod pybigint;
 mod relocatable;
 
 use std::cell::RefCell;
