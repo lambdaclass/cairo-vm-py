@@ -16,3 +16,4 @@ default = ["pyo3/num-bigint", "pyo3/auto-initialize"]
 pyo3 = { version = "0.16.5"}
 cairo-rs = { path = "../cairo-rs" }
 num-bigint = "0.4"
+lazy_static = "1.4.0"
