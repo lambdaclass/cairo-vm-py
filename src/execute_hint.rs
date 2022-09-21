@@ -33,3 +33,28 @@ impl PythonExecutor {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use cairo_rs::{vm::vm_core::VirtualMachine, hint_processor::{proxies::{vm_proxy::get_vm_proxy, exec_scopes_proxy::get_exec_scopes_proxy}, builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData}, types::exec_scope::ExecutionScopes};
+    use num_bigint::{BigInt, Sign};
+
+    use super::PythonExecutor;
+    #[test]
+    fn execute_hint() {
+        let mut vm = VirtualMachine::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            vec![],
+            false,
+        );
+        let mut vm_proxy = get_vm_proxy(&mut vm);
+        let mut exec_scopes = ExecutionScopes::new();
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let code = "print(ap)";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let executor = PythonExecutor{};
+        assert_eq!(executor.execute_hint(&mut vm_proxy, exec_scopes_proxy, &hint_data), Ok(()));
+    }
+}
