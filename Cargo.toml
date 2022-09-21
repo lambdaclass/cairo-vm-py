@@ -9,9 +9,8 @@ name = "cairo_rs_py"
 crate-type = ["cdylib"]
 
 [features]
-default = ["pyo3/num-bigint"]
 pypy = ["pyo3/num-bigint", "pyo3/extension-module"]
-test = ["pyo3/num-bigint", "pyo3/auto-initialize"]
+default = ["pyo3/num-bigint", "pyo3/auto-initialize"]
 
 [dependencies]
 pyo3 = { version = "0.16.5"}
