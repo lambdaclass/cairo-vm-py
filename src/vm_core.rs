@@ -1,16 +1,22 @@
-use cairo_rs::vm::{runners::builtin_runner::BuiltinRunner, vm_core::VirtualMachine};
-use num_bigint::BigInt;
-use pyo3::{pyclass, pymethods};
-use std::{cell::RefCell, rc::Rc};
-use crate::{utils::to_vm_error, relocatable::PyRelocatable, memory::PyMemory, memory_segments::PySegmentManager};
-use cairo_rs::{hint_processor::{builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData, proxies::{vm_proxy::VMProxy, exec_scopes_proxy::ExecutionScopesProxy}}, vm::errors::vm_errors::VirtualMachineError};
-use pyo3::{Python, types::PyDict};
-use pyo3::PyCell;
 use crate::pycell;
+use crate::{
+    memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
+    utils::to_vm_error,
+};
+use cairo_rs::vm::vm_core::VirtualMachine;
+use cairo_rs::{
+    hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
+    vm::errors::vm_errors::VirtualMachineError,
+};
+use num_bigint::BigInt;
+use pyo3::PyCell;
+use pyo3::{pyclass, pymethods};
+use pyo3::{types::PyDict, Python};
+use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(unsendable)]
 pub struct PyVM {
-    vm: Rc<RefCell<VirtualMachine>>,
+    pub(crate) vm: Rc<RefCell<VirtualMachine>>,
 }
 
 #[pymethods]
@@ -31,46 +37,76 @@ impl PyVM {
     pub(crate) fn get_vm(&self) -> Rc<RefCell<VirtualMachine>> {
         Rc::clone(&self.vm)
     }
-    fn execute_hint(
+
+    pub(crate) fn execute_hint(
         &self,
         hint_data: &HintProcessorData,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
-                let memory = PyMemory::new(&self);
-                let segments = PySegmentManager::new(&self);
-                let globals = PyDict::new(py);
-                let ap =  PyRelocatable::new((1, self.vm.borrow().run_context.ap));
-                let fp =  PyRelocatable::new((1, self.vm.borrow().run_context.fp));
+            let memory = PyMemory::new(&self);
+            let segments = PySegmentManager::new(&self);
+            let ap = PyRelocatable::from(self.vm.borrow().get_ap());
+            let fp = PyRelocatable::from(self.vm.borrow().get_fp());
 
-                globals.set_item("memory", pycell!(py, memory)).map_err(to_vm_error)?;
-                globals.set_item("segments", pycell!(py, segments)).map_err(to_vm_error)?;
-                globals.set_item("ap", pycell!(py, ap)).map_err(to_vm_error)?;
-                globals.set_item("fp", pycell!(py, fp)).map_err(to_vm_error)?;
+            let globals = PyDict::new(py);
 
-                py.run(&hint_data.code, Some(globals), None).map_err(to_vm_error)?;
-                Ok(())
+            globals
+                .set_item("memory", pycell!(py, memory))
+                .map_err(to_vm_error)?;
+            globals
+                .set_item("segments", pycell!(py, segments))
+                .map_err(to_vm_error)?;
+            globals
+                .set_item("ap", pycell!(py, ap))
+                .map_err(to_vm_error)?;
+            globals
+                .set_item("fp", pycell!(py, fp))
+                .map_err(to_vm_error)?;
+
+            py.run(&hint_data.code, Some(globals), None)
+                .map_err(to_vm_error)?;
+
+            Ok(())
         })?;
+
         Ok(())
+    }
+
+    pub(crate) fn step_hint(&self) -> Result<(), VirtualMachineError> {
+        todo!()
+    }
+
+    pub(crate) fn step(&self) -> Result<(), VirtualMachineError> {
+        todo!()
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-    use cairo_rs::{hint_processor::{builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData}};
-    use num_bigint::{BigInt, Sign};
     use crate::vm_core::PyVM;
+    use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData;
+    use num_bigint::{BigInt, Sign};
+    use std::collections::HashMap;
 
     #[test]
-    fn execute_hint() {
-        let mut vm = PyVM::new(
+    fn execute_print_hint() {
+        let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        // let code = "print(ap)";
-        let code = r#"print("hello")"#;
+        let code = "print(ap)";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(vm.execute_hint(&hint_data), Ok(()));
+    }
+
+    #[test]
+    fn set_memory_item_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(vm.execute_hint(&hint_data), Ok(()));
     }
 }
-

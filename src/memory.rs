@@ -59,22 +59,33 @@ impl PyMemory {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::memory::*;
+mod test {
+    use num_bigint::{BigInt, Sign};
+    use pyo3::{Python, types::PyDict};
+    use pyo3::PyCell;
+    use crate::{PyVM, memory::PyMemory, relocatable::PyRelocatable, pycell};
+    use crate::utils::to_vm_error;
 
     #[test]
-    fn new_memory_test() {
-        Python::with_gil(|py| {
-            let res = py.run(
-                r#"
-import cairo_rs
-memory = cairo_rs.PyMemory()
-            "#,
-                None,
-                None,
+    fn memory_insert_test() {
+        Python::with_gil(|py| -> Result<(),()> {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
             );
+            let memory = PyMemory::new(&vm);
+            let ap = PyRelocatable::from(vm.vm.borrow().get_ap());
 
-            assert!(res.is_ok());
+            let globals = PyDict::new(py);
+            globals.set_item("memory", pycell!(py, memory)).unwrap();
+            globals.set_item("ap", pycell!(py, ap)).unwrap();
+
+            let code = "memory[ap] = 5";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert!(py_result.is_ok());
+            Ok(())
         });
     }
 }

@@ -12,7 +12,7 @@ pypy = ["pyo3/num-bigint", "pyo3/extension-module"]
 default = ["pyo3/num-bigint", "pyo3/auto-initialize"]
 
 [dependencies]
-pyo3 = { version = "0.16.5"}
+pyo3 = { version = "0.16.5" }
 cairo-rs = { path = "../cairo-rs" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
