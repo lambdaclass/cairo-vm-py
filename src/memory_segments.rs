@@ -11,7 +11,7 @@ pub struct PySegmentManager {
 #[pymethods]
 impl PySegmentManager {
     #[new]
-    fn new(vm: &PyVM) -> PySegmentManager {
+    pub fn new(vm: &PyVM) -> PySegmentManager {
         PySegmentManager { vm: vm.get_vm() }
     }
 
