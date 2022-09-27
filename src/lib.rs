@@ -1,16 +1,13 @@
 mod memory;
 mod memory_segments;
 mod relocatable;
+mod vm_core;
 
-use crate::memory::PyMemory;
-use crate::memory_segments::PySegmentManager;
-use crate::relocatable::PyRelocatable;
 use pyo3::prelude::*;
+use vm_core::PyVM;
 
 #[pymodule]
 fn cairo_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<PyMemory>()?;
-    m.add_class::<PyRelocatable>()?;
-    m.add_class::<PySegmentManager>()?;
+    m.add_class::<PyVM>()?;
     Ok(())
 }

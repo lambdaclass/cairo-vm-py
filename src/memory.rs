@@ -1,9 +1,8 @@
-use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
-use cairo_rs::{
-    hint_processor::proxies::memory_proxy::{get_memory_proxy, MemoryProxy},
-    types::relocatable::MaybeRelocatable,
-    vm::vm_memory::memory::Memory,
+use crate::{
+    relocatable::{PyMaybeRelocatable, PyRelocatable},
+    vm_core::PyVM,
 };
+use cairo_rs::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
 use num_bigint::BigInt;
 use pyo3::{
     exceptions::{PyKeyError, PyTypeError, PyValueError},
@@ -17,25 +16,20 @@ const MEMORY_SET_TYPE_ERROR_MSG: &str = "Failed to set downcast Python value";
 
 #[pyclass(unsendable)]
 pub struct PyMemory {
-    pub memory: Rc<RefCell<MemoryProxy>>,
+    vm: Rc<RefCell<VirtualMachine>>,
 }
 
 #[pymethods]
 impl PyMemory {
     #[new]
-    pub fn new() -> PyMemory {
-        let mem = Memory::new();
-        let memory = Rc::new(RefCell::new(mem));
-
-        PyMemory {
-            memory: Rc::new(RefCell::new(get_memory_proxy(&memory))),
-        }
+    pub fn new(vm: &PyVM) -> PyMemory {
+        PyMemory { vm: vm.get_vm() }
     }
 
     #[getter]
     pub fn __getitem__(&self, key: &PyRelocatable, py: Python) -> PyResult<Option<PyObject>> {
         let key = key.to_relocatable();
-        match self.memory.borrow().get(&key) {
+        match self.vm.borrow().memory.get(&key) {
             Ok(Some(maybe_reloc)) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),
             Ok(None) => Ok(None),
             Err(_) => Err(PyKeyError::new_err(MEMORY_GET_ERROR_MSG)),
@@ -56,8 +50,9 @@ impl PyMemory {
             return Err(PyTypeError::new_err(MEMORY_SET_TYPE_ERROR_MSG));
         };
 
-        self.memory
+        self.vm
             .borrow_mut()
+            .memory
             .insert_value(&key, value)
             .map_err(|_| PyValueError::new_err(MEMORY_SET_ERROR_MSG))
     }
