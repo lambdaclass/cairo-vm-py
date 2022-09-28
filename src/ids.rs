@@ -13,11 +13,7 @@ use cairo_rs::{
 };
 use pyo3::{pyclass, pymethods, PyObject, PyResult, Python, ToPyObject};
 
-use crate::{
-    relocatable::PyMaybeRelocatable,
-    utils::to_py_error,
-    vm_core::PyVM,
-};
+use crate::{relocatable::PyMaybeRelocatable, utils::to_py_error, vm_core::PyVM};
 
 const IDS_GET_ERROR_MSG: &str = "Failed to get ids value";
 const IDS_SET_ERROR_MSG: &str = "Failed to set ids value to Cairo memory";
@@ -168,7 +164,7 @@ mod tests {
     use num_bigint::{BigInt, Sign};
     use pyo3::{types::PyDict, PyCell};
 
-    use crate::{memory::PyMemory, utils::to_vm_error, relocatable::PyRelocatable};
+    use crate::{memory::PyMemory, relocatable::PyRelocatable, utils::to_vm_error};
 
     use super::*;
 
