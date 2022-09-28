@@ -6,6 +6,7 @@ use crate::{
 };
 use cairo_rs::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
 use cairo_rs::hint_processor::proxies::exec_scopes_proxy::get_exec_scopes_proxy;
+use cairo_rs::hint_processor::proxies::vm_proxy::get_vm_proxy;
 use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::types::exec_scope::ExecutionScopes;
 use cairo_rs::vm::vm_core::VirtualMachine;
@@ -13,7 +14,6 @@ use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
     vm::errors::vm_errors::VirtualMachineError,
 };
-use cairo_rs::hint_processor::proxies::vm_proxy::get_vm_proxy;
 use num_bigint::BigInt;
 use pyo3::PyCell;
 use pyo3::{pyclass, pymethods};
@@ -49,14 +49,13 @@ impl PyVM {
     pub(crate) fn execute_hint(
         &self,
         hint_data: &HintProcessorData,
-        ap_tracking: &ApTracking,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(&self);
             let segments = PySegmentManager::new(&self);
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
-            let ids = PyIds::new(&self, &hint_data.ids_data, ap_tracking);
+            let ids = PyIds::new(&self, &hint_data.ids_data, &hint_data.ap_tracking);
 
             let globals = PyDict::new(py);
 
@@ -92,20 +91,29 @@ impl PyVM {
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
     ) -> Result<(), VirtualMachineError> {
         if let Some(hint_list) = hint_data_dictionary.get(&self.vm.borrow().run_context.pc.offset) {
-            let mut vm_proxy = get_vm_proxy(&mut self.vm.borrow_mut());
+            let mut vm = self.vm.borrow_mut();
+            let mut vm_proxy = get_vm_proxy(&mut vm);
+
             for hint_data in hint_list.iter() {
                 //We create a new proxy with every hint as the current scope can change
                 let mut exec_scopes_proxy = get_exec_scopes_proxy(exec_scopes);
-                if let Err(VirtualMachineError::UnknownHint(_)) = hint_executor.execute_hint(&mut vm_proxy, &mut exec_scopes_proxy, hint_data) {
+
+                if let Err(VirtualMachineError::UnknownHint(_)) =
+                    hint_executor.execute_hint(&mut vm_proxy, &mut exec_scopes_proxy, hint_data)
+                {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
-                    self.execute_hint(hint_data, )
+
+                    self.execute_hint(hint_data)?
                 }
             }
+        }
+
+        Ok(())
     }
 
-    pub(crate) fn step(&self) -> Result<(), VirtualMachineError> {
+    pub(crate) fn step(&self, hint_executor: ) -> Result<(), VirtualMachineError> {
         todo!()
     }
 }
