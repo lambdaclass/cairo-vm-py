@@ -4,7 +4,9 @@ use cairo_rs::{
     types::relocatable::{MaybeRelocatable, Relocatable},
 };
 use num_bigint::BigInt;
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
+
+const PYRELOCATABLE_COMPARE_ERROR: &str = "Cannot compare Relocatables of different segments";
 
 #[derive(FromPyObject, Debug, Clone)]
 pub enum PyMaybeRelocatable {
@@ -13,7 +15,7 @@ pub enum PyMaybeRelocatable {
 }
 
 #[pyclass(name = "Relocatable")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PyRelocatable {
     index: usize,
     offset: usize,
@@ -53,6 +55,41 @@ impl PyRelocatable {
                     );
                 }
                 todo!()
+            }
+        }
+    }
+
+    pub fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Lt => {
+                if self.index == other.index {
+                    Ok(self.offset < other.offset)
+                } else {
+                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                }
+            }
+            CompareOp::Le => {
+                if self.index == other.index {
+                    Ok(self.offset <= other.offset)
+                } else {
+                    Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR))
+                }
+            }
+            CompareOp::Eq => Ok((self.index, self.offset) == (other.index, other.offset)),
+            CompareOp::Ne => Ok((self.index, self.offset) != (other.index, other.offset)),
+            CompareOp::Gt => {
+                if self.index == other.index {
+                    Ok(self.offset > other.offset)
+                } else {
+                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                }
+            }
+            CompareOp::Ge => {
+                if self.index == other.index {
+                    Ok(self.offset >= other.offset)
+                } else {
+                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                }
             }
         }
     }
