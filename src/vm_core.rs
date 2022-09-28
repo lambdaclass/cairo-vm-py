@@ -216,4 +216,36 @@ mod test {
             Ok(Some(&MaybeRelocatable::from(bigint!(2))))
         );
     }
+
+    #[test]
+    fn scopes_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let code_a = "num = 6";
+        let code_b = "assert(num == 6)";
+        let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &HashMap::new(),
+                &ApTracking::default(),
+                exec_scopes_proxy
+            ),
+            Ok(())
+        );
+        let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &HashMap::new(),
+                &ApTracking::default(),
+                exec_scopes_proxy
+            ),
+            Ok(())
+        );
+    }
 }
