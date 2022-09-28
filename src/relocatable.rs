@@ -121,17 +121,6 @@ impl From<&MaybeRelocatable> for PyMaybeRelocatable {
     }
 }
 
-impl From<MaybeRelocatable> for PyMaybeRelocatable {
-    fn from(val: &MaybeRelocatable) -> Self {
-        match val {
-            MaybeRelocatable::RelocatableValue(rel) => PyMaybeRelocatable::RelocatableValue(
-                PyRelocatable::new((rel.segment_index, rel.offset)),
-            ),
-            MaybeRelocatable::Int(num) => PyMaybeRelocatable::Int(num.clone()),
-        }
-    }
-}
-
 impl ToPyObject for PyMaybeRelocatable {
     fn to_object(&self, py: Python<'_>) -> PyObject {
         match self {
@@ -144,6 +133,12 @@ impl ToPyObject for PyMaybeRelocatable {
 impl From<Relocatable> for PyRelocatable {
     fn from(val: Relocatable) -> Self {
         PyRelocatable::new((val.segment_index, val.offset))
+    }
+}
+
+impl From<&PyRelocatable> for Relocatable {
+    fn from(val: &PyRelocatable) -> Self {
+        Relocatable::from((val.index, val.offset))
     }
 }
 

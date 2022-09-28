@@ -2,7 +2,7 @@ use crate::{
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     vm_core::PyVM,
 };
-use cairo_rs::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
+use cairo_rs::{types::relocatable::{MaybeRelocatable, Relocatable}, vm::vm_core::VirtualMachine};
 use num_bigint::BigInt;
 use pyo3::{
     exceptions::{PyKeyError, PyTypeError, PyValueError},
@@ -29,31 +29,18 @@ impl PyMemory {
     #[getter]
     pub fn __getitem__(&self, key: &PyRelocatable, py: Python) -> PyResult<Option<PyObject>> {
         let key = key.to_relocatable();
-        match self.vm.borrow().memory.get(&key) {
-            Ok(Some(maybe_reloc)) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),
-            Ok(None) => Ok(None),
-            Err(_) => Err(PyKeyError::new_err(MEMORY_GET_ERROR_MSG)),
+        match self.vm.borrow().memory.get(&key).map_err(|_| PyTypeError::new_err(MEMORY_GET_ERROR_MSG))? {
+            Some(maybe_reloc) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),
+            None => Ok(None),
         }
     }
 
     #[setter]
-    pub fn __setitem__(&self, key: &PyRelocatable, value: &PyAny) -> PyResult<()> {
-        let key = key.to_relocatable();
-
-        let value = if let Ok(num) = value.extract::<BigInt>() {
-            MaybeRelocatable::from(num)
-        } else if let Ok(pyrelocatable) = value.extract::<PyRelocatable>() {
-            MaybeRelocatable::from(pyrelocatable.to_relocatable())
-        } else if let Ok(py_maybe_reloc) = value.extract::<PyMaybeRelocatable>() {
-            py_maybe_reloc.to_maybe_relocatable()
-        } else {
-            return Err(PyTypeError::new_err(MEMORY_SET_TYPE_ERROR_MSG));
-        };
-
+    pub fn __setitem__(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
         self.vm
             .borrow_mut()
             .memory
-            .insert_value(&key, value)
+            .insert_value(&Into::<Relocatable>::into(key), Into::<MaybeRelocatable>::into(value))
             .map_err(|_| PyValueError::new_err(MEMORY_SET_ERROR_MSG))
     }
 }
@@ -73,6 +60,9 @@ mod test {
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
             let memory = PyMemory::new(&vm);
             let ap = PyRelocatable::from(vm.vm.borrow().get_ap());
 
@@ -84,7 +74,7 @@ mod test {
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result.is_ok());
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
         });
     }
 
@@ -95,6 +85,9 @@ mod test {
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
             let memory = PyMemory::new(&vm);
             let ap = PyRelocatable::from((1, 1));
             let fp = PyRelocatable::from((1, 2));
@@ -108,7 +101,7 @@ mod test {
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result.is_ok());
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
         });
     }
 }
