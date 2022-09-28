@@ -5,20 +5,17 @@ use crate::{
     utils::to_vm_error,
 };
 use cairo_rs::any_box;
-use cairo_rs::hint_processor::hint_processor_definition::HintReference;
 use cairo_rs::hint_processor::proxies::exec_scopes_proxy::ExecutionScopesProxy;
-use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
     vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
+use pyo3::PyCell;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
-use pyo3::{PyAny, PyCell};
 use std::any::Any;
-use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(unsendable)]
@@ -48,8 +45,6 @@ impl PyVM {
     pub(crate) fn execute_hint(
         &self,
         hint_data: &HintProcessorData,
-        references: &HashMap<String, HintReference>,
-        ap_tracking: &ApTracking,
         exec_scopes: &mut ExecutionScopesProxy,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
@@ -57,7 +52,7 @@ impl PyVM {
             let segments = PySegmentManager::new(&self);
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
-            let ids = PyIds::new(&self, references, ap_tracking);
+            let ids = PyIds::new(&self, &hint_data.ids_data, &hint_data.ap_tracking);
 
             let locals = get_scope_locals(exec_scopes, py)?;
 
@@ -130,9 +125,8 @@ mod test {
         hint_processor::{
             builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
             hint_processor_definition::HintReference,
-            proxies::exec_scopes_proxy::{get_exec_scopes_proxy, ExecutionScopesProxy},
+            proxies::exec_scopes_proxy::get_exec_scopes_proxy,
         },
-        serde::deserialize_program::ApTracking,
         types::{
             exec_scope::ExecutionScopes,
             relocatable::{MaybeRelocatable, Relocatable},
@@ -152,8 +146,6 @@ mod test {
         assert_eq!(
             vm.execute_hint(
                 &hint_data,
-                &HashMap::new(),
-                &ApTracking::default(),
                 &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
             ),
             Ok(())
@@ -171,8 +163,6 @@ mod test {
         assert_eq!(
             vm.execute_hint(
                 &hint_data,
-                &HashMap::new(),
-                &ApTracking::default(),
                 &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
             ),
             Ok(())
@@ -188,10 +178,6 @@ mod test {
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
-        let references = HashMap::from([
-            (String::from("a"), HintReference::new_simple(2)),
-            (String::from("b"), HintReference::new_simple(1)),
-        ]);
         vm.vm
             .borrow_mut()
             .memory
@@ -201,12 +187,14 @@ mod test {
             )
             .unwrap();
         let code = "ids.a = ids.b";
-        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let mut hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        hint_data.ids_data = HashMap::from([
+            (String::from("a"), HintReference::new_simple(2)),
+            (String::from("b"), HintReference::new_simple(1)),
+        ]);
         assert_eq!(
             vm.execute_hint(
                 &hint_data,
-                &references,
-                &ApTracking::default(),
                 &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
             ),
             Ok(())
@@ -228,24 +216,8 @@ mod test {
         let code_a = "num = 6";
         let code_b = "assert(num == 6)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
-        assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &HashMap::new(),
-                &ApTracking::default(),
-                exec_scopes_proxy
-            ),
-            Ok(())
-        );
+        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
-        assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &HashMap::new(),
-                &ApTracking::default(),
-                exec_scopes_proxy
-            ),
-            Ok(())
-        );
+        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
     }
 }
