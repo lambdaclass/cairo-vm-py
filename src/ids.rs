@@ -14,7 +14,7 @@ use cairo_rs::{
 use pyo3::{pyclass, pymethods, PyObject, PyResult, Python, ToPyObject};
 
 use crate::{
-    relocatable::{PyMaybeRelocatable, PyRelocatable},
+    relocatable::PyMaybeRelocatable,
     utils::to_py_error,
     vm_core::PyVM,
 };
@@ -168,7 +168,7 @@ mod tests {
     use num_bigint::{BigInt, Sign};
     use pyo3::{types::PyDict, PyCell};
 
-    use crate::{memory::PyMemory, utils::to_vm_error};
+    use crate::{memory::PyMemory, utils::to_vm_error, relocatable::PyRelocatable};
 
     use super::*;
 
