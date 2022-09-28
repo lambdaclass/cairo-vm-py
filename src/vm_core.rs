@@ -4,6 +4,7 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
 };
+use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintReference;
 use cairo_rs::hint_processor::proxies::exec_scopes_proxy::ExecutionScopesProxy;
 use cairo_rs::serde::deserialize_program::ApTracking;
@@ -13,9 +14,10 @@ use cairo_rs::{
     vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
 use pyo3::{PyAny, PyCell};
+use std::any::Any;
 use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
@@ -80,6 +82,8 @@ impl PyVM {
             py.run(&hint_data.code, Some(globals), Some(locals))
                 .map_err(to_vm_error)?;
 
+            update_scope_locals(exec_scopes, locals, py);
+
             Ok(())
         })?;
 
@@ -96,16 +100,26 @@ impl PyVM {
 }
 
 pub(crate) fn get_scope_locals<'a>(
-    exec_scopes: &'a ExecutionScopesProxy,
+    exec_scopes: &ExecutionScopesProxy,
     py: Python<'a>,
 ) -> Result<&'a PyDict, VirtualMachineError> {
     let locals = PyDict::new(py);
     for (name, elem) in exec_scopes.get_local_variables()? {
-        if let Some(pyobj) = elem.downcast_ref::<PyAny>() {
+        if let Some(pyobj) = elem.downcast_ref::<PyObject>() {
             locals.set_item(name, pyobj).map_err(to_vm_error)?;
         }
     }
     Ok(locals)
+}
+
+pub(crate) fn update_scope_locals(
+    exec_scopes: &mut ExecutionScopesProxy,
+    locals: &PyDict,
+    py: Python,
+) {
+    for (name, elem) in locals {
+        exec_scopes.assign_or_update_variable(&name.to_string(), any_box!(elem.to_object(py)));
+    }
 }
 
 #[cfg(test)]
