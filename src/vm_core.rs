@@ -98,15 +98,4 @@ mod test {
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(vm.execute_hint(&hint_data), Ok(()));
     }
-
-    #[test]
-    fn set_memory_item_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-        );
-        let code = "print(ap)";
-        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data), Ok(()));
-    }
 }
