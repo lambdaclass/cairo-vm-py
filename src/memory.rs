@@ -68,7 +68,7 @@ mod test {
 
     #[test]
     fn memory_insert_test() {
-        Python::with_gil(|py| -> Result<(),()> {
+        Python::with_gil(|py| {
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
@@ -77,15 +77,38 @@ mod test {
             let ap = PyRelocatable::from(vm.vm.borrow().get_ap());
 
             let globals = PyDict::new(py);
-            globals.set_item("memory", pycell!(py, memory)).unwrap();
-            globals.set_item("ap", pycell!(py, ap)).unwrap();
+            globals.set_item("memory", PyCell::new(py, memory).unwrap()).unwrap();
+            globals.set_item("ap", PyCell::new(py, ap).unwrap()).unwrap();
 
             let code = "memory[ap] = 5";
 
             let py_result = py.run(code, Some(globals), None);
 
             assert!(py_result.is_ok());
-            Ok(())
+        });
+    }
+
+        #[test]
+    fn memory_get_test() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            let memory = PyMemory::new(&vm);
+            let ap = PyRelocatable::from((1, 1));
+            let fp = PyRelocatable::from((1, 2));
+
+            let globals = PyDict::new(py);
+            globals.set_item("memory", PyCell::new(py, memory).unwrap()).unwrap();
+            globals.set_item("ap", PyCell::new(py, ap).unwrap()).unwrap();
+            globals.set_item("fp", PyCell::new(py, fp).unwrap()).unwrap();
+
+            let code = "memory[ap] = 5";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert!(py_result.is_ok());
         });
     }
 }
