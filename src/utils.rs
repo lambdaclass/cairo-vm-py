@@ -1,5 +1,7 @@
+use std::fmt::Display;
+
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
-use pyo3::PyErr;
+use pyo3::{exceptions::PyValueError, PyErr};
 
 #[macro_export]
 macro_rules! pycell {
@@ -10,4 +12,8 @@ macro_rules! pycell {
 
 pub fn to_vm_error(pyerror: PyErr) -> VirtualMachineError {
     VirtualMachineError::CustomHint(format!("{}", pyerror))
+}
+
+pub fn to_py_error<T: Display>(error: T) -> PyErr {
+    PyValueError::new_err(format!("{}", error))
 }
