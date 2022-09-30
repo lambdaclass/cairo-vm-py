@@ -1,8 +1,13 @@
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
-use pyo3::{pyclass, pyfunction, pymethods, types::PyModule, PyObject, PyResult};
+use cairo_rs::{
+    any_box, hint_processor::proxies::exec_scopes_proxy::ExecutionScopesProxy,
+    vm::errors::vm_errors::VirtualMachineError,
+};
+use pyo3::{pyclass, pymethods, PyObject};
 
 #[pyclass(unsendable)]
+#[derive(Debug, Clone)]
 pub struct PyEnterScope {
     new_scopes: Vec<HashMap<String, PyObject>>,
 }
@@ -10,8 +15,22 @@ pub struct PyEnterScope {
 impl PyEnterScope {
     pub fn new() -> PyEnterScope {
         PyEnterScope {
-            new_scopes: Vec::<HashMap<String, PyObject>>::new(),
+            new_scopes: Vec::new(),
         }
+    }
+
+    pub fn update_scopes(
+        &self,
+        scopes: &mut ExecutionScopesProxy,
+    ) -> Result<(), VirtualMachineError> {
+        for scope_variables in self.new_scopes.iter() {
+            let mut new_scope = HashMap::<String, Box<dyn Any>>::new();
+            for (name, pyobj) in scope_variables {
+                new_scope.insert(name.to_string(), any_box!(pyobj.clone()));
+            }
+            scopes.enter_scope(new_scope);
+        }
+        Ok(())
     }
 }
 
@@ -26,6 +45,7 @@ impl PyEnterScope {
 }
 
 #[pyclass(unsendable)]
+#[derive(Debug, Clone)]
 pub struct PyExitScope {
     num: i32,
 }
@@ -33,6 +53,16 @@ pub struct PyExitScope {
 impl PyExitScope {
     pub fn new() -> PyExitScope {
         PyExitScope { num: 0 }
+    }
+
+    pub fn update_scopes(
+        &self,
+        scopes: &mut ExecutionScopesProxy,
+    ) -> Result<(), VirtualMachineError> {
+        for _ in 0..self.num {
+            scopes.exit_scope()?
+        }
+        Ok(())
     }
 }
 
