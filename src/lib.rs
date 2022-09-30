@@ -1,7 +1,8 @@
-pub mod ids;
+mod ids;
 mod memory;
 mod memory_segments;
 mod relocatable;
+mod scope_manager;
 mod utils;
 mod vm_core;
 
