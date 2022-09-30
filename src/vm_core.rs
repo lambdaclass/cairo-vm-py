@@ -7,7 +7,6 @@ use crate::{
 use cairo_rs::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
 use cairo_rs::hint_processor::proxies::exec_scopes_proxy::get_exec_scopes_proxy;
 use cairo_rs::hint_processor::proxies::vm_proxy::get_vm_proxy;
-use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::types::exec_scope::ExecutionScopes;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
@@ -34,7 +33,6 @@ impl PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(
                 prime,
-                Vec::new(),
                 trace_enabled,
             ))),
         }
@@ -130,11 +128,10 @@ mod test {
     use cairo_rs::{
         bigint,
         hint_processor::{
-            builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
+            builtin_hint_processor::builtin_hint_processor_definition::{HintProcessorData, BuiltinHintProcessor},
             hint_processor_definition::HintReference,
         },
-        serde::deserialize_program::ApTracking,
-        types::relocatable::{MaybeRelocatable, Relocatable},
+        types::{relocatable::{MaybeRelocatable, Relocatable}, exec_scope::ExecutionScopes},
     };
     use num_bigint::{BigInt, Sign};
     use std::collections::HashMap;
@@ -148,7 +145,7 @@ mod test {
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &HashMap::new(), &ApTracking::default()),
+            vm.execute_hint(&hint_data),
             Ok(())
         );
     }
@@ -162,7 +159,7 @@ mod test {
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &HashMap::new(), &ApTracking::default()),
+            vm.execute_hint(&hint_data),
             Ok(())
         );
     }
@@ -189,14 +186,75 @@ mod test {
             )
             .unwrap();
         let code = "ids.a = ids.b";
-        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let hint_data = HintProcessorData::new_default(code.to_string(), references);
         assert_eq!(
-            vm.execute_hint(&hint_data, &references, &ApTracking::default()),
+            vm.execute_hint(&hint_data),
             Ok(())
         );
         assert_eq!(
             vm.vm.borrow().memory.get(&Relocatable::from((1, 2))),
             Ok(Some(&MaybeRelocatable::from(bigint!(2))))
+        );
+    }
+
+    #[test]
+    // This test is analogous to the `test_step_for_preset_memory` unit test in the cairo-rs crate.
+    fn test_step_with_no_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        for _ in 0..2 {
+            vm.vm.borrow_mut().add_memory_segment();
+        }
+
+        let hint_processor = BuiltinHintProcessor::new_empty();
+
+        vm.vm.borrow_mut().run_context.pc = Relocatable::from((0, 0));
+        vm.vm.borrow_mut().run_context.ap = 2usize;
+        vm.vm.borrow_mut().run_context.fp = 2usize;
+
+        vm.vm.borrow_mut().insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64)).unwrap();
+        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0))).unwrap();
+        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0))).unwrap();
+
+        assert_eq!(
+            vm.step(&hint_processor, &mut ExecutionScopes::new(), &HashMap::new()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn test_step_with_print_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        for _ in 0..2 {
+            vm.vm.borrow_mut().add_memory_segment();
+        }
+
+        let hint_processor = BuiltinHintProcessor::new_empty();
+
+        vm.vm.borrow_mut().run_context.pc = Relocatable::from((0, 0));
+        vm.vm.borrow_mut().run_context.ap = 2usize;
+        vm.vm.borrow_mut().run_context.fp = 2usize;
+
+        vm.vm.borrow_mut().insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64)).unwrap();
+        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0))).unwrap();
+        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0))).unwrap();
+
+        let code = "print(ap)";
+        let hint_proc_data= HintProcessorData::new_default(code.to_string(), HashMap::new());
+        
+        let mut hint_data = HashMap::new();
+        hint_data.insert(0, hint_proc_data);
+
+        assert_eq!(
+            vm.step(&hint_processor, &mut ExecutionScopes::new(), &HashMap::new()),
+            Ok(())
         );
     }
 }
