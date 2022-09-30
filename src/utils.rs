@@ -1,5 +1,4 @@
 use std::fmt::Display;
-
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use pyo3::{exceptions::PyValueError, PyErr};
 

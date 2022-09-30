@@ -4,7 +4,7 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
 };
-use cairo_rs::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
+use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_rs::hint_processor::proxies::exec_scopes_proxy::get_exec_scopes_proxy;
 use cairo_rs::hint_processor::proxies::vm_proxy::get_vm_proxy;
 use cairo_rs::types::exec_scope::ExecutionScopes;
@@ -33,7 +33,7 @@ impl PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(
                 prime,
-                trace_enabled,
+   trace_enabled,
             ))),
         }
     }
@@ -144,10 +144,7 @@ mod test {
         );
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
-        assert_eq!(
-            vm.execute_hint(&hint_data),
-            Ok(())
-        );
+        assert_eq!(vm.execute_hint(&hint_data), Ok(()));
     }
 
     #[test]
@@ -158,10 +155,8 @@ mod test {
         );
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
-        assert_eq!(
-            vm.execute_hint(&hint_data),
-            Ok(())
-        );
+
+        assert_eq!(vm.execute_hint(&hint_data), Ok(()));
     }
 
     #[test]
