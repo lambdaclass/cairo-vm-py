@@ -31,10 +31,7 @@ impl PyVM {
     #[new]
     pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
         PyVM {
-            vm: Rc::new(RefCell::new(VirtualMachine::new(
-                prime,
-   trace_enabled,
-            ))),
+            vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
 }
@@ -128,10 +125,15 @@ mod test {
     use cairo_rs::{
         bigint,
         hint_processor::{
-            builtin_hint_processor::builtin_hint_processor_definition::{HintProcessorData, BuiltinHintProcessor},
+            builtin_hint_processor::builtin_hint_processor_definition::{
+                BuiltinHintProcessor, HintProcessorData,
+            },
             hint_processor_definition::HintReference,
         },
-        types::{relocatable::{MaybeRelocatable, Relocatable}, exec_scope::ExecutionScopes},
+        types::{
+            exec_scope::ExecutionScopes,
+            relocatable::{MaybeRelocatable, Relocatable},
+        },
     };
     use num_bigint::{BigInt, Sign};
     use std::collections::HashMap;
@@ -182,10 +184,7 @@ mod test {
             .unwrap();
         let code = "ids.a = ids.b";
         let hint_data = HintProcessorData::new_default(code.to_string(), references);
-        assert_eq!(
-            vm.execute_hint(&hint_data),
-            Ok(())
-        );
+        assert_eq!(vm.execute_hint(&hint_data), Ok(()));
         assert_eq!(
             vm.vm.borrow().memory.get(&Relocatable::from((1, 2))),
             Ok(Some(&MaybeRelocatable::from(bigint!(2))))
@@ -210,12 +209,25 @@ mod test {
         vm.vm.borrow_mut().run_context.ap = 2usize;
         vm.vm.borrow_mut().run_context.fp = 2usize;
 
-        vm.vm.borrow_mut().insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64)).unwrap();
-        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0))).unwrap();
-        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0))).unwrap();
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+            .unwrap();
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+            .unwrap();
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0)))
+            .unwrap();
 
         assert_eq!(
-            vm.step(&hint_processor, &mut ExecutionScopes::new(), &HashMap::new()),
+            vm.step(
+                &hint_processor,
+                &mut ExecutionScopes::new(),
+                &HashMap::new()
+            ),
             Ok(())
         );
     }
@@ -237,18 +249,31 @@ mod test {
         vm.vm.borrow_mut().run_context.ap = 2usize;
         vm.vm.borrow_mut().run_context.fp = 2usize;
 
-        vm.vm.borrow_mut().insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64)).unwrap();
-        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0))).unwrap();
-        vm.vm.borrow_mut().insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0))).unwrap();
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+            .unwrap();
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+            .unwrap();
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0)))
+            .unwrap();
 
         let code = "print(ap)";
-        let hint_proc_data= HintProcessorData::new_default(code.to_string(), HashMap::new());
-        
+        let hint_proc_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+
         let mut hint_data = HashMap::new();
         hint_data.insert(0, hint_proc_data);
 
         assert_eq!(
-            vm.step(&hint_processor, &mut ExecutionScopes::new(), &HashMap::new()),
+            vm.step(
+                &hint_processor,
+                &mut ExecutionScopes::new(),
+                &HashMap::new()
+            ),
             Ok(())
         );
     }
