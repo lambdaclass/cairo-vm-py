@@ -113,8 +113,14 @@ impl PyVM {
         Ok(())
     }
 
-    pub(crate) fn step(&self, hint_executor: ) -> Result<(), VirtualMachineError> {
-        todo!()
+    pub(crate) fn step(
+        &self,
+        hint_executor: &dyn HintProcessor,
+        exec_scopes: &mut ExecutionScopes,
+        hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+    ) -> Result<(), VirtualMachineError> {
+        self.step_hint(hint_executor, exec_scopes, hint_data_dictionary)?;
+        self.vm.borrow_mut().step_instruction()
     }
 }
 
