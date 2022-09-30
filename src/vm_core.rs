@@ -1,5 +1,6 @@
 use crate::ids::PyIds;
 use crate::pycell;
+use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
@@ -68,6 +69,13 @@ impl PyVM {
                 .map_err(to_vm_error)?;
             globals
                 .set_item("ids", pycell!(py, ids))
+                .map_err(to_vm_error)?;
+
+            globals
+                .set_item("vm_enter_scope", pycell!(py, PyEnterScope::new()))
+                .map_err(to_vm_error)?;
+            globals
+                .set_item("vm_exit_scope", pycell!(py, PyExitScope::new()))
                 .map_err(to_vm_error)?;
 
             py.run(&hint_data.code, Some(globals), Some(locals))
@@ -214,6 +222,19 @@ mod test {
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
         assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
+        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+    }
+
+    #[test]
+    fn exit_scopes_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let code = "vm_exit_scope()";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
     }
 }
