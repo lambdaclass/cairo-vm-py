@@ -4,8 +4,6 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
 };
-use cairo_rs::hint_processor::hint_processor_definition::HintReference;
-use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
@@ -28,11 +26,7 @@ impl PyVM {
     #[new]
     pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
         PyVM {
-            vm: Rc::new(RefCell::new(VirtualMachine::new(
-                prime,
-                Vec::new(),
-                trace_enabled,
-            ))),
+            vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
 }
@@ -98,7 +92,6 @@ mod test {
             builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
             hint_processor_definition::HintReference,
         },
-        serde::deserialize_program::ApTracking,
         types::relocatable::{MaybeRelocatable, Relocatable},
     };
     use num_bigint::{BigInt, Sign};
