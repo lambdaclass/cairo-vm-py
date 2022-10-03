@@ -10,7 +10,6 @@ pub fn cairo_run_py<'a>(
     entrypoint: &'a str,
     trace_enabled: bool,
     print_output: bool,
-    // hint_processor: &'a dyn HintProcessor,
 ) -> PyResult<()> {
     let path = Path::new(path);
     let program = Program::new(path, entrypoint).map_err(to_py_error)?;
@@ -19,7 +18,6 @@ pub fn cairo_run_py<'a>(
     let vm = PyVM::new(program.prime, trace_enabled);
     let end = cairo_runner.initialize(&mut vm.vm.borrow_mut()).map_err(to_py_error)?;
 
-    // this has to change!
     run_until_pc(&mut cairo_runner, end, &vm).map_err(to_py_error)?;
 
     vm.vm.borrow_mut().verify_auto_deductions().map_err(to_py_error)?;
@@ -45,4 +43,20 @@ fn run_until_pc(cairo_runner: &mut CairoRunner, address: Relocatable, vm: &PyVM)
         )?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::cairo_run;
+
+    #[test]
+    fn cairo_run_test() {
+        cairo_run::cairo_run_py(
+            "cairo_programs/fibonacci.json",
+            "main",
+            false,
+            false,
+        )
+        .expect("Couldn't run program");
+    }
 }
