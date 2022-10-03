@@ -104,7 +104,6 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
     ) -> Result<(), VirtualMachineError> {
-
         let pc_offset = self.vm.borrow().run_context.pc.offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {

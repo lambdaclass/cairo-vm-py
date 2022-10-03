@@ -51,7 +51,6 @@ fn run_until_pc(
     let references = cairo_runner.get_reference_list();
     let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
 
-    
     while vm.vm.borrow().run_context.pc != address {
         vm.step(
             cairo_runner.hint_executor,
@@ -74,12 +73,7 @@ mod test {
 
     #[test]
     fn cairo_run_array_sum() {
-        cairo_run::cairo_run_py(
-            "cairo_programs/array_sum.json",
-            "main",
-            false,
-            false,
-        )
-        .expect("Couldn't run program");
+        cairo_run::cairo_run_py("cairo_programs/array_sum.json", "main", false, false)
+            .expect("Couldn't run program");
     }
 }
