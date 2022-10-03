@@ -29,13 +29,11 @@ impl PyMemory {
 
     #[getter]
     pub fn __getitem__(&self, key: &PyRelocatable, py: Python) -> PyResult<Option<PyObject>> {
-        let key: Relocatable = key.into();
-
         match self
             .vm
             .borrow()
             .memory
-            .get(&key)
+            .get(key)
             .map_err(|_| PyTypeError::new_err(MEMORY_GET_ERROR_MSG))?
         {
             Some(maybe_reloc) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),

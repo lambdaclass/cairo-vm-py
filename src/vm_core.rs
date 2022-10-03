@@ -1,3 +1,4 @@
+use crate::ids::PyIds;
 use crate::pycell;
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
@@ -12,6 +13,7 @@ use num_bigint::BigInt;
 use pyo3::PyCell;
 use pyo3::{pyclass, pymethods};
 use pyo3::{types::PyDict, Python};
+use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(unsendable)]
@@ -24,11 +26,7 @@ impl PyVM {
     #[new]
     pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
         PyVM {
-            vm: Rc::new(RefCell::new(VirtualMachine::new(
-                prime,
-                Vec::new(),
-                trace_enabled,
-            ))),
+            vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
 }
@@ -47,6 +45,7 @@ impl PyVM {
             let segments = PySegmentManager::new(&self);
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
+            let ids = PyIds::new(&self, &hint_data.ids_data, &hint_data.ap_tracking);
 
             let globals = PyDict::new(py);
 
@@ -61,6 +60,9 @@ impl PyVM {
                 .map_err(to_vm_error)?;
             globals
                 .set_item("fp", pycell!(py, fp))
+                .map_err(to_vm_error)?;
+            globals
+                .set_item("ids", pycell!(py, ids))
                 .map_err(to_vm_error)?;
 
             py.run(&hint_data.code, Some(globals), None)
@@ -84,7 +86,14 @@ impl PyVM {
 #[cfg(test)]
 mod test {
     use crate::vm_core::PyVM;
-    use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData;
+    use cairo_rs::{
+        bigint,
+        hint_processor::{
+            builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
+            hint_processor_definition::HintReference,
+        },
+        types::relocatable::{MaybeRelocatable, Relocatable},
+    };
     use num_bigint::{BigInt, Sign};
     use std::collections::HashMap;
 
@@ -108,5 +117,35 @@ mod test {
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(vm.execute_hint(&hint_data), Ok(()));
+    }
+
+    #[test]
+    fn ids_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        for _ in 0..2 {
+            vm.vm.borrow_mut().add_memory_segment();
+        }
+        vm.vm
+            .borrow_mut()
+            .memory
+            .insert(
+                &Relocatable::from((1, 1)),
+                &MaybeRelocatable::from(bigint!(2)),
+            )
+            .unwrap();
+        let code = "ids.a = ids.b";
+        let mut hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        hint_data.ids_data = HashMap::from([
+            (String::from("a"), HintReference::new_simple(2)),
+            (String::from("b"), HintReference::new_simple(1)),
+        ]);
+        assert_eq!(vm.execute_hint(&hint_data), Ok(()));
+        assert_eq!(
+            vm.vm.borrow().memory.get(&Relocatable::from((1, 2))),
+            Ok(Some(&MaybeRelocatable::from(bigint!(2))))
+        );
     }
 }

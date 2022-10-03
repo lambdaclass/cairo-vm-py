@@ -1,3 +1,4 @@
+pub mod ids;
 mod memory;
 mod memory_segments;
 mod relocatable;

@@ -190,3 +190,15 @@ impl From<Relocatable> for PyMaybeRelocatable {
         PyMaybeRelocatable::RelocatableValue(val.into())
     }
 }
+
+impl From<PyRelocatable> for PyMaybeRelocatable {
+    fn from(val: PyRelocatable) -> Self {
+        PyMaybeRelocatable::RelocatableValue(val)
+    }
+}
+
+impl From<&BigInt> for PyMaybeRelocatable {
+    fn from(val: &BigInt) -> Self {
+        PyMaybeRelocatable::Int(val.clone())
+    }
+}
