@@ -1,7 +1,12 @@
-use std::path::Path;
-use cairo_rs::{hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor, types::{program::Program, relocatable::Relocatable}, vm::{runners::cairo_runner::CairoRunner, errors::vm_errors::VirtualMachineError}, cairo_run::write_output};
-use pyo3::{pyfunction, PyResult};
 use crate::{utils::to_py_error, vm_core::PyVM};
+use cairo_rs::{
+    cairo_run::write_output,
+    hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
+    types::{program::Program, relocatable::Relocatable},
+    vm::{errors::vm_errors::VirtualMachineError, runners::cairo_runner::CairoRunner},
+};
+use pyo3::{pyfunction, PyResult};
+use std::path::Path;
 
 #[pyfunction]
 #[pyo3(name = "cairo_run")]
@@ -16,13 +21,20 @@ pub fn cairo_run_py<'a>(
     let hint_processor = BuiltinHintProcessor::new_empty();
     let mut cairo_runner = CairoRunner::new(&program, &hint_processor).map_err(to_py_error)?;
     let vm = PyVM::new(program.prime, trace_enabled);
-    let end = cairo_runner.initialize(&mut vm.vm.borrow_mut()).map_err(to_py_error)?;
+    let end = cairo_runner
+        .initialize(&mut vm.vm.borrow_mut())
+        .map_err(to_py_error)?;
 
     run_until_pc(&mut cairo_runner, end, &vm).map_err(to_py_error)?;
 
-    vm.vm.borrow_mut().verify_auto_deductions().map_err(to_py_error)?;
+    vm.vm
+        .borrow_mut()
+        .verify_auto_deductions()
+        .map_err(to_py_error)?;
 
-    cairo_runner.relocate(&mut vm.vm.borrow_mut()).map_err(to_py_error)?;
+    cairo_runner
+        .relocate(&mut vm.vm.borrow_mut())
+        .map_err(to_py_error)?;
 
     if print_output {
         write_output(&mut cairo_runner, &mut vm.vm.borrow_mut()).map_err(to_py_error)?;
@@ -31,7 +43,11 @@ pub fn cairo_run_py<'a>(
     Ok(())
 }
 
-fn run_until_pc(cairo_runner: &mut CairoRunner, address: Relocatable, vm: &PyVM) -> Result<(), VirtualMachineError> {
+fn run_until_pc(
+    cairo_runner: &mut CairoRunner,
+    address: Relocatable,
+    vm: &PyVM,
+) -> Result<(), VirtualMachineError> {
     let references = cairo_runner.get_reference_list();
     let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
 
@@ -51,12 +67,7 @@ mod test {
 
     #[test]
     fn cairo_run_test() {
-        cairo_run::cairo_run_py(
-            "cairo_programs/fibonacci.json",
-            "main",
-            false,
-            false,
-        )
-        .expect("Couldn't run program");
+        cairo_run::cairo_run_py("cairo_programs/fibonacci.json", "main", false, false)
+            .expect("Couldn't run program");
     }
 }

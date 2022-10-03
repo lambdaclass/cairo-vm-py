@@ -5,11 +5,13 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
 };
+use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::hint_processor::proxies::exec_scopes_proxy::{ExecutionScopesProxy, get_exec_scopes_proxy};
+use cairo_rs::hint_processor::proxies::exec_scopes_proxy::{
+    get_exec_scopes_proxy, ExecutionScopesProxy,
+};
 use cairo_rs::hint_processor::proxies::vm_proxy::get_vm_proxy;
 use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::any_box;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
@@ -114,14 +116,14 @@ impl PyVM {
                     // if the hint is unknown to the builtin hint processor, use the execute_hint method from PyVM.
                     Err(VirtualMachineError::UnknownHint(_)) => {
                         let hint_data = hint_data
-                        .downcast_ref::<HintProcessorData>()
-                        .ok_or(VirtualMachineError::WrongHintData)?;
+                            .downcast_ref::<HintProcessorData>()
+                            .ok_or(VirtualMachineError::WrongHintData)?;
 
-                    self.execute_hint(hint_data, &mut exec_scopes_proxy)?;
-                    },
+                        self.execute_hint(hint_data, &mut exec_scopes_proxy)?;
+                    }
                     // if there is any other error, return that error
                     Err(e) => return Err(e),
-                    Ok(_) => {},
+                    Ok(_) => {}
                 }
             }
         }
