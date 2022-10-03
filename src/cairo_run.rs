@@ -66,7 +66,7 @@ mod test {
     use crate::cairo_run;
 
     #[test]
-    fn cairo_run_test() {
+    fn cairo_run_fibonacci() {
         cairo_run::cairo_run_py("cairo_programs/fibonacci.json", "main", false, false)
             .expect("Couldn't run program");
     }
