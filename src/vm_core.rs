@@ -93,14 +93,18 @@ impl PyVM {
                 //We create a new proxy with every hint as the current scope can change
                 let mut exec_scopes_proxy = get_exec_scopes_proxy(exec_scopes);
 
-                if let Err(VirtualMachineError::UnknownHint(_)) =
-                    hint_executor.execute_hint(&mut vm_proxy, &mut exec_scopes_proxy, hint_data)
-                {
-                    let hint_data = hint_data
+                match hint_executor.execute_hint(&mut vm_proxy, &mut exec_scopes_proxy, hint_data) {
+                    // if the hint is unknown to the builtin hint processor, use the execute_hint method from PyVM.
+                    Err(VirtualMachineError::UnknownHint(_)) => {
+                        let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
 
                     self.execute_hint(hint_data)?
+                    },
+                    // if there is any other error, return that error
+                    Err(e) => return Err(e),
+                    Ok(_) => {},
                 }
             }
         }
