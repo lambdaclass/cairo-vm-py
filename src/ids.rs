@@ -28,18 +28,18 @@ pub struct PyIds {
 #[pymethods]
 impl PyIds {
     #[getter]
-    pub fn __getattr__(&self, name: String, py: Python) -> PyResult<PyObject> {
+    pub fn __getattr__(&self, name: &str, py: Python) -> PyResult<PyObject> {
         let hint_ref = self
             .references
-            .get(&name)
+            .get(name)
             .ok_or(to_py_error(IDS_GET_ERROR_MSG))?;
         Ok(get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?.to_object(py))
     }
 
-    pub fn __setattr__(&self, name: String, val: PyMaybeRelocatable) -> PyResult<()> {
+    pub fn __setattr__(&self, name: &str, val: PyMaybeRelocatable) -> PyResult<()> {
         let hint_ref = self
             .references
-            .get(&name)
+            .get(name)
             .ok_or(to_py_error(IDS_SET_ERROR_MSG))?;
         let var_addr = compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
         self.vm
