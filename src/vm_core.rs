@@ -233,10 +233,9 @@ mod test {
         ]);
         vm.vm
             .borrow_mut()
-            .memory
-            .insert(
+            .insert_value(
                 &Relocatable::from((1, 1)),
-                &MaybeRelocatable::from(bigint!(2)),
+                &MaybeRelocatable::from(bigint!(2usize)),
             )
             .unwrap();
         let code = "ids.a = ids.b";
@@ -249,7 +248,7 @@ mod test {
             Ok(())
         );
         assert_eq!(
-            vm.vm.borrow().memory.get(&Relocatable::from((1, 2))),
+            vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
             Ok(Some(&MaybeRelocatable::from(bigint!(2))))
         );
     }

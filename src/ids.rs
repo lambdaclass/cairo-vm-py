@@ -44,8 +44,7 @@ impl PyIds {
         let var_addr = compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
         self.vm
             .borrow_mut()
-            .memory
-            .insert(&var_addr, &val)
+            .insert_value(&var_addr, &val)
             .map_err(to_py_error)
     }
 }
@@ -80,7 +79,7 @@ pub fn get_value_from_reference(
     //Then calculate address
     let var_addr = compute_addr_from_reference(hint_reference, &vm, ap_tracking)?;
     let value = if hint_reference.dereference {
-        vm.memory.get(&var_addr).map_err(to_py_error)?
+        vm.get_maybe(&var_addr).map_err(to_py_error)?
     } else {
         return Ok(PyMaybeRelocatable::from(var_addr));
     };
@@ -132,7 +131,7 @@ pub fn compute_addr_from_reference(
         Ok(base_addr + hint_reference.offset1 + hint_reference.offset2)
     } else {
         let addr = base_addr + hint_reference.offset1;
-        let dereferenced_addr = vm.memory.get_relocatable(&addr).map_err(to_py_error)?;
+        let dereferenced_addr = vm.get_relocatable(&addr).map_err(to_py_error)?;
         if let Some(imm) = &hint_reference.immediate {
             Ok(dereferenced_addr + bigint_to_usize(imm).map_err(to_py_error)?)
         } else {
@@ -184,8 +183,7 @@ mod tests {
             //Insert ids.a into memory
             vm.vm
                 .borrow_mut()
-                .memory
-                .insert(
+                .insert_value(
                     &Relocatable::from((1, 1)),
                     &MaybeRelocatable::from(Into::<BigInt>::into(2_i32)),
                 )
@@ -213,7 +211,7 @@ mod tests {
             assert_eq!(py_result.map_err(to_vm_error), Ok(()));
             //Check ids.a is now at memory[fp]
             assert_eq!(
-                vm.vm.borrow().memory.get(&Relocatable::from((1, 0))),
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
                 Ok(Some(&MaybeRelocatable::from(Into::<BigInt>::into(2_i32))))
             );
         });
@@ -235,8 +233,7 @@ mod tests {
 
             vm.vm
                 .borrow_mut()
-                .memory
-                .insert(
+                .insert_value(
                     &Relocatable::from((1, 0)),
                     &MaybeRelocatable::from(bigint!(2)),
                 )
@@ -264,7 +261,7 @@ mod tests {
             assert_eq!(py_result.map_err(to_vm_error), Ok(()));
             //Check ids.a now contains memory[fp]
             assert_eq!(
-                vm.vm.borrow().memory.get(&Relocatable::from((1, 1))),
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
                 Ok(Some(&MaybeRelocatable::from(bigint!(2))))
             );
         });
