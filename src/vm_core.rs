@@ -28,11 +28,7 @@ impl PyVM {
     #[new]
     pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
         PyVM {
-            vm: Rc::new(RefCell::new(VirtualMachine::new(
-                prime,
-                Vec::new(),
-                trace_enabled,
-            ))),
+            vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
 }
