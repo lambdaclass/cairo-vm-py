@@ -50,8 +50,8 @@ impl PyVM {
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
             let ids = PyIds::new(&self, &hint_data.ids_data, &hint_data.ap_tracking);
-            let enter_scope = PyEnterScope::new();
-            let exit_scope = PyExitScope::new();
+            let enter_scope = pycell!(py, PyEnterScope::new());
+            let exit_scope = pycell!(py, PyExitScope::new());
 
             let locals = get_scope_locals(exec_scopes, py)?;
 
@@ -74,10 +74,10 @@ impl PyVM {
                 .map_err(to_vm_error)?;
 
             globals
-                .set_item("vm_enter_scope", pycell!(py, enter_scope))
+                .set_item("vm_enter_scope", enter_scope)
                 .map_err(to_vm_error)?;
             globals
-                .set_item("vm_exit_scope", pycell!(py, exit_scope))
+                .set_item("vm_exit_scope", exit_scope)
                 .map_err(to_vm_error)?;
 
             py.run(&hint_data.code, Some(globals), Some(locals))
@@ -85,22 +85,8 @@ impl PyVM {
 
             update_scope_locals(exec_scopes, locals, py);
 
-            globals
-                .get_item("vm_enter_scope")
-                .ok_or(VirtualMachineError::CustomHint(
-                    "Unexpected Error".to_string(),
-                ))?
-                .extract::<PyEnterScope>()
-                .map_err(to_vm_error)?
-                .update_scopes(exec_scopes)?;
-            globals
-                .get_item("vm_exit_scope")
-                .ok_or(VirtualMachineError::CustomHint(
-                    "Unexpected Error".to_string(),
-                ))?
-                .extract::<PyExitScope>()
-                .map_err(to_vm_error)?
-                .update_scopes(exec_scopes)
+            enter_scope.borrow().update_scopes(exec_scopes)?;
+            exit_scope.borrow().update_scopes(exec_scopes)
         })?;
 
         Ok(())
