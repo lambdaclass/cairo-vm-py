@@ -1,5 +1,6 @@
 use crate::ids::PyIds;
 use crate::pycell;
+use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
@@ -53,6 +54,8 @@ impl PyVM {
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
             let ids = PyIds::new(&self, &hint_data.ids_data, &hint_data.ap_tracking);
+            let enter_scope = pycell!(py, PyEnterScope::new());
+            let exit_scope = pycell!(py, PyExitScope::new());
 
             let locals = get_scope_locals(exec_scopes, py)?;
 
@@ -74,12 +77,20 @@ impl PyVM {
                 .set_item("ids", pycell!(py, ids))
                 .map_err(to_vm_error)?;
 
+            globals
+                .set_item("vm_enter_scope", enter_scope)
+                .map_err(to_vm_error)?;
+            globals
+                .set_item("vm_exit_scope", exit_scope)
+                .map_err(to_vm_error)?;
+
             py.run(&hint_data.code, Some(globals), Some(locals))
                 .map_err(to_vm_error)?;
 
             update_scope_locals(exec_scopes, locals, py);
 
-            Ok(())
+            enter_scope.borrow().update_scopes(exec_scopes)?;
+            exit_scope.borrow().update_scopes(exec_scopes)
         })?;
 
         Ok(())
@@ -168,6 +179,7 @@ mod test {
             exec_scope::ExecutionScopes,
             relocatable::{MaybeRelocatable, Relocatable},
         },
+        vm::errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
     };
     use num_bigint::{BigInt, Sign};
     use std::collections::HashMap;
@@ -345,7 +357,74 @@ mod test {
         let code_b = "assert(num == 6)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
         assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
         assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+    }
+
+    #[test]
+    fn exit_main_scope_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let code = "vm_exit_scope()";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, exec_scopes_proxy),
+            Err(VirtualMachineError::MainScopeError(
+                ExecScopeError::ExitMainScopeError
+            ))
+        );
+    }
+
+    #[test]
+    fn enter_scope_empty_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let code = "vm_enter_scope()";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+        assert_eq!(exec_scopes.data.len(), 2)
+    }
+
+    #[test]
+    fn enter_exit_scope_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let code = "vm_enter_scope()
+vm_exit_scope()";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+        assert_eq!(exec_scopes.data.len(), 1)
+    }
+
+    #[test]
+    fn enter_scope_non_empty_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let code_a = "vm_enter_scope({'n': 12})";
+        let code_b = "assert(n == 12)";
+        let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
+        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
+        let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
+        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+        assert_eq!(exec_scopes.data.len(), 2);
+        assert!(exec_scopes.data[0].is_empty());
     }
 }
