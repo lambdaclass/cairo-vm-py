@@ -86,7 +86,7 @@ fn run_until_pc(
     let references = cairo_runner.get_reference_list();
     let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
 
-    while vm.vm.borrow().run_context.pc != address {
+    while vm.vm.borrow().get_pc() != &address {
         vm.step(
             cairo_runner.hint_executor,
             &mut cairo_runner.exec_scopes,

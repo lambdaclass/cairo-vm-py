@@ -103,7 +103,7 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
     ) -> Result<(), VirtualMachineError> {
-        let pc_offset = self.vm.borrow().run_context.pc.offset;
+        let pc_offset = self.vm.borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
@@ -275,9 +275,9 @@ mod test {
 
         let hint_processor = BuiltinHintProcessor::new_empty();
 
-        vm.vm.borrow_mut().run_context.pc = Relocatable::from((0, 0));
-        vm.vm.borrow_mut().run_context.ap = 2usize;
-        vm.vm.borrow_mut().run_context.fp = 2usize;
+        vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
+        vm.vm.borrow_mut().set_ap(2);
+        vm.vm.borrow_mut().set_fp(2);
 
         vm.vm
             .borrow_mut()
@@ -315,9 +315,9 @@ mod test {
 
         let hint_processor = BuiltinHintProcessor::new_empty();
 
-        vm.vm.borrow_mut().run_context.pc = Relocatable::from((0, 0));
-        vm.vm.borrow_mut().run_context.ap = 2usize;
-        vm.vm.borrow_mut().run_context.fp = 2usize;
+        vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
+        vm.vm.borrow_mut().set_ap(2);
+        vm.vm.borrow_mut().set_fp(2);
 
         vm.vm
             .borrow_mut()
