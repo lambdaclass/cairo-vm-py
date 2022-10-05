@@ -80,7 +80,6 @@ impl PyVM {
             for (name, pyobj) in hint_locals.iter() {
                 locals.set_item(name, pyobj).map_err(to_vm_error)?;
             }
-            println!("Code: {:?}", hint_data.code);
             py.run(&hint_data.code, Some(globals), Some(locals))
                 .map_err(to_vm_error)?;
 
@@ -166,7 +165,6 @@ pub(crate) fn update_scope_hint_locals(
     for (name, elem) in locals {
         let name = name.to_string();
         if names.contains(&name) {
-            println!("REV WORD: {:?}", elem.to_object(py).to_string());
             hint_locals.insert(name, elem.to_object(py));
         } else {
             exec_scopes.assign_or_update_variable(&name, any_box!(elem.to_object(py)));
@@ -429,19 +427,9 @@ mod test {
         );
         let code = "word = word[::-1]
 print(word)";
-        let code2 = "print(word)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         let word = Python::with_gil(|py| -> PyObject { "fruity".to_string().to_object(py) });
         let mut hint_locals = HashMap::from([("word".to_string(), word)]);
-        assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &mut hint_locals,
-                &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
-            ),
-            Ok(())
-        );
-        let hint_data = HintProcessorData::new_default(code2.to_string(), HashMap::new());
         assert_eq!(
             vm.execute_hint(
                 &hint_data,
