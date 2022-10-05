@@ -3,10 +3,16 @@ use cairo_rs::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     types::{program::Program, relocatable::Relocatable},
-    vm::{errors::vm_errors::VirtualMachineError, runners::cairo_runner::CairoRunner},
+    vm::{
+        errors::{
+            cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
+            vm_errors::VirtualMachineError,
+        },
+        runners::cairo_runner::CairoRunner,
+    },
 };
 use pyo3::{pyfunction, PyResult};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[pyfunction]
 #[pyo3(name = "cairo_run")]
@@ -15,6 +21,8 @@ pub fn cairo_run_py<'a>(
     entrypoint: &'a str,
     trace_enabled: bool,
     print_output: bool,
+    trace_file: Option<&str>,
+    memory_file: Option<&str>,
 ) -> PyResult<()> {
     let path = Path::new(path);
     let program = Program::new(path, entrypoint).map_err(to_py_error)?;
@@ -38,6 +46,33 @@ pub fn cairo_run_py<'a>(
 
     if print_output {
         write_output(&mut cairo_runner, &mut vm.vm.borrow_mut()).map_err(to_py_error)?;
+    }
+
+    if let Some(trace_path) = trace_file {
+        let trace_path = PathBuf::from(trace_path);
+        let relocated_trace = cairo_runner
+            .relocated_trace
+            .as_ref()
+            .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
+            .map_err(to_py_error)?;
+
+        match cairo_rs::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
+            Ok(()) => (),
+            Err(_e) => {
+                return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
+            }
+        }
+    }
+
+    if let Some(memory_path) = memory_file {
+        let memory_path = PathBuf::from(memory_path);
+        match cairo_rs::cairo_run::write_binary_memory(&cairo_runner.relocated_memory, &memory_path)
+        {
+            Ok(()) => (),
+            Err(_e) => {
+                return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
+            }
+        }
     }
 
     Ok(())
@@ -67,13 +102,27 @@ mod test {
 
     #[test]
     fn cairo_run_fibonacci() {
-        cairo_run::cairo_run_py("cairo_programs/fibonacci.json", "main", false, false)
-            .expect("Couldn't run program");
+        cairo_run::cairo_run_py(
+            "cairo_programs/fibonacci.json",
+            "main",
+            false,
+            false,
+            None,
+            None,
+        )
+        .expect("Couldn't run program");
     }
 
     #[test]
     fn cairo_run_array_sum() {
-        cairo_run::cairo_run_py("cairo_programs/array_sum.json", "main", false, false)
-            .expect("Couldn't run program");
+        cairo_run::cairo_run_py(
+            "cairo_programs/array_sum.json",
+            "main",
+            false,
+            false,
+            None,
+            None,
+        )
+        .expect("Couldn't run program");
     }
 }

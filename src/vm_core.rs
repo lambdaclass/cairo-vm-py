@@ -10,7 +10,6 @@ use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_rs::hint_processor::proxies::exec_scopes_proxy::{
     get_exec_scopes_proxy, ExecutionScopesProxy,
 };
-use cairo_rs::hint_processor::proxies::vm_proxy::get_vm_proxy;
 use cairo_rs::types::exec_scope::ExecutionScopes;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
@@ -108,13 +107,12 @@ impl PyVM {
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             let mut vm = self.vm.borrow_mut();
-            let mut vm_proxy = get_vm_proxy(&mut vm);
 
             for hint_data in hint_list.iter() {
                 //We create a new proxy with every hint as the current scope can change
                 let mut exec_scopes_proxy = get_exec_scopes_proxy(exec_scopes);
 
-                match hint_executor.execute_hint(&mut vm_proxy, &mut exec_scopes_proxy, hint_data) {
+                match hint_executor.execute_hint(&mut vm, &mut exec_scopes_proxy, hint_data) {
                     // if the hint is unknown to the builtin hint processor, use the execute_hint method from PyVM.
                     Err(VirtualMachineError::UnknownHint(_)) => {
                         let hint_data = hint_data
