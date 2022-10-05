@@ -106,24 +106,16 @@ impl PyVM {
         let pc_offset = self.vm.borrow().run_context.pc.offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
-            let mut vm = self.vm.borrow_mut();
-
             for hint_data in hint_list.iter() {
                 //We create a new proxy with every hint as the current scope can change
                 let mut exec_scopes_proxy = get_exec_scopes_proxy(exec_scopes);
 
-                match hint_executor.execute_hint(&mut vm, &mut exec_scopes_proxy, hint_data) {
-                    // if the hint is unknown to the builtin hint processor, use the execute_hint method from PyVM.
-                    Err(VirtualMachineError::UnknownHint(_)) => {
-                        let hint_data = hint_data
-                            .downcast_ref::<HintProcessorData>()
-                            .ok_or(VirtualMachineError::WrongHintData)?;
+                if self.should_run_py_hint(hint_executor, &mut exec_scopes_proxy, hint_data)? {
+                    let hint_data = hint_data
+                        .downcast_ref::<HintProcessorData>()
+                        .ok_or(VirtualMachineError::WrongHintData)?;
 
-                        self.execute_hint(hint_data, &mut exec_scopes_proxy)?;
-                    }
-                    // if there is any other error, return that error
-                    Err(e) => return Err(e),
-                    Ok(_) => {}
+                    self.execute_hint(hint_data, &mut exec_scopes_proxy)?;
                 }
             }
         }
@@ -139,6 +131,20 @@ impl PyVM {
     ) -> Result<(), VirtualMachineError> {
         self.step_hint(hint_executor, exec_scopes, hint_data_dictionary)?;
         self.vm.borrow_mut().step_instruction()
+    }
+
+    fn should_run_py_hint(
+        &self,
+        hint_executor: &dyn HintProcessor,
+        exec_scopes_proxy: &mut ExecutionScopesProxy,
+        hint_data: &Box<dyn Any>,
+    ) -> Result<bool, VirtualMachineError> {
+        let mut vm = self.vm.borrow_mut();
+        match hint_executor.execute_hint(&mut vm, exec_scopes_proxy, &hint_data) {
+            Ok(()) => Ok(false),
+            Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
+            Err(e) => Err(e),
+        }
     }
 }
 

@@ -125,4 +125,17 @@ mod test {
         )
         .expect("Couldn't run program");
     }
+
+    #[test]
+    fn cairo_run_hint_print_vars() {
+        cairo_run::cairo_run_py(
+            "cairo_programs/hint_print_vars.json",
+            "main",
+            false,
+            false,
+            None,
+            None,
+        )
+        .expect("Couldn't run program");
+    }
 }
