@@ -45,6 +45,7 @@ impl PyVM {
     pub(crate) fn execute_hint(
         &self,
         hint_data: &HintProcessorData,
+        hint_locals: &HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopesProxy,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
@@ -74,6 +75,10 @@ impl PyVM {
                 .set_item("ids", pycell!(py, ids))
                 .map_err(to_vm_error)?;
 
+            for (name, pyobj) in hint_locals.iter(){
+                globals.set_item(name, pyobj).map_err(to_vm_error)?;
+            }
+
             py.run(&hint_data.code, Some(globals), Some(locals))
                 .map_err(to_vm_error)?;
 
@@ -88,6 +93,7 @@ impl PyVM {
     pub(crate) fn step_hint(
         &self,
         hint_executor: &dyn HintProcessor,
+        hint_locals: &HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
     ) -> Result<(), VirtualMachineError> {
@@ -106,7 +112,7 @@ impl PyVM {
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
 
-                    self.execute_hint(hint_data, &mut exec_scopes_proxy)?;
+                    self.execute_hint(hint_data, hint_locals, &mut exec_scopes_proxy)?;
                     },
                     // if there is any other error, return that error
                     Err(e) => return Err(e),
@@ -121,10 +127,11 @@ impl PyVM {
     pub(crate) fn step(
         &self,
         hint_executor: &dyn HintProcessor,
+        hint_locals: &HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
     ) -> Result<(), VirtualMachineError> {
-        self.step_hint(hint_executor, exec_scopes, hint_data_dictionary)?;
+        self.step_hint(hint_executor, hint_locals, exec_scopes, hint_data_dictionary)?;
         self.vm.borrow_mut().step_instruction()
     }
 }
@@ -183,6 +190,7 @@ mod test {
         assert_eq!(
             vm.execute_hint(
                 &hint_data,
+                &HashMap::new(),
                 &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
             ),
             Ok(())
@@ -200,6 +208,7 @@ mod test {
         assert_eq!(
             vm.execute_hint(
                 &hint_data,
+                &HashMap::new(),
                 &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
             ),
             Ok(())
@@ -232,6 +241,7 @@ mod test {
         assert_eq!(
             vm.execute_hint(
                 &hint_data,
+                &HashMap::new(),
                 &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
             ),
             Ok(())
@@ -276,6 +286,7 @@ mod test {
         assert_eq!(
             vm.step(
                 &hint_processor,
+                &HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new()
             ),
@@ -322,6 +333,7 @@ mod test {
         assert_eq!(
             vm.step(
                 &hint_processor,
+                &HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new()
             ),
@@ -344,8 +356,8 @@ mod test {
         let code_a = "num = 6";
         let code_b = "assert(num == 6)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+        assert_eq!(vm.execute_hint(&hint_data,&HashMap::new(), exec_scopes_proxy), Ok(()));
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data, exec_scopes_proxy), Ok(()));
+        assert_eq!(vm.execute_hint(&hint_data,&HashMap::new(), exec_scopes_proxy), Ok(()));
     }
 }
