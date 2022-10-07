@@ -47,7 +47,7 @@ impl PyEnterScope {
 #[pyclass(unsendable)]
 #[derive(Debug, Clone)]
 pub struct PyExitScope {
-    num: i32,
+    num: u32,
 }
 
 impl PyExitScope {
