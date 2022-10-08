@@ -66,13 +66,8 @@ pub fn cairo_run_py<'a>(
 
     if let Some(memory_path) = memory_file {
         let memory_path = PathBuf::from(memory_path);
-        match cairo_rs::cairo_run::write_binary_memory(&cairo_runner.relocated_memory, &memory_path)
-        {
-            Ok(()) => (),
-            Err(_e) => {
-                return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
-            }
-        }
+        cairo_rs::cairo_run::write_binary_memory(&cairo_runner.relocated_memory, &memory_path)
+            .map_err(|_| to_py_error(CairoRunError::Runner(RunnerError::WriteFail)))?;
     }
 
     Ok(())
