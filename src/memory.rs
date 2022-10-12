@@ -32,8 +32,7 @@ impl PyMemory {
         match self
             .vm
             .borrow()
-            .memory
-            .get(key)
+            .get_maybe(key)
             .map_err(|_| PyTypeError::new_err(MEMORY_GET_ERROR_MSG))?
         {
             Some(maybe_reloc) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),
@@ -48,7 +47,6 @@ impl PyMemory {
 
         self.vm
             .borrow_mut()
-            .memory
             .insert_value(&key, value)
             .map_err(|_| PyValueError::new_err(MEMORY_SET_ERROR_MSG))
     }
