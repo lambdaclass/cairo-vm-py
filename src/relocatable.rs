@@ -121,21 +121,6 @@ impl From<&PyMaybeRelocatable> for MaybeRelocatable {
     }
 }
 
-impl PyMaybeRelocatable {
-    pub fn to_maybe_relocatable(&self) -> MaybeRelocatable {
-        MaybeRelocatable::from(self)
-    }
-}
-
-impl PyRelocatable {
-    pub fn to_relocatable(&self) -> Relocatable {
-        Relocatable {
-            segment_index: self.index,
-            offset: self.offset,
-        }
-    }
-}
-
 impl From<MaybeRelocatable> for PyMaybeRelocatable {
     fn from(val: MaybeRelocatable) -> Self {
         match val {
