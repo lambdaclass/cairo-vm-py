@@ -5,7 +5,7 @@ use crate::{
 };
 use cairo_rs::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
 use pyo3::{prelude::*, types::PyIterator};
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(name = "MemorySegmentManager", unsendable)]
 pub struct PySegmentManager {
@@ -23,51 +23,66 @@ impl PySegmentManager {
         Ok(self.vm.borrow_mut().add_memory_segment().into())
     }
 
+    #[args(apply_modulo_to_args = true)]
+    pub fn gen_arg(
+        &self,
+        py: Python,
+        arg: Py<PyAny>,
+        apply_modulo_to_args: bool,
+    ) -> PyResult<PyObject> {
+        Ok(
+            PyMaybeRelocatable::from(match PyIterator::from_object(py, &arg) {
+                Ok(iterator) => {
+                    let segment_ptr = MaybeRelocatable::RelocatableValue(
+                        self.vm.borrow_mut().add_memory_segment(),
+                    );
+                    self.write_arg(
+                        py,
+                        segment_ptr.clone().into(),
+                        iterator.to_object(py),
+                        apply_modulo_to_args,
+                    )?;
+                    segment_ptr
+                }
+                _ => {
+                    let mut value: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>(py)?.into();
+                    if apply_modulo_to_args {
+                        value = value
+                            .mod_floor(self.vm.borrow().get_prime())
+                            .map_err(to_py_error)?;
+                    }
+                    value
+                }
+            })
+            .to_object(py),
+        )
+    }
+
+    #[args(apply_modulo_to_args = true)]
     pub fn write_arg(
         &self,
         py: Python<'_>,
         ptr: PyMaybeRelocatable,
         arg: Py<PyAny>,
+        apply_modulo_to_args: bool,
     ) -> PyResult<PyObject> {
-        // Recursive function which inserts every integer it finds, while also inserting references
-        // to new segments when an iterable is found. Those new segments will also be filled with
-        // data using this same function.
-        fn write_arg_iter(
-            py: Python,
-            ptr: &MaybeRelocatable,
-            arg_iter: &PyIterator,
-            vm: &mut VirtualMachine,
-        ) -> PyResult<MaybeRelocatable> {
-            let mut ptr = Cow::Borrowed(ptr);
-            for value in arg_iter {
-                let value = value?;
+        let ptr: MaybeRelocatable = ptr.into();
 
-                ptr = Cow::Owned(match PyIterator::from_object(py, value) {
-                    Ok(arg_iter) => {
-                        let segment_ptr =
-                            MaybeRelocatable::RelocatableValue(vm.add_memory_segment());
-                        write_arg_iter(py, &segment_ptr, arg_iter, vm)?;
-                        vm.load_data(&ptr, vec![segment_ptr]).map_err(to_py_error)?
-                    }
-                    Err(_) => {
-                        let value = value.extract::<PyMaybeRelocatable>()?;
-                        vm.load_data(&ptr, vec![value.to_maybe_relocatable()])
-                            .map_err(to_py_error)?
-                    }
-                });
-            }
-
-            Ok(ptr.into_owned())
+        let arg_iter = PyIterator::from_object(py, &arg)?;
+        let mut data = Vec::new();
+        for value in arg_iter {
+            data.push(
+                self.gen_arg(py, value?.to_object(py), apply_modulo_to_args)?
+                    .extract::<PyMaybeRelocatable>(py)?
+                    .into(),
+            );
         }
 
-        let mut vm = self.vm.borrow_mut();
-        Ok(PyMaybeRelocatable::from(write_arg_iter(
-            py,
-            &ptr.to_maybe_relocatable(),
-            PyIterator::from_object(py, &arg)?,
-            &mut vm,
-        )?)
-        .to_object(py))
+        self.vm
+            .borrow_mut()
+            .load_data(&ptr, data)
+            .map(|x| PyMaybeRelocatable::from(x).to_object(py))
+            .map_err(to_py_error)
     }
 }
 
@@ -106,6 +121,7 @@ mod test {
                     py.eval("[1, 2, [3, 4], [5, 6]]", None, None)
                         .unwrap()
                         .to_object(py),
+                    true,
                 )
                 .unwrap();
 
