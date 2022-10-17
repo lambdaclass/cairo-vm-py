@@ -123,7 +123,7 @@ pub fn compute_addr_from_reference(
         None => return Err(to_py_error(VirtualMachineError::NoRegisterInReference)),
     };
     if hint_reference.offset1.is_negative()
-        && base_addr.offset < hint_reference.offset1.unsigned_abs() as usize
+        && base_addr.offset < hint_reference.offset1.unsigned_abs().try_into()?
     {
         return Err(to_py_error(VirtualMachineError::FailedToGetIds));
     }
