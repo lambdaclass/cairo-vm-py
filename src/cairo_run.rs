@@ -133,4 +133,30 @@ mod test {
         )
         .expect("Couldn't run program");
     }
+
+    #[test]
+    fn cairo_run_add_segment() {
+        cairo_run::cairo_run_py(
+            "cairo_programs/memory_add.json",
+            "main",
+            false,
+            false,
+            None,
+            None,
+        )
+        .expect("Couldn't run program");
+    }
+
+    #[test]
+    fn cairo_run_assert_not_zero() {
+        cairo_run::cairo_run_py(
+            "cairo_programs/assert_not_zero.json",
+            "main",
+            false,
+            false,
+            None,
+            None,
+        )
+        .expect("Couldn't run program");
+    }
 }

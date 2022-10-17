@@ -52,6 +52,7 @@ impl PyVM {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(&self);
             let segments = PySegmentManager::new(&self);
+            let prime = self.vm.borrow().get_prime().clone();
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
             let ids = PyIds::new(&self, &hint_data.ids_data, &hint_data.ap_tracking);
@@ -67,6 +68,9 @@ impl PyVM {
                 .map_err(to_vm_error)?;
             globals
                 .set_item("segments", pycell!(py, segments))
+                .map_err(to_vm_error)?;
+            globals
+                .set_item("PRIME", prime)
                 .map_err(to_vm_error)?;
             globals
                 .set_item("ap", pycell!(py, ap))
