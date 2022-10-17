@@ -36,7 +36,7 @@ pub fn cairo_run_py<'a>(
     let end = cairo_runner
         .initialize(&mut vm.vm.borrow_mut())
         .map_err(to_py_error)?;
-    let mut hint_locals = hint_locals.unwrap_or(HashMap::new());
+    let mut hint_locals = hint_locals.unwrap_or_default();
     run_until_pc(&mut cairo_runner, end, &vm, &mut hint_locals).map_err(to_py_error)?;
 
     vm.vm

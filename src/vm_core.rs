@@ -51,11 +51,11 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopesProxy,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
-            let memory = PyMemory::new(&self);
-            let segments = PySegmentManager::new(&self);
+            let memory = PyMemory::new(self);
+            let segments = PySegmentManager::new(self);
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
-            let ids = PyIds::new(&self, &hint_data.ids_data, &hint_data.ap_tracking);
+            let ids = PyIds::new(self, &hint_data.ids_data, &hint_data.ap_tracking);
             let enter_scope = pycell!(py, PyEnterScope::new());
             let exit_scope = pycell!(py, PyExitScope::new());
 
@@ -152,7 +152,7 @@ impl PyVM {
         hint_data: &Box<dyn Any>,
     ) -> Result<bool, VirtualMachineError> {
         let mut vm = self.vm.borrow_mut();
-        match hint_executor.execute_hint(&mut vm, exec_scopes_proxy, &hint_data) {
+        match hint_executor.execute_hint(&mut vm, exec_scopes_proxy, hint_data) {
             Ok(()) => Ok(false),
             Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
             Err(e) => Err(e),
@@ -179,10 +179,9 @@ pub(crate) fn update_scope_hint_locals(
     locals: &PyDict,
     py: Python,
 ) {
-    let names: Vec<String> = hint_locals.keys().cloned().collect();
     for (name, elem) in locals {
         let name = name.to_string();
-        if names.contains(&name) {
+        if hint_locals.keys().cloned().any(|x| x == name) {
             hint_locals.insert(name, elem.to_object(py));
         } else {
             exec_scopes.assign_or_update_variable(&name, any_box!(elem.to_object(py)));
