@@ -368,9 +368,15 @@ mod test {
         let code_b = "assert(num == 6)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
 
-        assert_eq!(vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes), Ok(()));
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes), Ok(()));
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
     }
 
     #[test]
@@ -422,11 +428,7 @@ print(word)";
         let word = Python::with_gil(|py| -> PyObject { "fruity".to_string().to_object(py) });
         let mut hint_locals = HashMap::from([("word".to_string(), word)]);
         assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &mut hint_locals,
-                &mut ExecutionScopes::new()
-            ),
+            vm.execute_hint(&hint_data, &mut hint_locals, &mut ExecutionScopes::new()),
             Ok(())
         );
         let word_res = Python::with_gil(|py| -> String {
@@ -465,7 +467,10 @@ print(word)";
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes), Ok(()));
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
         assert_eq!(exec_scopes.data.len(), 2)
     }
 
@@ -479,7 +484,10 @@ print(word)";
         let code = "vm_enter_scope()
 vm_exit_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes), Ok(()));
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
         assert_eq!(exec_scopes.data.len(), 1)
     }
 
@@ -493,9 +501,15 @@ vm_exit_scope()";
         let code_a = "vm_enter_scope({'n': 12})";
         let code_b = "assert(n == 12)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes), Ok(()));
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
-        assert_eq!(vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes), Ok(()));
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
         assert_eq!(exec_scopes.data.len(), 2);
         assert!(exec_scopes.data[0].is_empty());
     }
