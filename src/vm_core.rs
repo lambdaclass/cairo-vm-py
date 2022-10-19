@@ -37,6 +37,9 @@ impl PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
+    pub fn prepare_os_context(&self) -> Vec<PyMaybeRelocatable> {
+        vec![]
+    }
 }
 
 impl PyVM {
