@@ -49,24 +49,24 @@ impl PyVM {
     }
 
     #[pyo3(name = "cairo_run")]
-    pub fn cairo_run_py<'a>(
+    pub fn cairo_run_py(
         &self,
-        path: &'a str,
-        entrypoint: &'a str,
+        path: String,
+        entrypoint: String,
         print_output: bool,
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
     ) -> PyResult<()> {
-        let path = Path::new(path);
-        let program = Program::new(path, entrypoint).map_err(to_py_error)?;
+        let path = Path::new(&path);
+        let program = Program::new(path, &entrypoint).map_err(to_py_error)?;
         let hint_processor = BuiltinHintProcessor::new_empty();
         let mut cairo_runner = CairoRunner::new(&program, &hint_processor).map_err(to_py_error)?;
         let end = cairo_runner
             .initialize(&mut self.vm.borrow_mut())
             .map_err(to_py_error)?;
         let mut hint_locals = hint_locals.unwrap_or_default();
-        self.run_until_pc(&mut cairo_runner, end, &mut hint_locals)
+        self.run_until_pc(&mut cairo_runner, &end, &mut hint_locals)
             .map_err(to_py_error)?;
 
         self.vm
@@ -231,13 +231,13 @@ impl PyVM {
     fn run_until_pc(
         &self,
         cairo_runner: &mut CairoRunner,
-        address: Relocatable,
+        address: &Relocatable,
         hint_locals: &mut HashMap<String, PyObject>,
     ) -> Result<(), VirtualMachineError> {
         let references = cairo_runner.get_reference_list();
         let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
 
-        while self.vm.borrow().get_pc() != &address {
+        while self.vm.borrow().get_pc() != address {
             self.step(
                 cairo_runner.hint_executor,
                 hint_locals,
