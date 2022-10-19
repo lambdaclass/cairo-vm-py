@@ -15,7 +15,7 @@ pub enum PyMaybeRelocatable {
 }
 
 #[pyclass(name = "Relocatable")]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyRelocatable {
     index: isize,
     offset: usize,
@@ -41,11 +41,11 @@ impl PyRelocatable {
     pub fn __sub__(&self, value: PyMaybeRelocatable, py: Python) -> PyResult<PyObject> {
         match value {
             PyMaybeRelocatable::Int(value) => {
-                return Ok(PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                Ok(PyMaybeRelocatable::RelocatableValue(PyRelocatable {
                     index: self.index,
                     offset: self.offset - bigint_to_usize(&value).unwrap(),
                 })
-                .to_object(py));
+                .to_object(py))
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
                 if self.index == address.index && self.offset >= address.offset {
@@ -65,7 +65,7 @@ impl PyRelocatable {
                 if self.index == other.index {
                     Ok(self.offset < other.offset)
                 } else {
-                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                    Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR))
                 }
             }
             CompareOp::Le => {
@@ -81,14 +81,14 @@ impl PyRelocatable {
                 if self.index == other.index {
                     Ok(self.offset > other.offset)
                 } else {
-                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                    Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR))
                 }
             }
             CompareOp::Ge => {
                 if self.index == other.index {
                     Ok(self.offset >= other.offset)
                 } else {
-                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                    Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR))
                 }
             }
         }
@@ -105,7 +105,7 @@ impl From<PyMaybeRelocatable> for MaybeRelocatable {
             PyMaybeRelocatable::RelocatableValue(rel) => {
                 MaybeRelocatable::RelocatableValue(Relocatable::from((rel.index, rel.offset)))
             }
-            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(BigInt::from(num)),
+            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num),
         }
     }
 }

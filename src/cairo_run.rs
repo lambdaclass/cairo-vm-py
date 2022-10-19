@@ -11,8 +11,11 @@ use cairo_rs::{
         runners::cairo_runner::CairoRunner,
     },
 };
-use pyo3::{pyfunction, PyResult};
-use std::path::{Path, PathBuf};
+use pyo3::{pyfunction, PyObject, PyResult};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[pyfunction]
 #[pyo3(name = "cairo_run")]
@@ -23,6 +26,7 @@ pub fn cairo_run_py<'a>(
     print_output: bool,
     trace_file: Option<&str>,
     memory_file: Option<&str>,
+    hint_locals: Option<HashMap<String, PyObject>>,
 ) -> PyResult<()> {
     let path = Path::new(path);
     let program = Program::new(path, entrypoint).map_err(to_py_error)?;
@@ -32,8 +36,8 @@ pub fn cairo_run_py<'a>(
     let end = cairo_runner
         .initialize(&mut vm.vm.borrow_mut())
         .map_err(to_py_error)?;
-
-    run_until_pc(&mut cairo_runner, end, &vm).map_err(to_py_error)?;
+    let mut hint_locals = hint_locals.unwrap_or_default();
+    run_until_pc(&mut cairo_runner, end, &vm, &mut hint_locals).map_err(to_py_error)?;
 
     vm.vm
         .borrow_mut()
@@ -77,6 +81,7 @@ fn run_until_pc(
     cairo_runner: &mut CairoRunner,
     address: Relocatable,
     vm: &PyVM,
+    hint_locals: &mut HashMap<String, PyObject>,
 ) -> Result<(), VirtualMachineError> {
     let references = cairo_runner.get_reference_list();
     let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
@@ -84,6 +89,7 @@ fn run_until_pc(
     while vm.vm.borrow().get_pc() != &address {
         vm.step(
             cairo_runner.hint_executor,
+            hint_locals,
             &mut cairo_runner.exec_scopes,
             &hint_data_dictionary,
         )?;
@@ -104,6 +110,7 @@ mod test {
             false,
             None,
             None,
+            None,
         )
         .expect("Couldn't run program");
     }
@@ -117,6 +124,7 @@ mod test {
             false,
             None,
             None,
+            None,
         )
         .expect("Couldn't run program");
     }
@@ -128,6 +136,7 @@ mod test {
             "main",
             false,
             false,
+            None,
             None,
             None,
         )
