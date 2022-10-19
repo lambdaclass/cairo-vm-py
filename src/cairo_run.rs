@@ -10,8 +10,15 @@ mod test {
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        vm.cairo_run_py("cairo_programs/fibonacci.json", "main", false, None, None)
-            .expect("Couldn't run program");
+        vm.cairo_run_py(
+            "cairo_programs/fibonacci.json",
+            "main",
+            false,
+            None,
+            None,
+            None,
+        )
+        .expect("Couldn't run program");
     }
 
     #[test]
@@ -20,8 +27,15 @@ mod test {
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        vm.cairo_run_py("cairo_programs/array_sum.json", "main", false, None, None)
-            .expect("Couldn't run program");
+        vm.cairo_run_py(
+            "cairo_programs/array_sum.json",
+            "main",
+            false,
+            None,
+            None,
+            None,
+        )
+        .expect("Couldn't run program");
     }
 
     #[test]
@@ -34,6 +48,7 @@ mod test {
             "cairo_programs/hint_print_vars.json",
             "main",
             false,
+            None,
             None,
             None,
         )

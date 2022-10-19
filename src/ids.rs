@@ -32,7 +32,7 @@ impl PyIds {
         let hint_ref = self
             .references
             .get(name)
-            .ok_or(to_py_error(IDS_GET_ERROR_MSG))?;
+            .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
         Ok(get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?.to_object(py))
     }
 
@@ -40,7 +40,7 @@ impl PyIds {
         let hint_ref = self
             .references
             .get(name)
-            .ok_or(to_py_error(IDS_SET_ERROR_MSG))?;
+            .ok_or_else(|| to_py_error(IDS_SET_ERROR_MSG))?;
         let var_addr = compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
         self.vm
             .borrow_mut()
@@ -77,7 +77,7 @@ pub fn get_value_from_reference(
         return Ok(PyMaybeRelocatable::from(num));
     }
     //Then calculate address
-    let var_addr = compute_addr_from_reference(hint_reference, &vm, ap_tracking)?;
+    let var_addr = compute_addr_from_reference(hint_reference, vm, ap_tracking)?;
     let value = if hint_reference.dereference {
         vm.get_maybe(&var_addr).map_err(to_py_error)?
     } else {
@@ -123,7 +123,7 @@ pub fn compute_addr_from_reference(
         None => return Err(to_py_error(VirtualMachineError::NoRegisterInReference)),
     };
     if hint_reference.offset1.is_negative()
-        && base_addr.offset < hint_reference.offset1.abs() as usize
+        && base_addr.offset < hint_reference.offset1.unsigned_abs().try_into()?
     {
         return Err(to_py_error(VirtualMachineError::FailedToGetIds));
     }

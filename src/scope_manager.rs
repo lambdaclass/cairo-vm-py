@@ -34,6 +34,12 @@ impl PyEnterScope {
     }
 }
 
+impl Default for PyEnterScope {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[pymethods]
 impl PyEnterScope {
     pub fn __call__(&mut self, variables: Option<HashMap<String, PyObject>>) {
@@ -47,7 +53,7 @@ impl PyEnterScope {
 #[pyclass(unsendable)]
 #[derive(Debug, Clone)]
 pub struct PyExitScope {
-    num: i32,
+    num: u32,
 }
 
 impl PyExitScope {
@@ -63,6 +69,12 @@ impl PyExitScope {
             scopes.exit_scope()?
         }
         Ok(())
+    }
+}
+
+impl Default for PyExitScope {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
