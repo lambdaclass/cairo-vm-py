@@ -2,7 +2,7 @@ use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::{
-    memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
+    memory::PyMemory, memory_segments::PySegmentManager, relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_vm_error,
 };
 use cairo_rs::any_box;
@@ -37,8 +37,16 @@ impl PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
+
     pub fn prepare_os_context(&self) -> Vec<PyMaybeRelocatable> {
-        vec![]
+        let syscall_segment = self.vm.borrow_mut().add_memory_segment();
+        let mut os_context = vec![PyMaybeRelocatable::from(syscall_segment)];
+
+        for (_, builtin) in self.vm.borrow().builtin_runners.iter() {
+            let stack = builtin.initial_stack().iter().map(|may_rel| PyMaybeRelocatable::from(may_rel)).collect();
+            os_context.append(stack);
+        }
+        os_context
     }
 }
 
