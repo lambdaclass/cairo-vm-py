@@ -10,9 +10,6 @@ use cairo_rs::any_box;
 use cairo_rs::cairo_run::write_output;
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::hint_processor::proxies::exec_scopes_proxy::{
-    get_exec_scopes_proxy, ExecutionScopesProxy,
-};
 use cairo_rs::types::exec_scope::ExecutionScopes;
 use cairo_rs::types::program::Program;
 use cairo_rs::types::relocatable::Relocatable;
@@ -117,7 +114,7 @@ impl PyVM {
         &self,
         hint_data: &HintProcessorData,
         hint_locals: &mut HashMap<String, PyObject>,
-        exec_scopes: &mut ExecutionScopesProxy,
+        exec_scopes: &mut ExecutionScopes,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(self);
@@ -182,15 +179,12 @@ impl PyVM {
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
-                //We create a new proxy with every hint as the current scope can change
-                let mut exec_scopes_proxy = get_exec_scopes_proxy(exec_scopes);
-
-                if self.should_run_py_hint(hint_executor, &mut exec_scopes_proxy, hint_data)? {
+                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data)? {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
 
-                    self.execute_hint(hint_data, hint_locals, &mut exec_scopes_proxy)?;
+                    self.execute_hint(hint_data, hint_locals, exec_scopes)?;
                 }
             }
         }
@@ -217,11 +211,11 @@ impl PyVM {
     fn should_run_py_hint(
         &self,
         hint_executor: &dyn HintProcessor,
-        exec_scopes_proxy: &mut ExecutionScopesProxy,
+        exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
     ) -> Result<bool, VirtualMachineError> {
         let mut vm = self.vm.borrow_mut();
-        match hint_executor.execute_hint(&mut vm, exec_scopes_proxy, hint_data) {
+        match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data) {
             Ok(()) => Ok(false),
             Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
             Err(e) => Err(e),
@@ -250,7 +244,7 @@ impl PyVM {
 }
 
 pub(crate) fn get_scope_locals<'a>(
-    exec_scopes: &ExecutionScopesProxy,
+    exec_scopes: &ExecutionScopes,
     py: Python<'a>,
 ) -> Result<&'a PyDict, VirtualMachineError> {
     let locals = PyDict::new(py);
@@ -263,7 +257,7 @@ pub(crate) fn get_scope_locals<'a>(
 }
 
 pub(crate) fn update_scope_hint_locals(
-    exec_scopes: &mut ExecutionScopesProxy,
+    exec_scopes: &mut ExecutionScopes,
     hint_locals: &mut HashMap<String, PyObject>,
     locals: &PyDict,
     py: Python,
@@ -288,7 +282,6 @@ mod test {
                 BuiltinHintProcessor, HintProcessorData,
             },
             hint_processor_definition::HintReference,
-            proxies::exec_scopes_proxy::get_exec_scopes_proxy,
         },
         types::{
             exec_scope::ExecutionScopes,
@@ -309,11 +302,7 @@ mod test {
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &mut HashMap::new(),
-                &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
-            ),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut ExecutionScopes::new()),
             Ok(())
         );
     }
@@ -327,11 +316,7 @@ mod test {
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &mut HashMap::new(),
-                &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
-            ),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut ExecutionScopes::new()),
             Ok(())
         );
     }
@@ -359,11 +344,7 @@ mod test {
         let code = "ids.a = ids.b";
         let hint_data = HintProcessorData::new_default(code.to_string(), references);
         assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &mut HashMap::new(),
-                &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
-            ),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut ExecutionScopes::new()),
             Ok(())
         );
         assert_eq!(
@@ -472,17 +453,17 @@ mod test {
         }
 
         let mut exec_scopes = ExecutionScopes::new();
-        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let code_a = "num = 6";
         let code_b = "assert(num == 6)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
+
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
     }
@@ -498,29 +479,28 @@ mod test {
         }
 
         let mut exec_scopes = ExecutionScopes::new();
-        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let code_a = "num = 6";
         let code_b = "assert(num == 6)";
         let code_c = "num = num + 3";
         let code_d = "assert(num == 9)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_c.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_d.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
     }
@@ -537,11 +517,7 @@ print(word)";
         let word = Python::with_gil(|py| -> PyObject { "fruity".to_string().to_object(py) });
         let mut hint_locals = HashMap::from([("word".to_string(), word)]);
         assert_eq!(
-            vm.execute_hint(
-                &hint_data,
-                &mut hint_locals,
-                &mut get_exec_scopes_proxy(&mut ExecutionScopes::new())
-            ),
+            vm.execute_hint(&hint_data, &mut hint_locals, &mut ExecutionScopes::new()),
             Ok(())
         );
         let word_res = Python::with_gil(|py| -> String {
@@ -561,11 +537,10 @@ print(word)";
             false,
         );
         let mut exec_scopes = ExecutionScopes::new();
-        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let code = "vm_exit_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Err(VirtualMachineError::MainScopeError(
                 ExecScopeError::ExitMainScopeError
             ))
@@ -579,11 +554,10 @@ print(word)";
             false,
         );
         let mut exec_scopes = ExecutionScopes::new();
-        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let code = "vm_enter_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 2)
@@ -596,12 +570,11 @@ print(word)";
             false,
         );
         let mut exec_scopes = ExecutionScopes::new();
-        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let code = "vm_enter_scope()
 vm_exit_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 1)
@@ -614,18 +587,16 @@ vm_exit_scope()";
             false,
         );
         let mut exec_scopes = ExecutionScopes::new();
-        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let code_a = "vm_enter_scope({'n': 12})";
         let code_b = "assert(n == 12)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
-        let exec_scopes_proxy = &mut get_exec_scopes_proxy(&mut exec_scopes);
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), exec_scopes_proxy),
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 2);
