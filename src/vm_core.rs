@@ -127,7 +127,13 @@ impl PyVM {
 
             let locals = get_scope_locals(exec_scopes, py)?;
 
-            let globals = PyDict::new(py);
+            // This line imports Python builtins. If not imported, this will run only with Python 3.10
+            let globals = py
+                .import("__main__")
+                .map_err(to_vm_error)?
+                .dict()
+                .copy()
+                .map_err(to_vm_error)?;
 
             globals
                 .set_item("memory", pycell!(py, memory))
