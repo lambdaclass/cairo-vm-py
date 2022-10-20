@@ -519,4 +519,19 @@ vm_exit_scope()";
         assert_eq!(exec_scopes.data.len(), 2);
         assert!(exec_scopes.data[0].is_empty());
     }
+
+    #[test]
+    fn access_relocatable_segment_index() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "assert(ap.segment_index == 1)";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
+    }
 }
