@@ -2,12 +2,12 @@ use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::{
-    memory::PyMemory, memory_segments::PySegmentManager, relocatable::{PyMaybeRelocatable, PyRelocatable},
+    memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
 };
 use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::types::exec_scope::ExecutionScopes;
+use cairo_rs::types::{relocatable::MaybeRelocatable, exec_scope::ExecutionScopes};
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
@@ -33,17 +33,6 @@ impl PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
-    }
-
-    pub fn prepare_os_context(&self) -> Vec<PyMaybeRelocatable> {
-        let syscall_segment = self.vm.borrow_mut().add_memory_segment();
-        let mut os_context = vec![PyMaybeRelocatable::from(syscall_segment)];
-
-        for (_, builtin) in self.vm.borrow().builtin_runners.iter() {
-            let stack = builtin.initial_stack().iter().map(|may_rel| PyMaybeRelocatable::from(may_rel)).collect();
-            os_context.append(stack);
-        }
-        os_context
     }
 }
 
@@ -162,6 +151,17 @@ impl PyVM {
             Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
             Err(e) => Err(e),
         }
+    }
+
+    pub(crate) fn prepare_os_context(&self) -> Vec<MaybeRelocatable> {
+        let syscall_segment = self.vm.borrow_mut().add_memory_segment();
+        let mut os_context = vec![MaybeRelocatable::from(syscall_segment)];
+
+        for (_, builtin) in self.vm.borrow().get_builtin_runners().iter() {
+            let mut stack = builtin.initial_stack();
+            os_context.append(&mut stack);
+        }
+        os_context
     }
 }
 
