@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 #[pyclass(name = "RangeCheck")]
 #[derive(Clone, Debug, PartialEq)]
 pub struct PyRangeCheck {
+    #[pyo3(get)]
     bound: BigInt,
 }
 

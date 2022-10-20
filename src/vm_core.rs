@@ -55,7 +55,8 @@ impl PyVM {
             let ids = PyIds::new(self, &hint_data.ids_data, &hint_data.ap_tracking);
             let enter_scope = pycell!(py, PyEnterScope::new());
             let exit_scope = pycell!(py, PyExitScope::new());
-            let range_check_builtin = PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
+            let range_check_builtin =
+                PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
             let prime = self.vm.borrow().get_prime().clone();
 
             let locals = get_scope_locals(exec_scopes, py)?;
@@ -88,9 +89,7 @@ impl PyVM {
             globals
                 .set_item("range_check_builtin", range_check_builtin)
                 .map_err(to_vm_error)?;
-            globals
-                .set_item("PRIME", prime)
-                .map_err(to_vm_error)?;
+            globals.set_item("PRIME", prime).map_err(to_vm_error)?;
 
             for (name, pyobj) in hint_locals.iter() {
                 locals.set_item(name, pyobj).map_err(to_vm_error)?;
