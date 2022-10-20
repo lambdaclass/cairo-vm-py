@@ -38,5 +38,11 @@ jobs:
       run: make test
     - name: Run clippy
       run: cargo clippy
+    - name: Coverage
+      run: make coverage
+    - name: Upload coverage to codecov.io
+      uses: codecov/codecov-action@v2
+      with:
+        fail_ci_if_error:     true
     - name: Clean
       run: make clean

@@ -1,4 +1,4 @@
-.PHONY: deps build run check test clippy clean
+.PHONY: deps build run check test clippy coverage clean
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
@@ -26,6 +26,9 @@ test: $(COMPILED_TESTS)
 
 clippy:
 	cargo clippy  -- -D warnings
+
+coverage:
+	docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 
 clean:
 	rm -f $(TEST_DIR)/*.json
