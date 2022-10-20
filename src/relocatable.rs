@@ -15,16 +15,16 @@ pub enum PyMaybeRelocatable {
 }
 
 #[pyclass(name = "Relocatable")]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyRelocatable {
-    index: usize,
+    index: isize,
     offset: usize,
 }
 
 #[pymethods]
 impl PyRelocatable {
     #[new]
-    pub fn new(tuple: (usize, usize)) -> PyRelocatable {
+    pub fn new(tuple: (isize, usize)) -> PyRelocatable {
         PyRelocatable {
             index: tuple.0,
             offset: tuple.1,
@@ -41,11 +41,11 @@ impl PyRelocatable {
     pub fn __sub__(&self, value: PyMaybeRelocatable, py: Python) -> PyResult<PyObject> {
         match value {
             PyMaybeRelocatable::Int(value) => {
-                return Ok(PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                Ok(PyMaybeRelocatable::RelocatableValue(PyRelocatable {
                     index: self.index,
                     offset: self.offset - bigint_to_usize(&value).unwrap(),
                 })
-                .to_object(py));
+                .to_object(py))
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
                 if self.index == address.index && self.offset >= address.offset {
@@ -65,7 +65,7 @@ impl PyRelocatable {
                 if self.index == other.index {
                     Ok(self.offset < other.offset)
                 } else {
-                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                    Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR))
                 }
             }
             CompareOp::Le => {
@@ -81,14 +81,14 @@ impl PyRelocatable {
                 if self.index == other.index {
                     Ok(self.offset > other.offset)
                 } else {
-                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                    Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR))
                 }
             }
             CompareOp::Ge => {
                 if self.index == other.index {
                     Ok(self.offset >= other.offset)
                 } else {
-                    return Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR));
+                    Err(PyArithmeticError::new_err(PYRELOCATABLE_COMPARE_ERROR))
                 }
             }
         }
@@ -105,7 +105,7 @@ impl From<PyMaybeRelocatable> for MaybeRelocatable {
             PyMaybeRelocatable::RelocatableValue(rel) => {
                 MaybeRelocatable::RelocatableValue(Relocatable::from((rel.index, rel.offset)))
             }
-            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(BigInt::from(num)),
+            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num),
         }
     }
 }
@@ -117,21 +117,6 @@ impl From<&PyMaybeRelocatable> for MaybeRelocatable {
                 MaybeRelocatable::RelocatableValue(Relocatable::from((rel.index, rel.offset)))
             }
             PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num.clone()),
-        }
-    }
-}
-
-impl PyMaybeRelocatable {
-    pub fn to_maybe_relocatable(&self) -> MaybeRelocatable {
-        MaybeRelocatable::from(self)
-    }
-}
-
-impl PyRelocatable {
-    pub fn to_relocatable(&self) -> Relocatable {
-        Relocatable {
-            segment_index: self.index,
-            offset: self.offset,
         }
     }
 }
@@ -179,8 +164,8 @@ impl From<&PyRelocatable> for Relocatable {
     }
 }
 
-impl From<(usize, usize)> for PyRelocatable {
-    fn from(val: (usize, usize)) -> Self {
+impl From<(isize, usize)> for PyRelocatable {
+    fn from(val: (isize, usize)) -> Self {
         PyRelocatable::new((val.0, val.1))
     }
 }
