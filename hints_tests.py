@@ -29,6 +29,9 @@ def ec_negate():
 def assert_nn_hint():
     print(cairo_rs_py.cairo_run("cairo_programs/assert_nn_hint.json", "main", False, False, None, None))
 
+def math_hints():
+    print(cairo_rs_py.cairo_run("cairo_programs/assert_not_equal_hint.json", "main", False, False, None, None))
+
 if __name__ == "__main__":
     assert_not_zero_hint()
     memory_add_hint()
@@ -39,5 +42,6 @@ if __name__ == "__main__":
     is_nn_hint()
     ec_mul_inner()
     assert_nn_hint()
+    math_hints()
     # ec_negate()
     print("All test have passed")
