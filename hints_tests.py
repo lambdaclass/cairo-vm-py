@@ -31,6 +31,9 @@ def dict_new():
 
 def dict_read():
     print(cairo_rs_py.cairo_run("cairo_programs/dict_read.json","main",False,False,None,None))
+
+def dict_write():
+    print(cairo_rs_py.cairo_run("cairo_programs/dict_write.json","main",False,False,None,None))
     
 
 if __name__ == "__main__":
@@ -44,5 +47,6 @@ if __name__ == "__main__":
     ec_mul_inner()
     # ec_negate()
     dict_new()
-    dict_read()
+    #dict_read()
+    #dict_write()
     print("All test have passed")
