@@ -8,11 +8,9 @@ $(TEST_DIR)/%.json: $(TEST_DIR)/%.cairo
 	cairo-compile --cairo_path="$(TEST_DIR):$(BENCH_DIR)" $< --output $@
 
 deps:
+	pip install pyenv
 	pyenv install pypy3.7-7.3.9
 	pyenv global pypy3.7-7.3.9
-	pip install cairo_lang==0.9.1
-	pyenv install 3.7.12
-	pyenv global 3.7.12
 	pip install cairo_lang==0.9.1
 
 build:
