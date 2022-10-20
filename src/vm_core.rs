@@ -7,7 +7,7 @@ use crate::{
 };
 use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::types::{relocatable::MaybeRelocatable, exec_scope::ExecutionScopes};
+use cairo_rs::types::{exec_scope::ExecutionScopes, relocatable::MaybeRelocatable};
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
@@ -196,7 +196,7 @@ pub(crate) fn update_scope_hint_locals(
 
 #[cfg(test)]
 mod test {
-    use crate::vm_core::PyVM;
+    use crate::{utils::to_py_error, vm_core::PyVM};
     use cairo_rs::{
         bigint,
         hint_processor::{
@@ -207,13 +207,17 @@ mod test {
         },
         types::{
             exec_scope::ExecutionScopes,
+            program::Program,
             relocatable::{MaybeRelocatable, Relocatable},
         },
-        vm::errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
+        vm::{
+            errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
+            runners::cairo_runner::CairoRunner,
+        },
     };
     use num_bigint::{BigInt, Sign};
     use pyo3::{PyObject, Python, ToPyObject};
-    use std::collections::HashMap;
+    use std::{collections::HashMap, path::Path};
 
     #[test]
     fn execute_print_hint() {
@@ -523,5 +527,28 @@ vm_exit_scope()";
         );
         assert_eq!(exec_scopes.data.len(), 2);
         assert!(exec_scopes.data[0].is_empty());
+    }
+
+    #[test]
+    fn get_builtin_runners_test() {
+        let program = Program::new(Path::new("cairo_programs/array_sum.json"), "main")
+            .map_err(to_py_error)
+            .expect("Couldn't load program");
+        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut cairo_runner = CairoRunner::new(&program, &hint_processor)
+            .map_err(to_py_error)
+            .expect("Failed on creating runner");
+        let vm = PyVM::new(program.prime, false);
+        let end = cairo_runner
+            .initialize(&mut vm.vm.borrow_mut())
+            .map_err(to_py_error)
+            .expect("Couldn't end program");
+
+        let expected_args = vec![
+            MaybeRelocatable::from((5, 0)),
+            MaybeRelocatable::from((2, 0)),
+        ];
+        let args = vm.prepare_os_context();
+        assert_eq!(args, expected_args);
     }
 }
