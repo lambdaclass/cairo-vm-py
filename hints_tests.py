@@ -34,6 +34,9 @@ def dict_read():
 
 def dict_write():
     print(cairo_rs_py.cairo_run("cairo_programs/dict_write.json","main",False,False,None,None))
+
+def dict_update():
+    print(cairo_rs_py.cairo_run("cairo_programs/dict_update.json","main",False,False,None,None))
     
 
 if __name__ == "__main__":
@@ -49,4 +52,5 @@ if __name__ == "__main__":
     dict_new()
     #dict_read()
     #dict_write()
+    #dict_update()
     print("All test have passed")
