@@ -25,6 +25,12 @@ def ec_mul_inner():
 
 def ec_negate():
     print(cairo_rs_py.cairo_run("cairo_programs/ec_negate.json","main",False,False,None,None))
+
+def dict_new():
+    print(cairo_rs_py.cairo_run("cairo_programs/dict_new.json","main",False,False,None,None))
+
+def dict_read():
+    print(cairo_rs_py.cairo_run("cairo_programs/dict_read.json","main",False,False,None,None))
     
 
 if __name__ == "__main__":
@@ -34,7 +40,9 @@ if __name__ == "__main__":
     scope_hints()
     is_le_felt_hint()
     assert_lt_felt_hint()
-    is_nn_hint()
+    #is_nn_hint()
     ec_mul_inner()
     # ec_negate()
+    dict_new()
+    dict_read()
     print("All test have passed")

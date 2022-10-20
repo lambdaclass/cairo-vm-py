@@ -159,17 +159,4 @@ mod test {
         )
         .expect("Couldn't run program");
     }
-
-    #[test]
-    fn cairo_run_dict_new() {
-        cairo_run::cairo_run_py(
-            "cairo_programs/dict_new.json",
-            "main",
-            false,
-            false,
-            None,
-            None,
-        )
-        .expect("Couldn't run program");
-    }
 }
