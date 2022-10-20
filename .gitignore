@@ -2,3 +2,5 @@
 /Cargo.lock
 cairo_programs/*.memory
 cairo_programs/*.json
+cairo_programs/*.memory
+cairo_programs/*.trace
