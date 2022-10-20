@@ -12,9 +12,21 @@ def print_vars_hint():
 def scope_hints():
     print(cairo_rs_py.cairo_run("cairo_programs/vm_scope_hints.json","main",False,False,None,None))
 
+def is_le_felt_hint():
+    print(cairo_rs_py.cairo_run("cairo_programs/is_le_felt_hint.json", "main", False, False, None, None))
+
+def assert_lt_felt_hint():
+    print(cairo_rs_py.cairo_run("cairo_programs/assert_le_felt_hint.json", "main", False, False, None, None))
+
+def is_nn_hint():
+    print(cairo_rs_py.cairo_run("cairo_programs/is_nn_hint.json", "main", False, False, None, None))
+
 if __name__ == "__main__":
     assert_not_zero_hint()
     memory_add_hint()
     print_vars_hint()
     scope_hints()
+    is_le_felt_hint()
+    assert_lt_felt_hint()
+    is_nn_hint()
     print("ok")

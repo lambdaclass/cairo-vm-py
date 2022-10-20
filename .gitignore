@@ -1,3 +1,4 @@
 /target
 /Cargo.lock
+cairo_programs/*.memory
 cairo_programs/*.json
