@@ -20,7 +20,7 @@ jobs:
           override: true
           components: rustfmt, clippy
     - uses: actions/checkout@v3
-    - name: Python3 Build (for cairo-lang)
+    - name: Python3 Build 
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
@@ -32,10 +32,6 @@ jobs:
       uses: codecov/codecov-action@v2
       with:
         fail_ci_if_error:     true
-    - name: Python3 Build (for cairo-rs-py)
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10.8'
     - name: format
       run: cargo fmt --all -- --check
     - name: Build
