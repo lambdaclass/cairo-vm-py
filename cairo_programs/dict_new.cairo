@@ -1,9 +1,4 @@
-%builtins range_check
-
-from starkware.cairo.common.math import assert_le_felt, assert_lt_felt
 from starkware.cairo.common.dict_access import DictAccess
-
-const RC_BOUND = 2 ** 128
 
 # Creates a new dict.
 # Hint argument:
@@ -22,7 +17,7 @@ func dict_new() -> (res: DictAccess*):
     return (res=cast([ap - 1], DictAccess*))
 end
 
-func main{range_check_ptr: felt}():
+func main():
     %{ initial_dict = {1:2, 2:3, 4:5}%}
     let my_dict = dict_new()
     return ()
