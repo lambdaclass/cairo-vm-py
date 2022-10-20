@@ -4,6 +4,7 @@ use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
     utils::to_vm_error,
+    range_check::PyRangeCheck,
 };
 use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
@@ -55,6 +56,7 @@ impl PyVM {
             let ids = PyIds::new(self, &hint_data.ids_data, &hint_data.ap_tracking);
             let enter_scope = pycell!(py, PyEnterScope::new());
             let exit_scope = pycell!(py, PyExitScope::new());
+            let range_check = PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
 
             let locals = get_scope_locals(exec_scopes, py)?;
 
