@@ -17,14 +17,14 @@ pub enum PyMaybeRelocatable {
 #[pyclass(name = "Relocatable")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyRelocatable {
-    index: usize,
+    index: isize,
     offset: usize,
 }
 
 #[pymethods]
 impl PyRelocatable {
     #[new]
-    pub fn new(tuple: (usize, usize)) -> PyRelocatable {
+    pub fn new(tuple: (isize, usize)) -> PyRelocatable {
         PyRelocatable {
             index: tuple.0,
             offset: tuple.1,
@@ -121,21 +121,6 @@ impl From<&PyMaybeRelocatable> for MaybeRelocatable {
     }
 }
 
-impl PyMaybeRelocatable {
-    pub fn to_maybe_relocatable(&self) -> MaybeRelocatable {
-        MaybeRelocatable::from(self)
-    }
-}
-
-impl PyRelocatable {
-    pub fn to_relocatable(&self) -> Relocatable {
-        Relocatable {
-            segment_index: self.index,
-            offset: self.offset,
-        }
-    }
-}
-
 impl From<MaybeRelocatable> for PyMaybeRelocatable {
     fn from(val: MaybeRelocatable) -> Self {
         match val {
@@ -179,8 +164,8 @@ impl From<&PyRelocatable> for Relocatable {
     }
 }
 
-impl From<(usize, usize)> for PyRelocatable {
-    fn from(val: (usize, usize)) -> Self {
+impl From<(isize, usize)> for PyRelocatable {
+    fn from(val: (isize, usize)) -> Self {
         PyRelocatable::new((val.0, val.1))
     }
 }
