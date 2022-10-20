@@ -1,8 +1,7 @@
 use std::{any::Any, collections::HashMap};
 
 use cairo_rs::{
-    any_box, hint_processor::proxies::exec_scopes_proxy::ExecutionScopesProxy,
-    vm::errors::vm_errors::VirtualMachineError,
+    any_box, types::exec_scope::ExecutionScopes, vm::errors::vm_errors::VirtualMachineError,
 };
 use pyo3::{pyclass, pymethods, PyObject};
 
@@ -19,10 +18,7 @@ impl PyEnterScope {
         }
     }
 
-    pub fn update_scopes(
-        &self,
-        scopes: &mut ExecutionScopesProxy,
-    ) -> Result<(), VirtualMachineError> {
+    pub fn update_scopes(&self, scopes: &mut ExecutionScopes) -> Result<(), VirtualMachineError> {
         for scope_variables in self.new_scopes.iter() {
             let mut new_scope = HashMap::<String, Box<dyn Any>>::new();
             for (name, pyobj) in scope_variables {
@@ -31,6 +27,12 @@ impl PyEnterScope {
             scopes.enter_scope(new_scope);
         }
         Ok(())
+    }
+}
+
+impl Default for PyEnterScope {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -47,7 +49,7 @@ impl PyEnterScope {
 #[pyclass(unsendable)]
 #[derive(Debug, Clone)]
 pub struct PyExitScope {
-    num: i32,
+    num: u32,
 }
 
 impl PyExitScope {
@@ -55,14 +57,17 @@ impl PyExitScope {
         PyExitScope { num: 0 }
     }
 
-    pub fn update_scopes(
-        &self,
-        scopes: &mut ExecutionScopesProxy,
-    ) -> Result<(), VirtualMachineError> {
+    pub fn update_scopes(&self, scopes: &mut ExecutionScopes) -> Result<(), VirtualMachineError> {
         for _ in 0..self.num {
             scopes.exit_scope()?
         }
         Ok(())
+    }
+}
+
+impl Default for PyExitScope {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

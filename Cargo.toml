@@ -16,6 +16,3 @@ pyo3 = { version = "0.16.5", features = ["num-bigint"] }
 cairo-rs = { path = "../cairo-rs" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
-
-[dev-dependencies]
-cairo-rs = { path = "../cairo-rs", features = ["ffi_test_utils"] }
