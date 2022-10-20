@@ -20,16 +20,12 @@ jobs:
           override: true
           components: rustfmt, clippy
     - uses: actions/checkout@v3
-    - name: Python3 Build (for cairo-lang)
+    - name: Python3 Build 
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
-    - name: Python3 Build (for cairo-rs-py)
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
     - name: format
       run: cargo fmt --all -- --check
     - name: Build
