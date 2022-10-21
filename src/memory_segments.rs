@@ -152,11 +152,12 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap();
+                .unwrap()
+                .clone();
 
             assert_eq!(
                 vm_ref
-                    .get_maybe(relocatable)
+                    .get_maybe(&relocatable)
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -182,11 +183,12 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap();
+                .unwrap()
+                .clone();
 
             assert_eq!(
                 vm_ref
-                    .get_maybe(relocatable)
+                    .get_maybe(&relocatable)
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
