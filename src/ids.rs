@@ -83,8 +83,8 @@ pub fn get_value_from_reference(
     } else {
         return Ok(PyMaybeRelocatable::from(var_addr));
     };
-    match &value {
-        Some(&MaybeRelocatable::RelocatableValue(ref rel)) => {
+    match value {
+        Some(MaybeRelocatable::RelocatableValue(ref rel)) => {
             if let Some(immediate) = &hint_reference.immediate {
                 let modified_value = rel + bigint_to_usize(immediate).map_err(to_py_error)?;
                 Ok(PyMaybeRelocatable::from(modified_value))
@@ -92,7 +92,7 @@ pub fn get_value_from_reference(
                 Ok(PyMaybeRelocatable::from(rel.clone()))
             }
         }
-        Some(&MaybeRelocatable::Int(ref num)) => Ok(PyMaybeRelocatable::Int(num.clone())),
+        Some(MaybeRelocatable::Int(ref num)) => Ok(PyMaybeRelocatable::Int(num.clone())),
         None => Err(to_py_error(VirtualMachineError::FailedToGetIds)),
     }
 }
@@ -131,7 +131,7 @@ pub fn compute_addr_from_reference(
         Ok(base_addr + hint_reference.offset1 + hint_reference.offset2)
     } else {
         let addr = base_addr + hint_reference.offset1;
-        let dereferenced_addr = vm.get_relocatable(&addr).map_err(to_py_error)?;
+        let dereferenced_addr = vm.get_relocatable(&addr).map_err(to_py_error)?.into_owned();
         if let Some(imm) = &hint_reference.immediate {
             Ok(dereferenced_addr + bigint_to_usize(imm).map_err(to_py_error)?)
         } else {
@@ -212,7 +212,7 @@ mod tests {
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(&MaybeRelocatable::from(Into::<BigInt>::into(2_i32))))
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2_i32))))
             );
         });
     }
@@ -262,7 +262,7 @@ mod tests {
             //Check ids.a now contains memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
-                Ok(Some(&MaybeRelocatable::from(bigint!(2))))
+                Ok(Some(MaybeRelocatable::from(bigint!(2))))
             );
         });
     }
