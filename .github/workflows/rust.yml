@@ -20,7 +20,7 @@ jobs:
           override: true
           components: rustfmt, clippy
     - uses: actions/checkout@v3
-    - name: Python3 Build 
+    - name: Python3 Build
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
