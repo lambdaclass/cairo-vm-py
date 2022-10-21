@@ -1,7 +1,6 @@
 from starkware.cairo.common.uint256 import Uint256, uint256_mul, uint256_le, uint256_sub
 from uint256_add import uint256_add
 
-const SHIFT = 2 ** 128
 
 # Returns the floor value of the square root of a uint256 integer.
 func uint256_sqrt{range_check_ptr}(n: Uint256) -> (res: Uint256):

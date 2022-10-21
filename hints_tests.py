@@ -19,4 +19,5 @@ if __name__ == "__main__":
     test_program("assert_nn_hint")
     #test_program("uint256_add")
     #test_program("uint256_sqrt")
+    #test_program("uint256_unsigned_div_rem")
     print("\nAll test have passed")
