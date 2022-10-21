@@ -36,11 +36,13 @@ def dict_write():
     print(cairo_rs_py.cairo_run("cairo_programs/dict_write.json","main",False,False))
 
 def dict_update():
-    print(cairo_rs_py.cairo_run("cairo_programs/dict_update.json","main",False,False,None,None))
+    print(cairo_rs_py.cairo_run("cairo_programs/dict_update.json","main",False,False))
 
 def default_dict_new():
     print(cairo_rs_py.cairo_run("cairo_programs/default_dict_new.json","main",False,False))
-    
+
+def squash_dict():
+    print(cairo_rs_py.cairo_run("cairo_programs/squash_dict.json","main",False,False))
 
 if __name__ == "__main__":
     assert_not_zero_hint()
@@ -57,4 +59,5 @@ if __name__ == "__main__":
     #dict_write()
     #dict_update()
     default_dict_new()
+    #squash_dict()
     print("All test have passed")
