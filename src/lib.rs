@@ -2,6 +2,7 @@ pub mod cairo_run;
 pub mod ids;
 mod memory;
 mod memory_segments;
+mod range_check;
 mod relocatable;
 mod scope_manager;
 mod utils;
