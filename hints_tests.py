@@ -16,10 +16,14 @@ def is_le_felt_hint():
     print(cairo_rs_py.cairo_run("cairo_programs/is_le_felt_hint.json", "main", False, False, None, None))
 
 def assert_lt_felt_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/assert_le_felt_hint.json", "main", False, False, None, None))
+    print(cairo_rs_py.cairo_run("cairo_programs/assert_lt_felt_hint.json", "main", False, False, None, None))
 
 def is_nn_hint():
     print(cairo_rs_py.cairo_run("cairo_programs/is_nn_hint.json", "main", False, False, None, None))
+
+def is_nn_out_of_range_hint():
+    print(cairo_rs_py.cairo_run("cairo_programs/is_nn_out_of_range_hint.json", "main", False, False, None, None))
+
 def ec_mul_inner():
     print(cairo_rs_py.cairo_run("cairo_programs/ec_mul_inner.json","main",False,False,None,None))
 
@@ -29,8 +33,14 @@ def ec_negate():
 def assert_nn_hint():
     print(cairo_rs_py.cairo_run("cairo_programs/assert_nn_hint.json", "main", False, False, None, None))
 
-def math_hints():
+def assert_not_equal_hint():
     print(cairo_rs_py.cairo_run("cairo_programs/assert_not_equal_hint.json", "main", False, False, None, None))
+
+def is_positive_hint():
+    print(cairo_rs_py.cairo_run("cairo_programs/is_positive_hint.json", "main", False, False, None, None))
+
+def pow_hint():
+    print(cairo_rs_py.cairo_run("cairo_programs/pow_hint.json", "main", False, False, None, None))
 
 if __name__ == "__main__":
     assert_not_zero_hint()
@@ -42,6 +52,9 @@ if __name__ == "__main__":
     is_nn_hint()
     ec_mul_inner()
     assert_nn_hint()
-    math_hints()
+    assert_not_equal_hint()
     # ec_negate()
+    is_nn_out_of_range_hint()
+    is_positive_hint()
+    pow_hint()
     print("All test have passed")
