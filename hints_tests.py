@@ -47,6 +47,9 @@ def squash_dict():
 def dict_squash():
     print(cairo_rs_py.cairo_run("cairo_programs/dict_squash.json","main",False,False))
 
+def uint256_add():
+    print(cairo_rs_py.cairo_run("cairo_programs/uint256_add.json","main",False,False))
+
 if __name__ == "__main__":
     assert_not_zero_hint()
     memory_add_hint()
@@ -64,4 +67,5 @@ if __name__ == "__main__":
     default_dict_new()
     #squash_dict()
     #dict_squash()
+    #uint256_add()
     print("All test have passed")
