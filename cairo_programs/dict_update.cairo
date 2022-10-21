@@ -1,5 +1,6 @@
 from starkware.cairo.common.dict_access import DictAccess
 from dict_new import dict_new
+from dict_update import dict_update
 
 # Updates a value in a dict. prev_value must be specified. A standalone read with no write should be
 # performed by writing the same value.
@@ -23,22 +24,6 @@ func dict_update{dict_ptr : DictAccess*}(key : felt, prev_value : felt, new_valu
     dict_ptr.new_value = new_value
     let dict_ptr = dict_ptr + DictAccess.SIZE
     return ()
-end
-
-func dict_read{dict_ptr : DictAccess*}(key : felt) -> (value : felt):
-    alloc_locals
-    local value
-    %{
-        #TEST
-        dict_tracker = __dict_manager.get_tracker(ids.dict_ptr)
-        dict_tracker.current_ptr += ids.DictAccess.SIZE
-        ids.value = dict_tracker.data[ids.key]
-    %}
-    assert dict_ptr.key = key
-    assert dict_ptr.prev_value = value
-    assert dict_ptr.new_value = value
-    let dict_ptr = dict_ptr + DictAccess.SIZE
-    return (value=value)
 end
 
 func main():
