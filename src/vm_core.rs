@@ -363,7 +363,7 @@ mod test {
         );
         assert_eq!(
             vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-            Ok(Some(&MaybeRelocatable::from(bigint!(2))))
+            Ok(Some(MaybeRelocatable::from(bigint!(2))))
         );
     }
 
