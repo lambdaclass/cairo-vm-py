@@ -9,7 +9,7 @@ $(TEST_DIR)/%.json: $(TEST_DIR)/%.cairo
 
 deps:
 	pyenv install pypy3.7-7.3.9
-	pyenv global pypy3.7-7.3.9
+	pyenv local pypy3.7-7.3.9
 	pip install cairo_lang==0.9.1
 
 build:
