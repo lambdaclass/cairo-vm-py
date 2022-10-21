@@ -17,5 +17,6 @@ if __name__ == "__main__":
     test_program("ec_mul_inner")
     # test_program("ec_negate")
     test_program("assert_nn_hint")
-    # test_program("uint256_add")
+    #test_program("uint256_add")
+    #test_program("uint256_sqrt")
     print("\nAll test have passed")
