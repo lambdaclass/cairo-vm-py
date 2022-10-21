@@ -1,2 +1,6 @@
-/target
+**/target
+**/.DS_Store
 /Cargo.lock
+**/*.trace
+**/*.memory
+**/*.json
