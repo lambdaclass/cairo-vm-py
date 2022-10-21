@@ -2,8 +2,8 @@ use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::{
-    memory::PyMemory, memory_segments::PySegmentManager, relocatable::PyRelocatable,
-    utils::to_vm_error,
+    memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
+    relocatable::PyRelocatable, utils::to_vm_error,
 };
 use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
@@ -55,6 +55,9 @@ impl PyVM {
             let ids = PyIds::new(self, &hint_data.ids_data, &hint_data.ap_tracking);
             let enter_scope = pycell!(py, PyEnterScope::new());
             let exit_scope = pycell!(py, PyExitScope::new());
+            let range_check_builtin =
+                PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
+            let prime = self.vm.borrow().get_prime().clone();
 
             let locals = get_scope_locals(exec_scopes, py)?;
 
@@ -88,6 +91,11 @@ impl PyVM {
             globals
                 .set_item("vm_exit_scope", exit_scope)
                 .map_err(to_vm_error)?;
+
+            globals
+                .set_item("range_check_builtin", range_check_builtin)
+                .map_err(to_vm_error)?;
+            globals.set_item("PRIME", prime).map_err(to_vm_error)?;
 
             for (name, pyobj) in hint_locals.iter() {
                 locals.set_item(name, pyobj).map_err(to_vm_error)?;
