@@ -1,33 +1,37 @@
 import cairo_rs_py
 
+def new_vm():
+    return cairo_rs_py.PyVM(3618502788666131213697322783095070105623107215331596699973092056135872020481, True)
+
 def assert_not_zero_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/assert_not_zero.json", "main", False, False, None, None))
+    print(new_vm().cairo_run("cairo_programs/assert_not_zero.json", "main", False))
 
 def memory_add_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/memory_add.json", "main", False, False, None, None))
+    print(new_vm().cairo_run("cairo_programs/memory_add.json", "main", False))
 
 def print_vars_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/hint_print_vars.json","main",False,False,None,None))
+    print(new_vm().cairo_run("cairo_programs/hint_print_vars.json","main",False))
     
 def scope_hints():
-    print(cairo_rs_py.cairo_run("cairo_programs/vm_scope_hints.json","main",False,False,None,None))
+    print(new_vm().cairo_run("cairo_programs/vm_scope_hints.json","main",False))
 
 def is_le_felt_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/is_le_felt_hint.json", "main", False, False, None, None))
+    print(new_vm().cairo_run("cairo_programs/is_le_felt_hint.json", "main", False))
 
 def assert_lt_felt_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/assert_le_felt_hint.json", "main", False, False, None, None))
+    print(new_vm().cairo_run("cairo_programs/assert_le_felt_hint.json", "main", False))
 
 def is_nn_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/is_nn_hint.json", "main", False, False, None, None))
+    print(new_vm().cairo_run("cairo_programs/is_nn_hint.json", "main", False))
+    
 def ec_mul_inner():
-    print(cairo_rs_py.cairo_run("cairo_programs/ec_mul_inner.json","main",False,False,None,None))
+    print(new_vm().cairo_run("cairo_programs/ec_mul_inner.json","main",False))
 
 def ec_negate():
-    print(cairo_rs_py.cairo_run("cairo_programs/ec_negate.json","main",False,False,None,None))
+    print(new_vm().cairo_run("cairo_programs/ec_negate.json","main",False))
 
 def assert_nn_hint():
-    print(cairo_rs_py.cairo_run("cairo_programs/assert_nn_hint.json", "main", False, False, None, None))
+    print(new_vm().cairo_run("cairo_programs/assert_nn_hint.json", "main", False))
 
 if __name__ == "__main__":
     assert_not_zero_hint()
