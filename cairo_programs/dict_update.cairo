@@ -1,21 +1,5 @@
 from starkware.cairo.common.dict_access import DictAccess
-
-# Creates a new dict.
-# Hint argument:
-# initial_dict - A python dict containing the initial values of the new dict.
-func dict_new() -> (res: DictAccess*):
-    %{
-        #TEST
-        if '__dict_manager' not in globals():
-            from starkware.cairo.common.dict import DictManager
-            __dict_manager = DictManager()
-
-        memory[ap] = __dict_manager.new_dict(segments, initial_dict)
-        del initial_dict
-    %}
-    ap += 1
-    return (res=cast([ap - 1], DictAccess*))
-end
+from dict_new import dict_new
 
 # Updates a value in a dict. prev_value must be specified. A standalone read with no write should be
 # performed by writing the same value.

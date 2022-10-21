@@ -1,21 +1,5 @@
 from starkware.cairo.common.dict_access import DictAccess
-
-# Creates a new dict.
-# Hint argument:
-# initial_dict - A python dict containing the initial values of the new dict.
-func dict_new() -> (res: DictAccess*):
-    %{
-        #TEST
-        if '__dict_manager' not in globals():
-            from starkware.cairo.common.dict import DictManager
-            __dict_manager = DictManager()
-
-        memory[ap] = __dict_manager.new_dict(segments, initial_dict)
-        del initial_dict
-    %}
-    ap += 1
-    return (res=cast([ap - 1], DictAccess*))
-end
+from dict_new import dict_new
 
 func dict_read{dict_ptr : DictAccess*}(key : felt) -> (value : felt):
     alloc_locals
