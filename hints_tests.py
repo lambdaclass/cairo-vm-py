@@ -26,6 +26,9 @@ def ec_mul_inner():
 def ec_negate():
     print(cairo_rs_py.cairo_run("cairo_programs/ec_negate.json","main",False,False))
 
+def assert_nn_hint():
+    print(cairo_rs_py.cairo_run("cairo_programs/assert_nn_hint.json", "main", False, False, None, None))
+
 def dict_new():
     print(cairo_rs_py.cairo_run("cairo_programs/dict_new.json","main",False,False))
 
