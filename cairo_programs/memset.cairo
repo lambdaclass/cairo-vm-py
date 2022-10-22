@@ -11,7 +11,10 @@ func memset(dst : felt*, value : felt, n):
         return ()
     end
 
-    %{ vm_enter_scope({'n': ids.n}) %}
+    %{
+    # TEST
+    vm_enter_scope({'n': ids.n})
+    %}
     tempvar frame = LoopFrame(dst=dst)
 
     loop:
@@ -23,6 +26,7 @@ func memset(dst : felt*, value : felt, n):
     let next_frame = cast(ap + 1, LoopFrame*)
     next_frame.dst = frame.dst + 1; ap++
     %{
+        # TEST
         n -= 1
         ids.continue_loop = 1 if n > 0 else 0
     %}
@@ -31,7 +35,10 @@ func memset(dst : felt*, value : felt, n):
     # Assert that the loop executed n times.
     n = cast(next_frame.dst, felt) - cast(dst, felt)
 
-    %{ vm_exit_scope() %}
+    %{
+    # TEST
+    vm_exit_scope()
+    %}
     return ()
 end
 
