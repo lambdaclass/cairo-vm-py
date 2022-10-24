@@ -22,7 +22,9 @@ func ec_negate{range_check_ptr}(point : EcPoint) -> (point : EcPoint):
     %{print("2")%}
 
 
+    %{print("3")%}
     let (minus_y) = nondet_bigint3()
+    %{print("4")%}
     verify_zero(
         UnreducedBigInt3(
         d0=minus_y.d0 + point.y.d0,
