@@ -21,4 +21,3 @@ if __name__ == "__main__":
     # test_program("is_zero")
     # test_program("div_mod_n")
     print("\nAll test have passed")
-    
