@@ -188,7 +188,6 @@ impl PyVM {
             for (name, pyobj) in hint_locals.iter() {
                 globals.set_item(name, pyobj).map_err(to_vm_error)?;
             }
-            println!("Running a hint: {:?}", hint_data.code);
             py.run(&hint_data.code, Some(globals), None)
                 .map_err(to_vm_error)?;
 
@@ -615,7 +614,6 @@ vm_exit_scope()";
     }
 
     #[test]
-    //FAILING
     fn list_bug() {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
