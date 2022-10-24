@@ -22,4 +22,5 @@ if __name__ == "__main__":
     #test_program("uint256_unsigned_div_rem")
     #test_program("uint256_signed_nn")
     #test_program("bigint_to_uint256")
+    test_program("u")
     print("\nAll test have passed")

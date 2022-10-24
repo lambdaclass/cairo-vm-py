@@ -304,7 +304,7 @@ mod test {
         vm::errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
     };
     use num_bigint::{BigInt, Sign};
-    use pyo3::{PyObject, Python, ToPyObject};
+    use pyo3::{PyObject, Python, ToPyObject, types::PyDict};
     use std::collections::HashMap;
 
     #[test]
@@ -631,4 +631,62 @@ vm_exit_scope()";
             Ok(())
         );
     }
+
+ /*    #[test]
+    //FAILING
+    fn list_bug() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "lista_a = [1,2,3]
+lista_b = [lista_a[k] for k in range(2)]";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
+    }*/
+
+    #[test]
+    //FAILING
+    fn bug_plain_locals() {
+        Python::with_gil(|py| {
+            let code = "lista_a = [1,2,3]
+lista_b = [lista_a[k] for k in range(2)]";
+            py.run(code, None, Some(PyDict::new(py))).unwrap();
+        });
+    }
+
+    #[test]
+    //FAILING
+    fn bug_plain_both() {
+        Python::with_gil(|py| {
+            let code = "lista_a = [1,2,3]
+lista_b = [lista_a[k] for k in range(2)]";
+            py.run(code, Some(PyDict::new(py)), Some(PyDict::new(py))).unwrap();
+        });
+    }
+
+  #[test]
+    //PASSING
+    fn bug_plain() {
+        Python::with_gil(|py| {
+            let code = "lista_a = [1,2,3]
+lista_b = [lista_a[k] for k in range(2)]";
+            py.run(code, None, None).unwrap();
+        });
+    }
+
+    #[test]
+    //PASSING
+    fn bug_plain_globals() {
+        Python::with_gil(|py| {
+            let code = "lista_a = [1,2,3]
+lista_b = [lista_a[k] for k in range(2)]";
+            py.run(code, Some(PyDict::new(py)), None).unwrap();
+        });
+    }
+
 }
