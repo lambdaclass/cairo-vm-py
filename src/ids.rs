@@ -4,14 +4,17 @@ use cairo_rs::{
     hint_processor::{
         hint_processor_definition::HintReference, hint_processor_utils::bigint_to_usize,
     },
-    serde::deserialize_program::ApTracking,
+    serde::deserialize_program::{ApTracking, Member},
     types::{
         instruction::Register,
         relocatable::{MaybeRelocatable, Relocatable},
     },
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
 };
-use pyo3::{pyclass, pymethods, PyObject, PyResult, Python, ToPyObject};
+use pyo3::{
+    exceptions::PyAttributeError, pyclass, pymethods, IntoPy, PyObject, PyResult, Python,
+    ToPyObject,
+};
 
 use crate::{relocatable::PyMaybeRelocatable, utils::to_py_error, vm_core::PyVM};
 
@@ -33,7 +36,21 @@ impl PyIds {
             .references
             .get(name)
             .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
-        Ok(get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?.to_object(py))
+        Ok(match &hint_ref.members {
+            Some(hint_type) => PyTypedId {
+                vm: self.vm.clone(),
+                hint_value: compute_addr_from_reference(
+                    hint_ref,
+                    &self.vm.borrow(),
+                    &self.ap_tracking,
+                )?,
+                hint_type: hint_type.clone(),
+            }
+            .into_py(py),
+            None => get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?
+                .to_object(py)
+                .into_py(py),
+        })
     }
 
     pub fn __setattr__(&self, name: &str, val: PyMaybeRelocatable) -> PyResult<()> {
@@ -59,6 +76,48 @@ impl PyIds {
             vm: vm.get_vm(),
             references: references.clone(),
             ap_tracking: ap_tracking.clone(),
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+struct PyTypedId {
+    vm: Rc<RefCell<VirtualMachine>>,
+    hint_value: Relocatable,
+    hint_type: HashMap<String, Member>,
+}
+
+#[pymethods]
+impl PyTypedId {
+    #[getter]
+    fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
+        match self.hint_type.get(name) {
+            Some(member) => {
+                // TODO: What if member is a struct?
+                let vm = self.vm.borrow();
+                Ok(
+                    PyMaybeRelocatable::from(match member.cairo_type.as_deref() {
+                        Some("felt") => vm
+                            .get_maybe(
+                                &self
+                                    .hint_value
+                                    .add_int_mod(member.offset.as_ref().unwrap(), vm.get_prime())
+                                    .map_err(to_py_error)?,
+                            )
+                            .map_err(to_py_error)?
+                            .unwrap(),
+                        cairo_type => todo!(
+                            "struct members of type {:?} are not yet implemented",
+                            cairo_type
+                        ),
+                    })
+                    .to_object(py),
+                )
+            }
+            None => Err(PyAttributeError::new_err(format!(
+                "'PyTypeId' object has no attribute '{}'",
+                name
+            ))),
         }
     }
 }
