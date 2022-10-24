@@ -7,8 +7,6 @@ func assert_nn_manual_implementation{range_check_ptr}(a):
         # TEST HINT
         from starkware.cairo.common.math_utils import assert_integer
         assert_integer(ids.a)
-        print(range_check_builtin)
-        print(dir(range_check_builtin))
         assert 0 <= ids.a % PRIME < range_check_builtin.bound, f'a = {ids.a} is out of range.'
     %}
     a = [range_check_ptr]

@@ -17,4 +17,10 @@ if __name__ == "__main__":
     test_program("ec_mul_inner")
     # test_program("ec_negate")
     test_program("assert_nn_hint")
+    test_program("assert_not_equal_hint")
+    test_program("assert_lt_felt_hint")
+    test_program("is_nn_out_of_range_hint")
+    # THIS TWO ARE FAILING
+    # test_program("pow_hint")
+    # test_program("is_positive_hint")
     print("\nAll test have passed")
