@@ -31,6 +31,25 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{cell::RefCell, rc::Rc};
 
+const GLOBAL_NAMES: [&str; 16] = [
+    "memory",
+    "segments",
+    "ap",
+    "fp",
+    "ids",
+    "vm_enter_scope",
+    "vm_exit_scope",
+    "range_check_builtin",
+    "PRIME",
+    "__doc__",
+    "__annotations__",
+    "__package__",
+    "__builtins__",
+    "__spec__",
+    "__loader__",
+    "__name__"
+];
+
 #[pyclass(unsendable)]
 pub struct PyVM {
     pub(crate) vm: Rc<RefCell<VirtualMachine>>,
@@ -128,15 +147,15 @@ impl PyVM {
                 PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
             let prime = self.vm.borrow().get_prime().clone();
 
-            let locals = get_scope_locals(exec_scopes, py)?;
-
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
-            let globals = py
+            let mut globals = py
                 .import("__main__")
                 .map_err(to_vm_error)?
                 .dict()
                 .copy()
                 .map_err(to_vm_error)?;
+
+            add_scope_locals(&mut globals, exec_scopes)?;
 
             globals
                 .set_item("memory", pycell!(py, memory))
@@ -167,13 +186,13 @@ impl PyVM {
             globals.set_item("PRIME", prime).map_err(to_vm_error)?;
 
             for (name, pyobj) in hint_locals.iter() {
-                locals.set_item(name, pyobj).map_err(to_vm_error)?;
+                globals.set_item(name, pyobj).map_err(to_vm_error)?;
             }
-
-            py.run(&hint_data.code, Some(globals), Some(locals))
+            println!("Running a hint: {:?}", hint_data.code);
+            py.run(&hint_data.code, Some(globals), None)
                 .map_err(to_vm_error)?;
 
-            update_scope_hint_locals(exec_scopes, hint_locals, locals, py);
+            update_scope_hint_locals(exec_scopes, hint_locals, globals, py);
 
             enter_scope.borrow().update_scopes(exec_scopes)?;
             exit_scope.borrow().update_scopes(exec_scopes)
@@ -257,31 +276,32 @@ impl PyVM {
     }
 }
 
-pub(crate) fn get_scope_locals<'a>(
+pub(crate) fn add_scope_locals<'a>(
+    globals: &PyDict,
     exec_scopes: &ExecutionScopes,
-    py: Python<'a>,
-) -> Result<&'a PyDict, VirtualMachineError> {
-    let locals = PyDict::new(py);
+) -> Result<(), VirtualMachineError> {
     for (name, elem) in exec_scopes.get_local_variables()? {
         if let Some(pyobj) = elem.downcast_ref::<PyObject>() {
-            locals.set_item(name, pyobj).map_err(to_vm_error)?;
+            globals.set_item(name, pyobj).map_err(to_vm_error)?;
         }
     }
-    Ok(locals)
+    Ok(())
 }
 
 pub(crate) fn update_scope_hint_locals(
     exec_scopes: &mut ExecutionScopes,
     hint_locals: &mut HashMap<String, PyObject>,
-    locals: &PyDict,
+    globals: &PyDict,
     py: Python,
 ) {
-    for (name, elem) in locals {
+    for (name, elem) in globals {
         let name = name.to_string();
-        if hint_locals.keys().cloned().any(|x| x == name) {
-            hint_locals.insert(name, elem.to_object(py));
-        } else {
-            exec_scopes.assign_or_update_variable(&name, any_box!(elem.to_object(py)));
+        if !GLOBAL_NAMES.contains(&&name.as_str()) {
+            if hint_locals.keys().cloned().any(|x| x == name) {
+                hint_locals.insert(name, elem.to_object(py));
+            } else {
+                exec_scopes.assign_or_update_variable(&name, any_box!(elem.to_object(py)));
+            }
         }
     }
 }
@@ -592,6 +612,23 @@ vm_exit_scope()";
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 1)
+    }
+
+    #[test]
+    //FAILING
+    fn list_bug() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "lista_a = [1,2,3]
+lista_b = [lista_a[k] for k in range(2)]";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
     }
 
     #[test]
