@@ -22,4 +22,5 @@ if __name__ == "__main__":
     # test_program("div_mod_n")
     # test_program("get_point_from_x")
     # test_program("compute_slope")
+    # test_program("ec_doble")
     print("\nAll test have passed")
