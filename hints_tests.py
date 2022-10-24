@@ -19,4 +19,6 @@ if __name__ == "__main__":
     test_program("assert_nn_hint")
     # test_program("reduce_and_nondet_bigint3")
     # test_program("is_zero")
+    # test_program("div_mod_n")
     print("\nAll test have passed")
+    
