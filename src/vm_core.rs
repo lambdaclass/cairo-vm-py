@@ -47,7 +47,7 @@ const GLOBAL_NAMES: [&str; 16] = [
     "__builtins__",
     "__spec__",
     "__loader__",
-    "__name__"
+    "__name__",
 ];
 
 #[pyclass(unsendable)]
@@ -148,14 +148,14 @@ impl PyVM {
             let prime = self.vm.borrow().get_prime().clone();
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
-            let mut globals = py
+            let globals = py
                 .import("__main__")
                 .map_err(to_vm_error)?
                 .dict()
                 .copy()
                 .map_err(to_vm_error)?;
 
-            add_scope_locals(&mut globals, exec_scopes)?;
+            add_scope_locals(globals, exec_scopes)?;
 
             globals
                 .set_item("memory", pycell!(py, memory))
@@ -275,7 +275,7 @@ impl PyVM {
     }
 }
 
-pub(crate) fn add_scope_locals<'a>(
+pub(crate) fn add_scope_locals(
     globals: &PyDict,
     exec_scopes: &ExecutionScopes,
 ) -> Result<(), VirtualMachineError> {
@@ -295,7 +295,7 @@ pub(crate) fn update_scope_hint_locals(
 ) {
     for (name, elem) in globals {
         let name = name.to_string();
-        if !GLOBAL_NAMES.contains(&&name.as_str()) {
+        if !GLOBAL_NAMES.contains(&name.as_str()) {
             if hint_locals.keys().cloned().any(|x| x == name) {
                 hint_locals.insert(name, elem.to_object(py));
             } else {
