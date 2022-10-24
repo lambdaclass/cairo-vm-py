@@ -614,7 +614,7 @@ vm_exit_scope()";
     }
 
     #[test]
-    fn list_bug() {
+    fn list_comprehension() {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
