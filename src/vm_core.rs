@@ -77,12 +77,12 @@ impl PyVM {
         let path = Path::new(&path);
         let program = Program::new(path, &entrypoint).map_err(to_py_error)?;
         let hint_processor = BuiltinHintProcessor::new_empty();
-        let mut cairo_runner = CairoRunner::new(&program, &hint_processor).map_err(to_py_error)?;
+        let mut cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
         let end = cairo_runner
             .initialize(&mut self.vm.borrow_mut())
             .map_err(to_py_error)?;
         let mut hint_locals = hint_locals.unwrap_or_default();
-        self.run_until_pc(&mut cairo_runner, &end, &mut hint_locals)
+        self.run_until_pc(&mut cairo_runner, &end, &mut hint_locals, &hint_processor)
             .map_err(to_py_error)?;
 
         self.vm
@@ -206,12 +206,13 @@ impl PyVM {
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         let pc_offset = self.vm.borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
-                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data)? {
+                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data, constants)? {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
@@ -230,12 +231,14 @@ impl PyVM {
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         self.step_hint(
             hint_executor,
             hint_locals,
             exec_scopes,
             hint_data_dictionary,
+            constants,
         )?;
         self.vm.borrow_mut().step_instruction()
     }
@@ -245,9 +248,10 @@ impl PyVM {
         hint_executor: &dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<bool, VirtualMachineError> {
         let mut vm = self.vm.borrow_mut();
-        match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data) {
+        match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data, constants) {
             Ok(()) => Ok(false),
             Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
             Err(e) => Err(e),
@@ -259,16 +263,19 @@ impl PyVM {
         cairo_runner: &mut CairoRunner,
         address: &Relocatable,
         hint_locals: &mut HashMap<String, PyObject>,
+        hint_executor: &dyn HintProcessor,
     ) -> Result<(), VirtualMachineError> {
         let references = cairo_runner.get_reference_list();
-        let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
-
+        let hint_data_dictionary =
+            cairo_runner.get_hint_data_dictionary(&references, hint_executor)?;
+        let constants = cairo_runner.get_constants().clone();
         while self.vm.borrow().get_pc() != address {
             self.step(
-                cairo_runner.hint_executor,
+                hint_executor,
                 hint_locals,
                 &mut cairo_runner.exec_scopes,
                 &hint_data_dictionary,
+                &constants,
             )?;
         }
         Ok(())
@@ -422,6 +429,7 @@ mod test {
                 &hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 &HashMap::new()
             ),
             Ok(())
@@ -469,6 +477,7 @@ mod test {
                 &hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 &HashMap::new()
             ),
             Ok(())
