@@ -3,15 +3,25 @@ use crate::{
     utils::{to_py_error, PyIoStream},
     vm_core::PyVM,
 };
-use cairo_rs::{types::program::Program, vm::runners::cairo_runner::CairoRunner};
+use cairo_rs::{
+    hint_processor::{
+        builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
+        hint_processor_definition::HintProcessor,
+    },
+    types::{program::Program, relocatable::Relocatable},
+    vm::runners::cairo_runner::CairoRunner,
+};
 use num_bigint::{BigInt, Sign};
 use pyo3::prelude::*;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 #[pyclass(unsendable)]
 pub struct PyCairoRunner {
     inner: CairoRunner,
     pyvm: PyVM,
+    hint_processor: BuiltinHintProcessor,
+    //Placeholder
+    hint_locals: HashMap<String, PyObject>,
 }
 
 #[pymethods]
@@ -23,10 +33,14 @@ impl PyCairoRunner {
 
         Ok(PyCairoRunner {
             inner: cairo_runner,
+            //Placeholder
             pyvm: PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             ),
+            hint_processor: BuiltinHintProcessor::new_empty(),
+            //Placeholder
+            hint_locals: HashMap::new(),
         })
     }
 
@@ -35,6 +49,29 @@ impl PyCairoRunner {
             .initialize(&mut self.pyvm.vm.borrow_mut())
             .map(PyRelocatable::from)
             .map_err(to_py_error)
+    }
+
+    fn run_until_pc(&self, address: &PyRelocatable) -> PyResult<()> {
+        let references = self.inner.get_reference_list();
+        let hint_data_dictionary = self
+            .inner
+            .get_hint_data_dictionary(&references, &self.hint_processor)
+            .map_err(to_py_error)?;
+
+        while self.pyvm.vm.borrow().get_pc().into() != address {
+            self.pyvm
+                .step(
+                    &self.hint_processor,
+                    &mut self.hint_locals,
+                    &mut self.inner.exec_scopes,
+                    &hint_data_dictionary,
+                    //self.get_constants()
+                    //Placeholder data
+                    &HashMap::new(),
+                )
+                .map_err(to_py_error);
+        }
+        Ok(())
     }
 
     // TODO: get_reference_list(): HintReference in Python?
