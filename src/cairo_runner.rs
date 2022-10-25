@@ -60,3 +60,69 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use num_bigint::{BigInt, Sign};
+
+    #[test]
+    fn create_cairo_runner() {
+        PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+    }
+
+    #[test]
+    fn initialize_runner() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        runner.initialize(&vm).unwrap();
+    }
+
+    // TODO: Test get_reference_list().
+    // TODO: Test get_data_dictionary().
+    // TODO: Test run_until_pc().
+
+    #[test]
+    fn runner_relocate() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        runner.relocate(&vm).unwrap();
+    }
+
+    #[test]
+    fn get_output() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        runner.get_output(&vm).unwrap();
+    }
+
+    #[test]
+    fn write_output() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+
+            let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+
+            let py_io = py.import("io").unwrap();
+            let py_bytes_io_class = py_io.getattr("BytesIO").unwrap();
+            let py_stream = py_bytes_io_class.call0().unwrap();
+
+            runner.write_output(&vm, py_stream).unwrap();
+        })
+    }
+}
