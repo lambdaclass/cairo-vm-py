@@ -3,6 +3,7 @@ from starkware.cairo.common.dict_access import DictAccess
 # Creates a new dictionary, with a default value.
 func default_dict_new(default_value : felt) -> (res : DictAccess*):
     %{
+        #TEST
         if '__dict_manager' not in globals():
             from starkware.cairo.common.dict import DictManager
             __dict_manager = DictManager()
