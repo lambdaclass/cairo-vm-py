@@ -28,8 +28,8 @@ pub struct PyCairoRunner {
 #[pymethods]
 impl PyCairoRunner {
     #[new]
-    fn new(path: &str, entrypoint: &str) -> PyResult<Self> {
-        let program = Program::new(Path::new(path), entrypoint).map_err(to_py_error)?;
+    pub fn new(path: String, entrypoint: String) -> PyResult<Self> {
+        let program = Program::new(Path::new(&path), &entrypoint).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
 
         Ok(PyCairoRunner {
@@ -101,14 +101,14 @@ impl PyCairoRunner {
         Ok(())
     }
 
-    fn initialize(&mut self) -> PyResult<PyRelocatable> {
+    pub fn initialize(&mut self) -> PyResult<PyRelocatable> {
         self.inner
             .initialize(&mut self.pyvm.vm.borrow_mut())
             .map(PyRelocatable::from)
             .map_err(to_py_error)
     }
 
-    fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
+    pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
         let references = self.inner.get_reference_list();
         let hint_data_dictionary = self
             .inner
@@ -116,6 +116,7 @@ impl PyCairoRunner {
             .map_err(to_py_error)?;
 
         let address = Into::<Relocatable>::into(address);
+        let constants = self.inner.get_constants().clone();
         while self.pyvm.vm.borrow().get_pc() != &address {
             self.pyvm
                 .step(
@@ -123,28 +124,26 @@ impl PyCairoRunner {
                     &mut self.hint_locals,
                     &mut self.inner.exec_scopes,
                     &hint_data_dictionary,
-                    //self.get_constants()
-                    //Placeholder data
-                    &HashMap::new(),
+                    &constants,
                 )
                 .map_err(to_py_error)?;
         }
         Ok(())
     }
 
-    fn relocate(&mut self) -> PyResult<()> {
+    pub fn relocate(&mut self) -> PyResult<()> {
         self.inner
             .relocate(&mut self.pyvm.vm.borrow_mut())
             .map_err(to_py_error)
     }
 
-    fn get_output(&mut self) -> PyResult<Option<String>> {
+    pub fn get_output(&mut self) -> PyResult<Option<String>> {
         self.inner
             .get_output(&mut self.pyvm.vm.borrow_mut())
             .map_err(to_py_error)
     }
 
-    fn write_output(&mut self) -> PyResult<()> {
+    pub fn write_output(&mut self) -> PyResult<()> {
         write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
     }
 }
@@ -155,30 +154,50 @@ mod test {
 
     #[test]
     fn create_cairo_runner() {
-        PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+        )
+        .unwrap();
     }
 
     #[test]
     fn initialize_runner() {
-        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+        )
+        .unwrap();
         runner.initialize().unwrap();
     }
 
     #[test]
     fn runner_relocate() {
-        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+        )
+        .unwrap();
         runner.relocate().unwrap();
     }
 
     #[test]
     fn get_output() {
-        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+        )
+        .unwrap();
         runner.get_output().unwrap();
     }
 
     #[test]
     fn write_output() {
-        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+        )
+        .unwrap();
         runner.write_output().unwrap();
     }
 }
