@@ -27,7 +27,13 @@ jobs:
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
     - name: Install pyenv
-      run: make install-pyenv
+      run: |
+        git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+	      echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bash_profile
+      	echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bash_profile
+	      exec "$SHELL"
+	      . ~/.bash_profile
+	      echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
     - name: format
       run: cargo fmt --all -- --check
     - name: Build
