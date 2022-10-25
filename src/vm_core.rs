@@ -31,6 +31,25 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{cell::RefCell, rc::Rc};
 
+const GLOBAL_NAMES: [&str; 16] = [
+    "memory",
+    "segments",
+    "ap",
+    "fp",
+    "ids",
+    "vm_enter_scope",
+    "vm_exit_scope",
+    "range_check_builtin",
+    "PRIME",
+    "__doc__",
+    "__annotations__",
+    "__package__",
+    "__builtins__",
+    "__spec__",
+    "__loader__",
+    "__name__",
+];
+
 #[pyclass(unsendable)]
 pub struct PyVM {
     pub(crate) vm: Rc<RefCell<VirtualMachine>>,
@@ -46,24 +65,24 @@ impl PyVM {
     }
 
     #[pyo3(name = "cairo_run")]
-    pub fn cairo_run_py<'a>(
+    pub fn cairo_run_py(
         &self,
-        path: &'a str,
-        entrypoint: &'a str,
+        path: String,
+        entrypoint: String,
         print_output: bool,
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
     ) -> PyResult<()> {
-        let path = Path::new(path);
-        let program = Program::new(path, entrypoint).map_err(to_py_error)?;
+        let path = Path::new(&path);
+        let program = Program::new(path, &entrypoint).map_err(to_py_error)?;
         let hint_processor = BuiltinHintProcessor::new_empty();
-        let mut cairo_runner = CairoRunner::new(&program, &hint_processor).map_err(to_py_error)?;
+        let mut cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
         let end = cairo_runner
             .initialize(&mut self.vm.borrow_mut())
             .map_err(to_py_error)?;
         let mut hint_locals = hint_locals.unwrap_or_default();
-        self.run_until_pc(&mut cairo_runner, end, &mut hint_locals)
+        self.run_until_pc(&mut cairo_runner, &end, &mut hint_locals, &hint_processor)
             .map_err(to_py_error)?;
 
         self.vm
@@ -128,8 +147,6 @@ impl PyVM {
                 PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
             let prime = self.vm.borrow().get_prime().clone();
 
-            let locals = get_scope_locals(exec_scopes, py)?;
-
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
             let globals = py
                 .import("__main__")
@@ -137,6 +154,8 @@ impl PyVM {
                 .dict()
                 .copy()
                 .map_err(to_vm_error)?;
+
+            add_scope_locals(globals, exec_scopes)?;
 
             globals
                 .set_item("memory", pycell!(py, memory))
@@ -167,13 +186,12 @@ impl PyVM {
             globals.set_item("PRIME", prime).map_err(to_vm_error)?;
 
             for (name, pyobj) in hint_locals.iter() {
-                locals.set_item(name, pyobj).map_err(to_vm_error)?;
+                globals.set_item(name, pyobj).map_err(to_vm_error)?;
             }
-
-            py.run(&hint_data.code, Some(globals), Some(locals))
+            py.run(&hint_data.code, Some(globals), None)
                 .map_err(to_vm_error)?;
 
-            update_scope_hint_locals(exec_scopes, hint_locals, locals, py);
+            update_scope_hint_locals(exec_scopes, hint_locals, globals, py);
 
             enter_scope.borrow().update_scopes(exec_scopes)?;
             exit_scope.borrow().update_scopes(exec_scopes)
@@ -188,12 +206,13 @@ impl PyVM {
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         let pc_offset = self.vm.borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
-                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data)? {
+                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data, constants)? {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
@@ -212,12 +231,14 @@ impl PyVM {
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         self.step_hint(
             hint_executor,
             hint_locals,
             exec_scopes,
             hint_data_dictionary,
+            constants,
         )?;
         self.vm.borrow_mut().step_instruction()
     }
@@ -227,9 +248,10 @@ impl PyVM {
         hint_executor: &dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<bool, VirtualMachineError> {
         let mut vm = self.vm.borrow_mut();
-        match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data) {
+        match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data, constants) {
             Ok(()) => Ok(false),
             Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
             Err(e) => Err(e),
@@ -239,49 +261,53 @@ impl PyVM {
     fn run_until_pc(
         &self,
         cairo_runner: &mut CairoRunner,
-        address: Relocatable,
+        address: &Relocatable,
         hint_locals: &mut HashMap<String, PyObject>,
+        hint_executor: &dyn HintProcessor,
     ) -> Result<(), VirtualMachineError> {
         let references = cairo_runner.get_reference_list();
-        let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
-
-        while self.vm.borrow().get_pc() != &address {
+        let hint_data_dictionary =
+            cairo_runner.get_hint_data_dictionary(&references, hint_executor)?;
+        let constants = cairo_runner.get_constants().clone();
+        while self.vm.borrow().get_pc() != address {
             self.step(
-                cairo_runner.hint_executor,
+                hint_executor,
                 hint_locals,
                 &mut cairo_runner.exec_scopes,
                 &hint_data_dictionary,
+                &constants,
             )?;
         }
         Ok(())
     }
 }
 
-pub(crate) fn get_scope_locals<'a>(
+pub(crate) fn add_scope_locals(
+    globals: &PyDict,
     exec_scopes: &ExecutionScopes,
-    py: Python<'a>,
-) -> Result<&'a PyDict, VirtualMachineError> {
-    let locals = PyDict::new(py);
+) -> Result<(), VirtualMachineError> {
     for (name, elem) in exec_scopes.get_local_variables()? {
         if let Some(pyobj) = elem.downcast_ref::<PyObject>() {
-            locals.set_item(name, pyobj).map_err(to_vm_error)?;
+            globals.set_item(name, pyobj).map_err(to_vm_error)?;
         }
     }
-    Ok(locals)
+    Ok(())
 }
 
 pub(crate) fn update_scope_hint_locals(
     exec_scopes: &mut ExecutionScopes,
     hint_locals: &mut HashMap<String, PyObject>,
-    locals: &PyDict,
+    globals: &PyDict,
     py: Python,
 ) {
-    for (name, elem) in locals {
+    for (name, elem) in globals {
         let name = name.to_string();
-        if hint_locals.keys().cloned().any(|x| x == name) {
-            hint_locals.insert(name, elem.to_object(py));
-        } else {
-            exec_scopes.assign_or_update_variable(&name, any_box!(elem.to_object(py)));
+        if !GLOBAL_NAMES.contains(&name.as_str()) {
+            if hint_locals.keys().cloned().any(|x| x == name) {
+                hint_locals.insert(name, elem.to_object(py));
+            } else {
+                exec_scopes.assign_or_update_variable(&name, any_box!(elem.to_object(py)));
+            }
         }
     }
 }
@@ -403,6 +429,7 @@ mod test {
                 &hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 &HashMap::new()
             ),
             Ok(())
@@ -450,6 +477,7 @@ mod test {
                 &hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 &HashMap::new()
             ),
             Ok(())
@@ -592,6 +620,22 @@ vm_exit_scope()";
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 1)
+    }
+
+    #[test]
+    fn list_comprehension() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "lista_a = [1,2,3]
+lista_b = [lista_a[k] for k in range(2)]";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
     }
 
     #[test]

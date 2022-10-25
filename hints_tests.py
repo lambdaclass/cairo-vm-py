@@ -23,4 +23,6 @@ if __name__ == "__main__":
     # test_program("get_point_from_x")
     # test_program("compute_slope")
     # test_program("ec_doble")
+    test_program("memcpy")
+    test_program("memset")
     print("\nAll test have passed")
