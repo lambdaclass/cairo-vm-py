@@ -17,7 +17,10 @@ func is_nn{range_check_ptr}(a) -> (res : felt):
     return (res=1)
 
     out_of_range:
-    %{ memory[ap] = 0 if 0 <= ((-ids.a - 1) % PRIME) < range_check_builtin.bound else 1 %}
+    %{ 
+        #TEST
+        memory[ap] = 0 if 0 <= ((-ids.a - 1) % PRIME) < range_check_builtin.bound else 1 
+    %}
     jmp need_felt_comparison if [ap] != 0; ap++
     assert [range_check_ptr] = (-a) - 1
     let range_check_ptr = range_check_ptr + 1
