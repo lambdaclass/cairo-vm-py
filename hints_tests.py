@@ -22,4 +22,6 @@ if __name__ == "__main__":
     test_program("assert_le_felt")
     test_program("assert_lt_felt")
     test_program("assert_not_equal")
+    test_program("memcpy")
+    test_program("memset")
     print("\nAll test have passed")

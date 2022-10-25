@@ -6,7 +6,7 @@ use num_bigint::BigInt;
 use pyo3::prelude::*;
 
 #[pyclass(name = "RangeCheck")]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyRangeCheck {
     #[pyo3(get)]
     bound: BigInt,
