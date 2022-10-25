@@ -9,7 +9,10 @@ func bigint_to_uint256{range_check_ptr}(x : BigInt3) -> (res : Uint256):
     let low = [range_check_ptr]
     let high = [range_check_ptr + 1]
     let range_check_ptr = range_check_ptr + 2
-    %{ ids.low = (ids.x.d0 + ids.x.d1 * ids.BASE) & ((1 << 128) - 1) %}
+    %{ 
+        #TEST
+        ids.low = (ids.x.d0 + ids.x.d1 * ids.BASE) & ((1 << 128) - 1) 
+    %}
     # Because PRIME is at least 174 bits, the numerator doesn't overflow.
     tempvar a = ((x.d0 + x.d1 * BASE) - low) / RC_BOUND
     const D2_SHIFT = BASE * BASE / RC_BOUND
