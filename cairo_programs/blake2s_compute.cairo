@@ -8,12 +8,6 @@ from starkware.cairo.common.cairo_blake2s.blake2s import (
     INPUT_BLOCK_FELTS,
     INPUT_BLOCK_BYTES, 
     blake2s_last_block,
-    blake2s_add_felts,
-    blake2s_add_uint256,
-    blake2s_add_uint256_bigend,
-    blake2s_bigend,
-    blake2s_felts,
-    finalize_blake2s,
 )
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.math_cmp import is_le
@@ -48,8 +42,9 @@ func blake2s_inner{range_check_ptr, blake2s_ptr : felt*}(
     data : felt*, n_bytes : felt, counter : felt
 ) -> (output : felt*):
     alloc_locals
-    let (is_last_block) = is_le(n_bytes, INPUT_BLOCK_BYTES)
+    let (is_last_block) = is_le(n_bytes, 8)#INPUT_BLOCK_BYTES)
     if is_last_block != 0:
+        %{print("*** ENTERED IF ***")%}
         return blake2s_last_block(data=data, n_bytes=n_bytes, counter=counter)
     end
 
@@ -64,9 +59,8 @@ func blake2s_inner{range_check_ptr, blake2s_ptr : felt*}(
     %{
         #TEST
         from starkware.cairo.common.cairo_blake2s.blake2s_utils import compute_blake2s_func
-        compute_blake2s_func(segments=segments, output_ptr=ids.output)
-        sleep(5)
         print("***HERE***")
+        compute_blake2s_func(segments=segments, output_ptr=ids.output)
     %}
     let blake2s_ptr = blake2s_ptr + STATE_SIZE_FELTS
 
@@ -79,33 +73,16 @@ func blake2s_inner{range_check_ptr, blake2s_ptr : felt*}(
     )
 end
 
-func run_blake2s{range_check_ptr, blake2s_ptr : felt*}(input : felt*, lengths : felt*, n : felt):
-    if n == 0:
-        return ()
-    end
-
-    blake2s(input, lengths[0])
-    return run_blake2s(input + 1, lengths + 1, n - 1)
-end
-
-func run_blake2s_and_finalize{range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
-    input : felt*, lengths : felt*, n : felt
-):
+func main{range_check_ptr, bitwise_ptr : BitwiseBuiltin*}():
     alloc_locals
+    let inputs: felt* = alloc()
+    assert inputs[0] = 'Hell'
+    assert inputs[1] = 'o Wo'
+    assert inputs[2] = 'rld'
     let (local blake2s_ptr_start) = alloc()
     let blake2s_ptr = blake2s_ptr_start
-
-    run_blake2s{blake2s_ptr=blake2s_ptr}(input, lengths, n)
-    finalize_blake2s(blake2s_ptr_start=blake2s_ptr_start, blake2s_ptr_end=blake2s_ptr)
+    let (output) =  blake2s{range_check_ptr=range_check_ptr, blake2s_ptr=blake2s_ptr}(inputs, 9)
+    assert output.low = 219917655069954262743903159041439073909
+    assert output.high = 296157033687865319468534978667166017272
     return ()
-end
-
-func main{range_check_ptr, bitwise_ptr : BitwiseBuiltin*}():
-    let (input) = alloc()
-    let (lengths) = alloc()
-    assert input[0] = 16
-    assert lengths[0] = 1
-    let n = 1
-    run_blake2s_and_finalize(input, lengths, n)
-    return()
 end
