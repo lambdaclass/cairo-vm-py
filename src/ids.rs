@@ -1,5 +1,5 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use num_bigint::BigInt;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use cairo_rs::{
     hint_processor::{
@@ -65,7 +65,7 @@ impl PyIds {
             vm: vm.get_vm(),
             references: references.clone(),
             ap_tracking: ap_tracking.clone(),
-            constants: constants.clone(), 
+            constants: constants.clone(),
         }
     }
 }
@@ -232,7 +232,7 @@ memory[fp+2] = ids.CONST
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(3))))
-            );           
+            );
         });
     }
 
