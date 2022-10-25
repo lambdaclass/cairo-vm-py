@@ -34,6 +34,7 @@ clean:
 run-python-test-macos: $(COMPILED_TESTS)
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
+	pyenv install pypy3.7-7.3.9 && \
 	pyenv local pypy3.7-7.3.9 && \
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa && \
 	pip install cairo_lang==0.9.1 && \
@@ -46,6 +47,7 @@ full-test-macos: test run-python-test-macos clean
 run-python-test: $(COMPILED_TESTS)
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
+	pyenv install pypy3.7-7.3.9 && \
 	pyenv local pypy3.7-7.3.9 && \
 	pip install cairo_lang==0.9.1 && \
 	maturin develop && \
