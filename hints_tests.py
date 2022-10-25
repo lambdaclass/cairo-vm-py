@@ -20,4 +20,5 @@ if __name__ == "__main__":
     test_program("memcpy")
     test_program("memset")
     #test_program("split_felt")
+    test_program("split_int")
     print("\nAll test have passed")
