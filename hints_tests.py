@@ -1,10 +1,10 @@
 import cairo_rs_py
 
-def new_vm():
-    return cairo_rs_py.PyVM(3618502788666131213697322783095070105623107215331596699973092056135872020481, True)
+def new_runner(program_name: str):
+    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main")
 
 def test_program(program_name: str):
-    print(new_vm().cairo_run(f"cairo_programs/{program_name}.json", "main", False))
+    print(new_runner(program_name).cairo_run(False))
 
 if __name__ == "__main__":
     test_program("assert_not_zero")

@@ -55,7 +55,8 @@ impl PyMemory {
 #[cfg(test)]
 mod test {
     use crate::utils::to_vm_error;
-    use crate::{memory::PyMemory, relocatable::PyRelocatable, PyVM};
+    use crate::vm_core::PyVM;
+    use crate::{memory::PyMemory, relocatable::PyRelocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};
