@@ -11,8 +11,8 @@ mod test {
             false,
         );
         vm.cairo_run_py(
-            "cairo_programs/fibonacci.json",
-            "main",
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
             false,
             None,
             None,
@@ -28,8 +28,8 @@ mod test {
             false,
         );
         vm.cairo_run_py(
-            "cairo_programs/array_sum.json",
-            "main",
+            "cairo_programs/array_sum.json".to_string(),
+            "main".to_string(),
             false,
             None,
             None,
@@ -45,8 +45,8 @@ mod test {
             false,
         );
         vm.cairo_run_py(
-            "cairo_programs/hint_print_vars.json",
-            "main",
+            "cairo_programs/hint_print_vars.json".to_string(),
+            "main".to_string(),
             false,
             None,
             None,
