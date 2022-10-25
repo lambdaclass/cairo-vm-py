@@ -26,6 +26,7 @@ jobs:
         python-version: '3.9'
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
+    - name: Install pyenv
       run: git clone https://github.com/pyenv/pyenv.git ~/.pyenv
     - name: format
       run: cargo fmt --all -- --check
