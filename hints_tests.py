@@ -19,4 +19,5 @@ if __name__ == "__main__":
     test_program("assert_nn_hint")
     test_program("memcpy")
     test_program("memset")
+    test_program("blake2s_compute")
     print("\nAll test have passed")
