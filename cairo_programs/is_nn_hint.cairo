@@ -17,7 +17,7 @@ func is_nn{range_check_ptr}(a) -> (res : felt):
     return (res=1)
 
     out_of_range:
-    %{ 
+    %{
         #TEST
         memory[ap] = 0 if 0 <= ((-ids.a - 1) % PRIME) < range_check_builtin.bound else 1 
     %}
