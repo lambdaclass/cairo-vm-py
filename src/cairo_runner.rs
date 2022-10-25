@@ -1,23 +1,27 @@
-use crate::{
-    relocatable::PyRelocatable,
-    utils::{to_py_error, PyIoStream},
-    vm_core::PyVM,
-};
+use crate::{relocatable::PyRelocatable, utils::to_py_error, vm_core::PyVM};
 use cairo_rs::{
+    cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     types::{program::Program, relocatable::Relocatable},
-    vm::runners::cairo_runner::CairoRunner,
+    vm::{
+        errors::{
+            cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
+        },
+        runners::cairo_runner::CairoRunner,
+    },
 };
 use num_bigint::{BigInt, Sign};
 use pyo3::prelude::*;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[pyclass(unsendable)]
 pub struct PyCairoRunner {
     inner: CairoRunner,
     pyvm: PyVM,
     hint_processor: BuiltinHintProcessor,
-    //Placeholder
     hint_locals: HashMap<String, PyObject>,
 }
 
@@ -30,15 +34,71 @@ impl PyCairoRunner {
 
         Ok(PyCairoRunner {
             inner: cairo_runner,
-            //Placeholder
             pyvm: PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
+                true,
             ),
             hint_processor: BuiltinHintProcessor::new_empty(),
-            //Placeholder
             hint_locals: HashMap::new(),
         })
+    }
+
+    #[pyo3(name = "cairo_run")]
+    pub fn cairo_run_py(
+        &mut self,
+        print_output: bool,
+        trace_file: Option<&str>,
+        memory_file: Option<&str>,
+        hint_locals: Option<HashMap<String, PyObject>>,
+    ) -> PyResult<()> {
+        let end = self.initialize()?;
+        if let Some(locals) = hint_locals {
+            self.hint_locals = locals
+        }
+        //TODO uncomment
+        /*
+        if trace_file.is_none() {
+           *self.pyvm.vm.borrow_mut().disable_trace();
+        }
+        */
+        self.run_until_pc(&end.into())?;
+
+        self.pyvm
+            .vm
+            .borrow_mut()
+            .verify_auto_deductions()
+            .map_err(to_py_error)?;
+
+        self.relocate()?;
+
+        if print_output {
+            self.write_output()?;
+        }
+
+        if let Some(trace_path) = trace_file {
+            let trace_path = PathBuf::from(trace_path);
+            let relocated_trace = self
+                .inner
+                .relocated_trace
+                .as_ref()
+                .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
+                .map_err(to_py_error)?;
+
+            match cairo_rs::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
+                Ok(()) => (),
+                Err(_e) => {
+                    return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
+                }
+            }
+        }
+
+        if let Some(memory_path) = memory_file {
+            let memory_path = PathBuf::from(memory_path);
+            cairo_rs::cairo_run::write_binary_memory(&self.inner.relocated_memory, &memory_path)
+                .map_err(|_| to_py_error(CairoRunError::Runner(RunnerError::WriteFail)))?;
+        }
+
+        Ok(())
     }
 
     fn initialize(&mut self) -> PyResult<PyRelocatable> {
@@ -84,12 +144,8 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
-    fn write_output(&mut self, stdout: &PyAny) -> PyResult<()> {
-        let mut stdout = PyIoStream(stdout);
-
-        self.inner
-            .write_output(&mut self.pyvm.vm.borrow_mut(), &mut stdout)
-            .map_err(to_py_error)
+    fn write_output(&mut self) -> PyResult<()> {
+        write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
     }
 }
 
@@ -108,10 +164,6 @@ mod test {
         runner.initialize().unwrap();
     }
 
-    // TODO: Test get_reference_list().
-    // TODO: Test get_data_dictionary().
-    // TODO: Test run_until_pc().
-
     #[test]
     fn runner_relocate() {
         let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
@@ -126,14 +178,7 @@ mod test {
 
     #[test]
     fn write_output() {
-        Python::with_gil(|py| {
-            let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
-
-            let py_io = py.import("io").unwrap();
-            let py_bytes_io_class = py_io.getattr("BytesIO").unwrap();
-            let py_stream = py_bytes_io_class.call0().unwrap();
-
-            runner.write_output(py_stream).unwrap();
-        })
+        let mut runner = PyCairoRunner::new("cairo_programs/fibonacci.json", "main").unwrap();
+        runner.write_output().unwrap();
     }
 }
