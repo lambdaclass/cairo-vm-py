@@ -1,8 +1,6 @@
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use pyo3::{exceptions::PyValueError, PyErr};
-use std::{
-    fmt::Display,
-};
+use std::fmt::Display;
 
 #[macro_export]
 macro_rules! pycell {
