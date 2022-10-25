@@ -4,10 +4,7 @@ use crate::{
     vm_core::PyVM,
 };
 use cairo_rs::{
-    hint_processor::{
-        builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
-        hint_processor_definition::HintProcessor,
-    },
+    hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     types::{program::Program, relocatable::Relocatable},
     vm::runners::cairo_runner::CairoRunner,
 };
@@ -51,14 +48,15 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
-    fn run_until_pc(&self, address: &PyRelocatable) -> PyResult<()> {
+    fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
         let references = self.inner.get_reference_list();
         let hint_data_dictionary = self
             .inner
             .get_hint_data_dictionary(&references, &self.hint_processor)
             .map_err(to_py_error)?;
 
-        while self.pyvm.vm.borrow().get_pc().into() != address {
+        let address = Into::<Relocatable>::into(address);
+        while self.pyvm.vm.borrow().get_pc() != &address {
             self.pyvm
                 .step(
                     &self.hint_processor,
@@ -69,14 +67,10 @@ impl PyCairoRunner {
                     //Placeholder data
                     &HashMap::new(),
                 )
-                .map_err(to_py_error);
+                .map_err(to_py_error)?;
         }
         Ok(())
     }
-
-    // TODO: get_reference_list(): HintReference in Python?
-    // TODO: get_data_dictionary(): HintReference in Python?
-    // TODO: run_until_pc(): HintProcessor in Python?
 
     fn relocate(&mut self) -> PyResult<()> {
         self.inner
