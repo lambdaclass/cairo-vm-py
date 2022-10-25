@@ -109,7 +109,7 @@ impl PyVM {
             let relocated_trace = cairo_runner
                 .relocated_trace
                 .as_ref()
-                .ok_or_else(|| CairoRunError::Trace(TraceError::TraceNotEnabled))
+                .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
                 .map_err(to_py_error)?;
 
             match cairo_rs::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
