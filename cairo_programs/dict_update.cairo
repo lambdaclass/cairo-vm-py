@@ -1,6 +1,6 @@
 from starkware.cairo.common.dict_access import DictAccess
 from dict_new import dict_new
-from dict_update import dict_update
+from dict_read import dict_read
 
 # Updates a value in a dict. prev_value must be specified. A standalone read with no write should be
 # performed by writing the same value.
