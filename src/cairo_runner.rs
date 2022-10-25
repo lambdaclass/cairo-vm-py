@@ -57,7 +57,7 @@ impl PyCairoRunner {
             self.hint_locals = locals
         }
         if trace_file.is_none() {
-           self.pyvm.vm.borrow_mut().disable_trace();
+            self.pyvm.vm.borrow_mut().disable_trace();
         }
         self.run_until_pc(&end)?;
 
