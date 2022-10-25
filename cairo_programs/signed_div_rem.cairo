@@ -41,4 +41,3 @@ func main{output_ptr: felt*, range_check_ptr: felt}():
      assert r = 2
      return ()
 end
-
