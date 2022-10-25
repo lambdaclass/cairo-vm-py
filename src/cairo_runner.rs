@@ -18,6 +18,7 @@ use std::{
 };
 
 #[pyclass(unsendable)]
+#[pyo3(name="CairoRunner")]
 pub struct PyCairoRunner {
     inner: CairoRunner,
     pyvm: PyVM,

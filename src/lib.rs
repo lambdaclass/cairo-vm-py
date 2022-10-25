@@ -11,12 +11,9 @@ mod vm_core;
 
 use cairo_runner::PyCairoRunner;
 use pyo3::prelude::*;
-use vm_core::PyVM;
 
 #[pymodule]
 fn cairo_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCairoRunner>()?;
-    m.add_class::<PyVM>()?;
-
     Ok(())
 }
