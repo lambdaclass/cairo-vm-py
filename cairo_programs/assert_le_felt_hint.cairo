@@ -3,6 +3,7 @@ func main():
     let b = 600
 
     %{
+        #TEST
         from starkware.cairo.common.math_utils import assert_integer
         assert_integer(ids.a)
         assert_integer(ids.b)

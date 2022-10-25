@@ -17,6 +17,8 @@ if __name__ == "__main__":
     test_program("ec_mul_inner")
     # test_program("ec_negate")
     test_program("assert_nn_hint")
+    test_program("memcpy")
+    test_program("memset")
     test_program("dict_new")
     #test_program("dict_read")
     #test_program("dict_write")
