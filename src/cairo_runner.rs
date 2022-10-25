@@ -17,7 +17,7 @@ impl PyCairoRunner {
     #[new]
     fn new(path: &str, entrypoint: &str) -> PyResult<Self> {
         let program = Program::new(Path::new(path), entrypoint).map_err(to_py_error)?;
-        let mut cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
+        let cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
 
         Ok(PyCairoRunner {
             inner: cairo_runner,
@@ -25,7 +25,7 @@ impl PyCairoRunner {
     }
 
     fn initialize(&mut self, vm: &PyVM) -> PyResult<PyRelocatable> {
-        let vm_ref = vm.vm.as_ref().borrow_mut();
+        let mut vm_ref = vm.vm.as_ref().borrow_mut();
 
         self.inner
             .initialize(vm_ref.deref_mut())
@@ -38,13 +38,13 @@ impl PyCairoRunner {
     // TODO: run_until_pc(): HintProcessor in Python?
 
     fn relocate(&mut self, vm: &PyVM) -> PyResult<()> {
-        let vm_ref = vm.vm.as_ref().borrow_mut();
+        let mut vm_ref = vm.vm.as_ref().borrow_mut();
 
         self.inner.relocate(vm_ref.deref_mut()).map_err(to_py_error)
     }
 
     fn get_output(&mut self, vm: &PyVM) -> PyResult<Option<String>> {
-        let vm_ref = vm.vm.as_ref().borrow_mut();
+        let mut vm_ref = vm.vm.as_ref().borrow_mut();
 
         self.inner
             .get_output(vm_ref.deref_mut())
@@ -53,7 +53,7 @@ impl PyCairoRunner {
 
     fn write_output(&mut self, vm: &PyVM, stdout: &PyAny) -> PyResult<()> {
         let mut stdout = PyIoStream(stdout);
-        let vm_ref = vm.vm.as_ref().borrow_mut();
+        let mut vm_ref = vm.vm.as_ref().borrow_mut();
 
         self.inner
             .write_output(vm_ref.deref_mut(), &mut stdout)
