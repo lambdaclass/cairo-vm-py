@@ -31,7 +31,7 @@ clean:
 	rm -f $(TEST_DIR)/*.json
 	rm -rf cairo-rs-py-env
 
-run-python-test-macos:
+run-python-test-macos: $(COMPILED_TESTS)
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
 	pyenv local pypy3.7-7.3.9 && \
@@ -43,7 +43,7 @@ run-python-test-macos:
 
 full-test-macos: test run-python-test-macos clean
 
-run-python-test:
+run-python-test: $(COMPILED_TESTS)
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
 	pyenv local pypy3.7-7.3.9 && \
