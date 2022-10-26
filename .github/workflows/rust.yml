@@ -25,7 +25,7 @@ jobs:
       with:
         default: 3.9
     - name: Install test dependencies
-      run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
+      run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
     - name: Format
       run: cargo fmt --all -- --check
     - name: Build
