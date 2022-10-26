@@ -7,9 +7,9 @@ const RC_BOUND = 2 ** 128
 # Returns 1 if a >= 0 (or more precisely 0 <= a < RANGE_CHECK_BOUND).
 # Returns 0 otherwise.
 func is_nn{range_check_ptr}(a) -> (res : felt):
-    %{ 
+    %{
         # TEST
-        memory[ap] = 0 if 0 <= (ids.a % PRIME) < range_check_builtin.bound else 1 
+        memory[ap] = 0 if 0 <= (ids.a % PRIME) < range_check_builtin.bound else 1
     %}
     jmp out_of_range if [ap] != 0; ap++
     [range_check_ptr] = a
@@ -17,7 +17,10 @@ func is_nn{range_check_ptr}(a) -> (res : felt):
     return (res=1)
 
     out_of_range:
-    %{ memory[ap] = 0 if 0 <= ((-ids.a - 1) % PRIME) < range_check_builtin.bound else 1 %}
+    %{
+        #TEST
+        memory[ap] = 0 if 0 <= ((-ids.a - 1) % PRIME) < range_check_builtin.bound else 1
+    %}
     jmp need_felt_comparison if [ap] != 0; ap++
     assert [range_check_ptr] = (-a) - 1
     let range_check_ptr = range_check_ptr + 1

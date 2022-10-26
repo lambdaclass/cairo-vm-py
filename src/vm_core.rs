@@ -1,35 +1,25 @@
 use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
-use crate::utils::to_py_error;
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable, utils::to_vm_error,
 };
 use cairo_rs::any_box;
-use cairo_rs::cairo_run::write_output;
-use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_rs::serde::deserialize_program::Member;
 use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::types::program::Program;
-use cairo_rs::types::relocatable::Relocatable;
-use cairo_rs::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_rs::vm::errors::runner_errors::RunnerError;
-use cairo_rs::vm::errors::trace_errors::TraceError;
-use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
     vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
+use pyo3::PyCell;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
-use pyo3::{PyCell, PyResult};
 use std::any::Any;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::{cell::RefCell, rc::Rc};
 
 const GLOBAL_NAMES: [&str; 16] = [
@@ -63,81 +53,6 @@ impl PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
-    }
-
-    #[pyo3(name = "cairo_run")]
-    pub fn cairo_run_py(
-        &self,
-        path: String,
-        entrypoint: String,
-        print_output: bool,
-        trace_file: Option<&str>,
-        memory_file: Option<&str>,
-        hint_locals: Option<HashMap<String, PyObject>>,
-    ) -> PyResult<()> {
-        let path = Path::new(&path);
-        let program = Program::new(path, &entrypoint).map_err(to_py_error)?;
-        let hint_processor = BuiltinHintProcessor::new_empty();
-        let mut cairo_runner = CairoRunner::new(&program, &hint_processor).map_err(to_py_error)?;
-        let end = cairo_runner
-            .initialize(&mut self.vm.borrow_mut())
-            .map_err(to_py_error)?;
-        let mut hint_locals = hint_locals.unwrap_or_default();
-        self.run_until_pc(
-            &mut cairo_runner,
-            &end,
-            &mut hint_locals,
-            Rc::new(
-                program
-                    .identifiers
-                    .iter()
-                    .filter_map(|(key, value)| match value.type_.as_deref() {
-                        Some("struct") => {
-                            Some((key.to_string(), value.members.clone().unwrap_or_default()))
-                        }
-                        _ => None,
-                    })
-                    .collect(),
-            ),
-        )
-        .map_err(to_py_error)?;
-
-        self.vm
-            .borrow_mut()
-            .verify_auto_deductions()
-            .map_err(to_py_error)?;
-
-        cairo_runner
-            .relocate(&mut self.vm.borrow_mut())
-            .map_err(to_py_error)?;
-
-        if print_output {
-            write_output(&mut cairo_runner, &mut self.vm.borrow_mut()).map_err(to_py_error)?;
-        }
-
-        if let Some(trace_path) = trace_file {
-            let trace_path = PathBuf::from(trace_path);
-            let relocated_trace = cairo_runner
-                .relocated_trace
-                .as_ref()
-                .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
-                .map_err(to_py_error)?;
-
-            match cairo_rs::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
-                Ok(()) => (),
-                Err(_e) => {
-                    return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
-                }
-            }
-        }
-
-        if let Some(memory_path) = memory_file {
-            let memory_path = PathBuf::from(memory_path);
-            cairo_rs::cairo_run::write_binary_memory(&cairo_runner.relocated_memory, &memory_path)
-                .map_err(|_| to_py_error(CairoRunError::Runner(RunnerError::WriteFail)))?;
-        }
-
-        Ok(())
     }
 }
 
@@ -230,12 +145,13 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         let pc_offset = self.vm.borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
-                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data)? {
+                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data, constants)? {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
@@ -260,6 +176,7 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         self.step_hint(
             hint_executor,
@@ -267,6 +184,7 @@ impl PyVM {
             exec_scopes,
             hint_data_dictionary,
             struct_types,
+            constants,
         )?;
         self.vm.borrow_mut().step_instruction()
     }
@@ -276,35 +194,14 @@ impl PyVM {
         hint_executor: &dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
+        constants: &HashMap<String, BigInt>,
     ) -> Result<bool, VirtualMachineError> {
         let mut vm = self.vm.borrow_mut();
-        match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data) {
+        match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data, constants) {
             Ok(()) => Ok(false),
             Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
             Err(e) => Err(e),
         }
-    }
-
-    fn run_until_pc(
-        &self,
-        cairo_runner: &mut CairoRunner,
-        address: &Relocatable,
-        hint_locals: &mut HashMap<String, PyObject>,
-        struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
-    ) -> Result<(), VirtualMachineError> {
-        let references = cairo_runner.get_reference_list();
-        let hint_data_dictionary = cairo_runner.get_hint_data_dictionary(&references)?;
-
-        while self.vm.borrow().get_pc() != address {
-            self.step(
-                cairo_runner.hint_executor,
-                hint_locals,
-                &mut cairo_runner.exec_scopes,
-                &hint_data_dictionary,
-                Rc::clone(&struct_types),
-            )?;
-        }
-        Ok(())
     }
 }
 
@@ -472,6 +369,7 @@ mod test {
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                &HashMap::new(),
             ),
             Ok(())
         );
@@ -520,6 +418,7 @@ mod test {
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                &HashMap::new(),
             ),
             Ok(())
         );
