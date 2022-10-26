@@ -21,4 +21,5 @@ if __name__ == "__main__":
     test_program("memset")
     #test_program("split_felt")
     test_program("split_int")
+    test_program("split_64")
     print("\nAll test have passed")
