@@ -1,4 +1,4 @@
-.PHONY: deps build run check test clippy clean, run-python-test, run-python-test-macos, full-test-macos, full-test, install-pyenv
+.PHONY: deps build run check test clippy clean, run-python-test, run-python-test-macos, full-test-macos, full-test, run-python-test-default-version, ful-test-default-version
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
@@ -55,3 +55,13 @@ run-python-test: $(COMPILED_TESTS)
 	deactivate
 
 full-test: test run-python-test clean
+
+Run-python-test-default-version: $(COMPILED_TESTS)
+	python3 -m venv cairo-rs-py-env
+	. cairo-rs-py-env/bin/activate && \
+	pip install cairo_lang==0.9.1 && \
+	maturin develop && \
+	python3 hints_tests.py && \
+	deactivate
+
+full-test-default-version: test run-python-test-default-version clean
