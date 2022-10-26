@@ -724,4 +724,23 @@ lista_b = [lista_a[k] for k in range(2)]";
             );
         });
     }
+
+    #[test]
+    fn to_felt_or_relocatable_list_should_fail() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "felt = to_felt_or_relocatable([1,2,3])";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert!(vm
+            .execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                Rc::new(HashMap::new()),
+            )
+            .is_err());
+    }
 }
