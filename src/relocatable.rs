@@ -8,7 +8,7 @@ use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
 
 const PYRELOCATABLE_COMPARE_ERROR: &str = "Cannot compare Relocatables of different segments";
 
-#[derive(FromPyObject, Debug, Clone)]
+#[derive(FromPyObject, Debug, Clone, PartialEq, Eq)]
 pub enum PyMaybeRelocatable {
     Int(BigInt),
     RelocatableValue(PyRelocatable),
@@ -197,16 +197,5 @@ impl From<&BigInt> for PyMaybeRelocatable {
 impl From<BigInt> for PyMaybeRelocatable {
     fn from(val: BigInt) -> Self {
         PyMaybeRelocatable::Int(val)
-    }
-}
-
-#[pyfunction]
-pub fn to_felt_or_relocatable(any: PyObject, py: Python) -> PyResult<PyObject> {
-    match any.extract::<PyRelocatable>(py) {
-        Ok(rel) => Ok(Into::<PyMaybeRelocatable>::into(rel).to_object(py)),
-        Err(_) => Ok(Into::<PyMaybeRelocatable>::into(
-            any.call_method0(py, "__int__")?.extract::<BigInt>(py)?,
-        )
-        .to_object(py)),
     }
 }

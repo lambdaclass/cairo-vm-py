@@ -1,6 +1,7 @@
 use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
+use crate::to_felt_or_relocatable::ToFeltOrRelocatableFunc;
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable, utils::to_vm_error,
@@ -22,7 +23,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
-const GLOBAL_NAMES: [&str; 16] = [
+const GLOBAL_NAMES: [&str; 17] = [
     "memory",
     "segments",
     "ap",
@@ -30,6 +31,7 @@ const GLOBAL_NAMES: [&str; 16] = [
     "ids",
     "vm_enter_scope",
     "vm_exit_scope",
+    "to_felt_or_relocatable",
     "range_check_builtin",
     "PRIME",
     "__doc__",
@@ -84,6 +86,7 @@ impl PyVM {
             let range_check_builtin =
                 PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
             let prime = self.vm.borrow().get_prime().clone();
+            let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
             let globals = py
@@ -110,18 +113,22 @@ impl PyVM {
             globals
                 .set_item("ids", pycell!(py, ids))
                 .map_err(to_vm_error)?;
-
             globals
                 .set_item("vm_enter_scope", enter_scope)
                 .map_err(to_vm_error)?;
             globals
                 .set_item("vm_exit_scope", exit_scope)
                 .map_err(to_vm_error)?;
-
             globals
                 .set_item("range_check_builtin", range_check_builtin)
                 .map_err(to_vm_error)?;
             globals.set_item("PRIME", prime).map_err(to_vm_error)?;
+            globals
+                .set_item(
+                    "to_felt_or_relocatable",
+                    pycell!(py, to_felt_or_relocatable),
+                )
+                .map_err(to_vm_error)?;
 
             for (name, pyobj) in hint_locals.iter() {
                 globals.set_item(name, pyobj).map_err(to_vm_error)?;
@@ -237,7 +244,7 @@ pub(crate) fn update_scope_hint_locals(
 
 #[cfg(test)]
 mod test {
-    use crate::vm_core::PyVM;
+    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{
         bigint,
         hint_processor::{
@@ -684,5 +691,37 @@ lista_b = [lista_a[k] for k in range(2)]";
             ),
             Ok(())
         );
+    }
+
+    #[test]
+    fn to_felt_or_relocatable_number() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "felt = to_felt_or_relocatable(456)";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        Python::with_gil(|py| {
+            assert_eq!(
+                exec_scopes
+                    .get_any_boxed_ref("felt")
+                    .unwrap()
+                    .downcast_ref::<PyObject>()
+                    .unwrap()
+                    .extract::<PyMaybeRelocatable>(py)
+                    .unwrap(),
+                PyMaybeRelocatable::from(bigint!(456))
+            );
+        });
     }
 }
