@@ -27,7 +27,7 @@ jobs:
     - name: setup pyenv
       uses: "gabrielfalcao/pyenv-action@v9"
       with:
-        default: 3.7.2
+        default: 3.9
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
     - name: Format
