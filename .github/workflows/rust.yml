@@ -30,6 +30,9 @@ jobs:
     steps:
     - name: setup pyenv
       uses: "gabrielfalcao/pyenv-action@v9"
+      with:
+        default: 3.7.2
+        versions: 3.6.8, 3.5.7
     - name: Format
       run: cargo fmt --all -- --check
     - name: Build
