@@ -103,6 +103,9 @@ impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
         let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
+        if name == "address_" {
+            return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
+        }
         match struct_type.get(name) {
             Some(member) => {
                 let vm = self.vm.borrow();

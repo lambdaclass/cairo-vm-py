@@ -11,8 +11,8 @@ func reduce{range_check_ptr}(x : UnreducedBigInt3) -> (reduced_x : BigInt3):
         from starkware.cairo.common.cairo_secp.secp_utils import SECP_P, pack
 
         value = pack(ids.x, PRIME) % SECP_P
-
     %}
+
     let (reduced_x : BigInt3) = nondet_bigint3()
 
     verify_zero(
