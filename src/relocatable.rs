@@ -33,8 +33,14 @@ impl PyRelocatable {
         }
     }
 
-    pub fn to_felt_or_relocatable(any: PyAny) -> PyResult<PyMaybeRelocatable> {
-        if let Ok(rel) = 
+    pub fn to_felt_or_relocatable(any: PyObject, py: Python) -> PyResult<PyObject> {
+        match any.extract::<PyRelocatable>(py) {
+            Ok(rel) => Ok(Into::<PyMaybeRelocatable>::into(rel).to_object(py)),
+            Err(_) => Ok(Into::<PyMaybeRelocatable>::into(
+                any.call_method0(py, "__int__")?.extract::<BigInt>(py)?,
+            )
+            .to_object(py)),
+        }
     }
 
     pub fn __add__(&self, value: usize) -> PyRelocatable {
@@ -195,5 +201,11 @@ impl From<PyRelocatable> for PyMaybeRelocatable {
 impl From<&BigInt> for PyMaybeRelocatable {
     fn from(val: &BigInt) -> Self {
         PyMaybeRelocatable::Int(val.clone())
+    }
+}
+
+impl From<BigInt> for PyMaybeRelocatable {
+    fn from(val: BigInt) -> Self {
+        PyMaybeRelocatable::Int(val)
     }
 }
