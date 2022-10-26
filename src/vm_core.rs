@@ -606,7 +606,7 @@ print(word)";
     }
 
     #[test]
-    fn enter_exit_scope_hint() {
+    fn enter_exit_scope_same_hint() {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
@@ -620,6 +620,47 @@ vm_exit_scope()";
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 1)
+    }
+
+    #[test]
+    fn enter_exit_scope_separate_hints() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code_a = "vm_enter_scope()";
+        let code_b = "vm_exit_scope()";
+        let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
+        assert_eq!(exec_scopes.data.len(), 2);
+        let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
+        assert_eq!(exec_scopes.data.len(), 1)
+    }
+
+    #[test]
+    fn enter_exit_enter_scope_same_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "vm_enter_scope()
+vm_exit_scope()
+vm_enter_scope()";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            Ok(())
+        );
+        assert_eq!(exec_scopes.data.len(), 2)
     }
 
     #[test]
