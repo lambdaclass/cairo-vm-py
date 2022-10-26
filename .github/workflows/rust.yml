@@ -26,12 +26,10 @@ jobs:
         python-version: '3.9'
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
-    - name: Install pyenv 
-      run: |
-        export PYENV_ROOT="$HOME/.pyenv"
-        command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
-        curl https://pyenv.run | bash
-        exec $SHELL
+    name: install pyenv
+    steps:
+    - name: setup pyenv
+      uses: "gabrielfalcao/pyenv-action@v9"
     - name: Format
       run: cargo fmt --all -- --check
     - name: Build
