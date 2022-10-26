@@ -33,6 +33,10 @@ impl PyRelocatable {
         }
     }
 
+    pub fn to_felt_or_relocatable(any: PyAny) -> PyResult<PyMaybeRelocatable> {
+        if let Ok(rel) = 
+    }
+
     pub fn __add__(&self, value: usize) -> PyRelocatable {
         PyRelocatable {
             segment_index: self.segment_index,
