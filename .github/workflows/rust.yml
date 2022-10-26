@@ -31,7 +31,7 @@ jobs:
     - name: Build
       run: make build
     - name: Run tests
-      run: make full-test
+      run: make full-test-default-version
     - name: Run clippy
       run: make clippy
     - name: Clean
