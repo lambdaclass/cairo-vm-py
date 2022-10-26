@@ -24,6 +24,10 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
+    - name: setup pyenv
+      uses: "gabrielfalcao/pyenv-action@v9"
+      with:
+        default: pypy3.7-7.3.9
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
     - name: Format
@@ -31,7 +35,7 @@ jobs:
     - name: Build
       run: make build
     - name: Run tests
-      run: make test
+      run: make full-test
     - name: Run clippy
       run: make clippy
     - name: Clean
