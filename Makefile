@@ -56,7 +56,7 @@ run-python-test: $(COMPILED_TESTS)
 
 full-test: test run-python-test clean
 
-Run-python-test-default-version: $(COMPILED_TESTS)
+run-python-test-default-version: $(COMPILED_TESTS)
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
 	pip install cairo_lang==0.9.1 && \
