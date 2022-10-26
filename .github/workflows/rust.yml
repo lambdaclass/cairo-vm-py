@@ -26,19 +26,12 @@ jobs:
         python-version: '3.9'
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1
-    name: install pyenv
-    steps:
-    - name: setup pyenv
-      uses: "gabrielfalcao/pyenv-action@v9"
-      with:
-        default: 3.7.2
-        versions: 3.6.8, 3.5.7
     - name: Format
       run: cargo fmt --all -- --check
     - name: Build
       run: make build
     - name: Run tests
-      run: make full-test
+      run: make test
     - name: Run clippy
       run: make clippy
     - name: Clean
