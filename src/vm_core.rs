@@ -773,6 +773,7 @@ lista_b = [lista_a[k] for k in range(2)]";
             ),
             Ok(())
         );
+        //Check the value of ids.test_value
         assert_eq!(
             vm.vm
                 .borrow()
