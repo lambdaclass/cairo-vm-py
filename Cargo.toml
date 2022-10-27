@@ -16,3 +16,6 @@ pyo3 = { version = "0.16.5" }
 cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "ee50102d078a55b40c60e8822d9f5912e4e4f37f" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
+
+[dev-dependencies.rusty-hook]
+version = "0.11"
