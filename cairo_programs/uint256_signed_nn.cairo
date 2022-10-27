@@ -1,8 +1,6 @@
 %builtins range_check
 from starkware.cairo.common.uint256 import Uint256
 
-const SHIFT = 2 ** 128
-
 # Returns 1 if the signed integer is nonnegative.
 func uint256_signed_nn{range_check_ptr}(a: Uint256) -> (res: felt):
     %{ 
