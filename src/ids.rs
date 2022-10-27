@@ -1,5 +1,6 @@
 use num_bigint::BigInt;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use crate::utils::const_path_to_const_name;
 
 use cairo_rs::{
     hint_processor::{
@@ -91,7 +92,7 @@ impl PyIds {
             vm: vm.get_vm(),
             references: references.clone(),
             ap_tracking: ap_tracking.clone(),
-            constants: constants.clone(),
+            constants: const_path_to_const_name(constants),
             struct_types,
         }
     }
