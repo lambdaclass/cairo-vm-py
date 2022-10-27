@@ -25,4 +25,11 @@ if __name__ == "__main__":
     # test_program("ec_doble")
     test_program("memcpy")
     test_program("memset")
+    # test_program("keccak")
+    # test_program("_keccak")
+    test_program("keccak_add_uint256")
+    # test_program("keccak_copy_inputs")
+    test_program("unsafe_keccak")
+    # test_program("unsafe_keccak_finalize")
+
     print("\nAll test have passed")
