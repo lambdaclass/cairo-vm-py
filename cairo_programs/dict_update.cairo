@@ -32,7 +32,6 @@ func main():
     let (my_dict) = dict_new()
     dict_update{dict_ptr=my_dict}(key=1, prev_value=2, new_value=5)
     let (local val : felt) = dict_read{dict_ptr=my_dict}(key=1)
-    assert val = 34
     assert val = 5
     return ()
 end
