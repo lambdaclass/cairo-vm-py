@@ -743,4 +743,43 @@ lista_b = [lista_a[k] for k in range(2)]";
             )
             .is_err());
     }
+
+    #[test]
+    fn to_felt_or_relocatable_relocatable() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "ids.test_value = to_felt_or_relocatable(ids.relocatable)";
+        vm.vm.borrow_mut().add_memory_segment();
+        vm.vm.borrow_mut().add_memory_segment();
+        //insert ids.relocatable
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .unwrap();
+        let ids = HashMap::from([
+            ("relocatable".to_string(), HintReference::new_simple(0)),
+            ("test_value".to_string(), HintReference::new_simple(1)),
+        ]);
+        let hint_data = HintProcessorData::new_default(code.to_string(), ids);
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            vm.vm
+                .borrow()
+                .get_relocatable(&Relocatable::from((1, 1)))
+                .unwrap()
+                .into_owned(),
+            Relocatable::from((2, 0))
+        );
+    }
 }
