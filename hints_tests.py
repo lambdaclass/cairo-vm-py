@@ -32,6 +32,7 @@ if __name__ == "__main__":
     test_program("default_dict_new")
     #test_program("squash_dict")
     #test_program("dict_squash")
+    test_program("usort")
     test_program("sqrt")
     test_program("unsigned_div_rem")
     test_program("signed_div_rem")
