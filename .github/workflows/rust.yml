@@ -25,13 +25,13 @@ jobs:
       with:
         default: 3.9
     - name: Install test dependencies
-      run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
+      run: make deps-default-version
     - name: Format
       run: cargo fmt --all -- --check
     - name: Build
       run: make build
     - name: Run tests
-      run: make full-test-default-version
+      run: make full-test
     - name: Run clippy
       run: make clippy
     - name: Clean
