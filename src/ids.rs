@@ -1,6 +1,6 @@
+use crate::utils::const_path_to_const_name;
 use num_bigint::BigInt;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use crate::utils::const_path_to_const_name;
 
 use cairo_rs::{
     hint_processor::{

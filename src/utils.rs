@@ -19,8 +19,11 @@ pub fn to_py_error<T: Display>(error: T) -> PyErr {
 }
 
 pub fn const_path_to_const_name(constants: &HashMap<String, BigInt>) -> HashMap<String, BigInt> {
-    constants.iter().map(|(name, value)| {
-        let name = name.rsplit(".").next().unwrap_or(name);
-        (name.to_string(), value.clone())
-    }).collect()
+    constants
+        .iter()
+        .map(|(name, value)| {
+            let name = name.rsplit(".").next().unwrap_or(name);
+            (name.to_string(), value.clone())
+        })
+        .collect()
 }
