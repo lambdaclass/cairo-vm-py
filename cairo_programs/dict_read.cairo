@@ -24,7 +24,7 @@ func main():
     let (local val1 : felt) = dict_read{dict_ptr=my_dict}(key=1)
     assert val1 = 2
     let (local val2 : felt) = dict_read{dict_ptr=my_dict}(key=2)
-    assert val1 = 3
+    assert val2 = 3
     let (local val3 : felt) = dict_read{dict_ptr=my_dict}(key=4)
     assert val1 = 5
     return ()
