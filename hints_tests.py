@@ -36,7 +36,7 @@ if __name__ == "__main__":
     # test_program("uint256_add") # Custom Hint Error: ValueError: Failed to get ids value
     # test_program("uint256_sqrt") # Custom Hint Error: ValueError: Failed to get ids value
     # test_program("uint256_unsigned_div_rem") # Custom Hint Error: AttributeError: 'builtins.PyTypedId' object has no attribute 'low'
-    # test_program("uint256_signed_nn") # Custom Hint Error: ValueError: Failed to get ids value
+    test_program("uint256_signed_nn")
     # test_program("bigint_to_uint256") # Custom Hint Error: ValueError: Failed to get ids value
     test_program("usort")
     test_program("sqrt")
