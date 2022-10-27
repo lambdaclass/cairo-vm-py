@@ -1,4 +1,4 @@
-.PHONY: deps deps-macos deps-default-version build run check test clippy clean, run-python-test, run-python-test-macos, full-test-macos, full-test
+.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test run-python-test-macos full-test-macos full-test
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
