@@ -25,6 +25,7 @@ if __name__ == "__main__":
     # test_program("ec_doble")
     test_program("memcpy")
     test_program("memset")
+    test_program("usort")
     test_program("sqrt")
     test_program("unsigned_div_rem")
     test_program("signed_div_rem")
