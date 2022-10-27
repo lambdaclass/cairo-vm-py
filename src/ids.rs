@@ -4,14 +4,17 @@ use cairo_rs::{
     hint_processor::{
         hint_processor_definition::HintReference, hint_processor_utils::bigint_to_usize,
     },
-    serde::deserialize_program::ApTracking,
+    serde::deserialize_program::{ApTracking, Member},
     types::{
         instruction::Register,
         relocatable::{MaybeRelocatable, Relocatable},
     },
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
 };
-use pyo3::{pyclass, pymethods, PyObject, PyResult, Python, ToPyObject};
+use pyo3::{
+    exceptions::PyAttributeError, pyclass, pymethods, IntoPy, PyObject, PyResult, Python,
+    ToPyObject,
+};
 
 use crate::{relocatable::PyMaybeRelocatable, utils::to_py_error, vm_core::PyVM};
 
@@ -23,6 +26,7 @@ pub struct PyIds {
     vm: Rc<RefCell<VirtualMachine>>,
     references: HashMap<String, HintReference>,
     ap_tracking: ApTracking,
+    struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
 
 #[pymethods]
@@ -33,7 +37,28 @@ impl PyIds {
             .references
             .get(name)
             .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
-        Ok(get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?.to_object(py))
+
+        if let Some(cairo_type) = hint_ref.cairo_type.as_deref() {
+            if self.struct_types.contains_key(cairo_type) {
+                return Ok(PyTypedId {
+                    vm: self.vm.clone(),
+                    hint_value: compute_addr_from_reference(
+                        hint_ref,
+                        &self.vm.borrow(),
+                        &self.ap_tracking,
+                    )?,
+                    cairo_type: cairo_type.to_string(),
+                    struct_types: Rc::clone(&self.struct_types),
+                }
+                .into_py(py));
+            }
+        }
+
+        Ok(
+            get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?
+                .to_object(py)
+                .into_py(py),
+        )
     }
 
     pub fn __setattr__(&self, name: &str, val: PyMaybeRelocatable) -> PyResult<()> {
@@ -54,11 +79,62 @@ impl PyIds {
         vm: &PyVM,
         references: &HashMap<String, HintReference>,
         ap_tracking: &ApTracking,
+        struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
     ) -> PyIds {
         PyIds {
             vm: vm.get_vm(),
             references: references.clone(),
             ap_tracking: ap_tracking.clone(),
+            struct_types,
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+struct PyTypedId {
+    vm: Rc<RefCell<VirtualMachine>>,
+    hint_value: Relocatable,
+    cairo_type: String,
+    struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+}
+
+#[pymethods]
+impl PyTypedId {
+    #[getter]
+    fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
+        let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
+        if name == "address_" {
+            return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
+        }
+        match struct_type.get(name) {
+            Some(member) => {
+                let vm = self.vm.borrow();
+                Ok(match member.cairo_type.as_deref() {
+                    Some("felt") | Some("felt*") => PyMaybeRelocatable::from(
+                        vm.get_maybe(
+                            &self
+                                .hint_value
+                                .add_int_mod(member.offset.as_ref().unwrap(), vm.get_prime())
+                                .map_err(to_py_error)?,
+                        )
+                        .map_err(to_py_error)?
+                        .unwrap(),
+                    )
+                    .to_object(py),
+                    Some(cairo_type) => PyTypedId {
+                        vm: self.vm.clone(),
+                        hint_value: self.hint_value.clone(),
+                        cairo_type: cairo_type.to_string(),
+                        struct_types: self.struct_types.clone(),
+                    }
+                    .into_py(py),
+                    None => todo!(),
+                })
+            }
+            None => Err(PyAttributeError::new_err(format!(
+                "'PyTypeId' object has no attribute '{}'",
+                name
+            ))),
         }
     }
 }
@@ -191,7 +267,12 @@ mod tests {
 
             let memory = PyMemory::new(&vm);
             let fp = PyRelocatable::from((1, 0));
-            let ids = PyIds::new(&vm, &references, &ApTracking::default());
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                Rc::new(HashMap::new()),
+            );
 
             let globals = PyDict::new(py);
             globals
@@ -241,7 +322,12 @@ mod tests {
 
             let memory = PyMemory::new(&vm);
             let fp = PyRelocatable::from((1, 0));
-            let ids = PyIds::new(&vm, &references, &ApTracking::default());
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                Rc::new(HashMap::new()),
+            );
 
             let globals = PyDict::new(py);
             globals

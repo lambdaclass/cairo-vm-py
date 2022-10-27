@@ -2,6 +2,7 @@ use crate::{relocatable::PyRelocatable, utils::to_py_error, vm_core::PyVM};
 use cairo_rs::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
+    serde::deserialize_program::Member,
     types::{program::Program, relocatable::Relocatable},
     vm::{
         errors::{
@@ -15,6 +16,7 @@ use pyo3::prelude::*;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 #[pyclass(unsendable)]
@@ -24,6 +26,7 @@ pub struct PyCairoRunner {
     pyvm: PyVM,
     hint_processor: BuiltinHintProcessor,
     hint_locals: HashMap<String, PyObject>,
+    struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
 
 #[pymethods]
@@ -33,6 +36,15 @@ impl PyCairoRunner {
         let program = Program::new(Path::new(&path), &entrypoint).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
 
+        let struct_types = program
+            .identifiers
+            .iter()
+            .filter_map(|(path, identifier)| match identifier.type_.as_deref() {
+                Some("struct") => Some((path.to_string(), identifier.members.clone().unwrap())),
+                _ => None,
+            })
+            .collect();
+
         Ok(PyCairoRunner {
             inner: cairo_runner,
             pyvm: PyVM::new(
@@ -41,6 +53,7 @@ impl PyCairoRunner {
             ),
             hint_processor: BuiltinHintProcessor::new_empty(),
             hint_locals: HashMap::new(),
+            struct_types: Rc::new(struct_types),
         })
     }
 
@@ -122,6 +135,7 @@ impl PyCairoRunner {
                     &mut self.hint_locals,
                     &mut self.inner.exec_scopes,
                     &hint_data_dictionary,
+                    Rc::clone(&self.struct_types),
                     &constants,
                 )
                 .map_err(to_py_error)?;
