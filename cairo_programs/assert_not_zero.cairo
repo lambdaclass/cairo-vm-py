@@ -1,6 +1,4 @@
-from starkware.cairo.common.math import assert_not_zero
-
-func assert_not_zero_manual_implementation(value):
+func assert_not_zero(value):
     %{
         # TEST
         from starkware.cairo.common.math_utils import assert_integer
@@ -22,11 +20,6 @@ func main():
     assert_not_zero(x)
     tempvar y = -80
     assert_not_zero(y)
-
-    assert_not_zero_manual_implementation(1)
-    assert_not_zero_manual_implementation(-1)
-    assert_not_zero_manual_implementation(x)
-    assert_not_zero_manual_implementation(y)
 
     return ()
 end
