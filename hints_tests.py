@@ -23,7 +23,7 @@ if __name__ == "__main__":
     test_program("assert_lt_felt")
     test_program("assert_not_equal")
     test_program("reduce_and_nondet_bigint3")
-    # test_program("is_zero") # Custom Hint Error: NameError: name 'to_felt_or_relocatable' is not defined
+    test_program("is_zero")
     test_program("div_mod_n")
     # test_program("get_point_from_x") # Custom Hint Error: ValueError: Failed to get ids value
     # test_program("compute_slope") # ValueError: verify_zero: Invalid input 115792089237316195422966786669080118156105500425196604465460999109169899370287
