@@ -1,7 +1,7 @@
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use num_bigint::BigInt;
 use pyo3::{exceptions::PyValueError, PyErr};
-use std::{fmt::Display, collections::HashMap};
+use std::{collections::HashMap, fmt::Display};
 
 #[macro_export]
 macro_rules! pycell {
@@ -23,10 +23,12 @@ fn get_constant_name(const_str: String) -> Result<String, VirtualMachineError> {
     const_name.pop().ok_or(VirtualMachineError::FailedToGetIds)
 }
 
-pub fn const_path_to_const_name(constants: HashMap<String, BigInt>) -> Result<HashMap<String, BigInt>, VirtualMachineError> {
+pub fn const_path_to_const_name(
+    constants: HashMap<String, BigInt>,
+) -> Result<HashMap<String, BigInt>, VirtualMachineError> {
     let mut const_map = HashMap::new();
     for (key, value) in constants {
         const_map.insert(get_constant_name(key)?, value);
-    };
+    }
     Ok(const_map)
 }
