@@ -30,6 +30,13 @@ if __name__ == "__main__":
     # test_program("ec_doble") # ValueError: verify_zero: Invalid input -16289419471130179420082969341938614127691693058652915375562000746308067257337178941098315954201487874090
     test_program("memcpy")
     test_program("memset")
+    test_program("dict_new")
+    # test_program("dict_read") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
+    # test_program("dict_write") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
+    # test_program("dict_update") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
+    test_program("default_dict_new")
+    # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
+    # test_program("dict_squash") # Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     # test_program("split_felt") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
     test_program("split_int")
     test_program("split_64")
