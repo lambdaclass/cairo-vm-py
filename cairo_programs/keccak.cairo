@@ -1,6 +1,6 @@
 %builtins range_check bitwise
 
-from keccak_module import keccak
+from keccak_module import keccak, finalize_keccak
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.alloc import alloc
@@ -22,6 +22,8 @@ func main{range_check_ptr : felt, bitwise_ptr : BitwiseBuiltin*}():
     
     assert res.low = 293431514620200399776069983710520819074
     assert res.high = 317109767021952548743448767588473366791
+
+    finalize_keccak(keccak_ptr_start=keccak_ptr_start, keccak_ptr_end=keccak_ptr)
 
     return ()
 end
