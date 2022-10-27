@@ -1,4 +1,4 @@
-.PHONY: deps, deps-macos, deps-default-version, build run check test clippy clean, run-python-test, run-python-test-macos, full-test-macos, full-test, run-python-test-default-version, ful-test-default-version
+.PHONY: deps, deps-macos, deps-default-version, build run check test clippy clean, run-python-test, run-python-test-macos, full-test-macos, full-test
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
@@ -8,21 +8,22 @@ $(TEST_DIR)/%.json: $(TEST_DIR)/%.cairo
 	cairo-compile --cairo_path="$(TEST_DIR):$(BENCH_DIR)" $< --output $@
 
 deps:
+	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
+	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
 	export PYENV_VERSION=pypy3.7-7.3.9
-	pip install cairo_lang==0.9.1
 
 deps-macos:
+	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
+	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
 	export PYENV_VERSION=pypy3.7-7.3.9
-	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
-	pip install cairo_lang==0.9.1
 
 deps-default-version:
+	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
 	python3 -m venv cairo-rs-py-env
-	pip install cairo_lang==0.9.1
 
 build:
 	cargo build --release
@@ -43,26 +44,22 @@ clean:
 	rm -f $(TEST_DIR)/*.json
 	rm -rf cairo-rs-py-env
 
+
 run-python-test-macos: $(COMPILED_TESTS)
 	. cairo-rs-py-env/bin/activate && \
+	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa && \
+	pip install cairo_lang==0.9.1 && \
 	maturin develop && \
 	python3 hints_tests.py && \
 	deactivate
-
-full-test-macos: deps-macos test run-python-test-macos clean
 
 run-python-test: $(COMPILED_TESTS)
 	. cairo-rs-py-env/bin/activate && \
+	pip install cairo_lang==0.9.1 && \
 	maturin develop && \
 	python3 hints_tests.py && \
 	deactivate
 
-full-test: deps test run-python-test clean
+full-test-macos: test run-python-test-macos
 
-run-python-test-default-version: $(COMPILED_TESTS)
-	. cairo-rs-py-env/bin/activate && \
-	maturin develop && \
-	python3 hints_tests.py && \
-	deactivate
-
-full-test-default-version: deps-default-version test run-python-test-default-version clean
+full-test: test run-python-test
