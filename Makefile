@@ -10,13 +10,13 @@ $(TEST_DIR)/%.json: $(TEST_DIR)/%.cairo
 deps:
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
-	pyenv local pypy3.7-7.3.9
+	export PYENV_VERSION=pypy3.7-7.3.9
 	pip install cairo_lang==0.9.1
 
 deps-macos:
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
-	pyenv local pypy3.7-7.3.9
+	export PYENV_VERSION=pypy3.7-7.3.9
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
 	pip install cairo_lang==0.9.1
 
@@ -52,11 +52,7 @@ run-python-test-macos: $(COMPILED_TESTS)
 full-test-macos: deps-macos test run-python-test-macos clean
 
 run-python-test: $(COMPILED_TESTS)
-	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
-	pyenv install pypy3.7-7.3.9 && \
-	pyenv local pypy3.7-7.3.9 && \
-	pip install cairo_lang==0.9.1 && \
 	maturin develop && \
 	python3 hints_tests.py && \
 	deactivate
@@ -64,9 +60,7 @@ run-python-test: $(COMPILED_TESTS)
 full-test: deps test run-python-test clean
 
 run-python-test-default-version: $(COMPILED_TESTS)
-	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
-	pip install cairo_lang==0.9.1 && \
 	maturin develop && \
 	python3 hints_tests.py && \
 	deactivate
