@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # test_program("ec_doble") # ValueError: verify_zero: Invalid input -16289419471130179420082969341938614127691693058652915375562000746308067257337178941098315954201487874090
     test_program("memcpy")
     test_program("memset")
-    # test_program("split_felt") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
+    test_program("split_felt") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
     test_program("split_int")
     test_program("split_64")
     # test_program("uint256_add") # Custom Hint Error: ValueError: Failed to get ids value
