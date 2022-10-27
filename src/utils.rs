@@ -18,17 +18,9 @@ pub fn to_py_error<T: Display>(error: T) -> PyErr {
     PyValueError::new_err(format!("{}", error))
 }
 
-fn get_constant_name(const_str: String) -> Result<String, VirtualMachineError> {
-    let mut const_name: Vec<String> = const_str.split('.').map(|s| s.to_string()).collect();
-    const_name.pop().ok_or(VirtualMachineError::FailedToGetIds)
-}
-
-pub fn const_path_to_const_name(
-    constants: HashMap<String, BigInt>,
-) -> Result<HashMap<String, BigInt>, VirtualMachineError> {
-    let mut const_map = HashMap::new();
-    for (key, value) in constants {
-        const_map.insert(get_constant_name(key)?, value);
-    }
-    Ok(const_map)
+pub fn const_path_to_const_name(constants: &HashMap<String, BigInt>) -> HashMap<String, BigInt> {
+    constants.iter().map(|(name, value)| {
+        let name = name.rsplit(".").next().unwrap_or(name);
+        (name.to_string(), value.clone())
+    }).collect()
 }
