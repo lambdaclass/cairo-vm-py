@@ -35,8 +35,8 @@ if __name__ == "__main__":
     # test_program("dict_write") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     # test_program("dict_update") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     test_program("default_dict_new")
-    # test_program("squash_dict")
-    # test_program("dict_squash")
+    # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
+    # test_program("dict_squash") # Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     # test_program("split_felt") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
     test_program("split_int")
     test_program("split_64")
