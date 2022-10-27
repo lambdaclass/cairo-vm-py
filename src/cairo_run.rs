@@ -1,57 +1,40 @@
 #[cfg(test)]
 mod test {
-    use num_bigint::{BigInt, Sign};
-
-    use crate::vm_core::PyVM;
+    use crate::cairo_runner::PyCairoRunner;
 
     #[test]
     fn cairo_run_fibonacci() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-        );
-        vm.cairo_run_py(
+        let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
-            false,
-            None,
-            None,
-            None,
         )
-        .expect("Couldn't run program");
+        .unwrap();
+        runner
+            .cairo_run_py(false, None, None, None)
+            .expect("Couldn't run program");
     }
 
     #[test]
     fn cairo_run_array_sum() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-        );
-        vm.cairo_run_py(
+        let mut runner = PyCairoRunner::new(
             "cairo_programs/array_sum.json".to_string(),
             "main".to_string(),
-            false,
-            None,
-            None,
-            None,
         )
-        .expect("Couldn't run program");
+        .unwrap();
+        runner
+            .cairo_run_py(false, None, None, None)
+            .expect("Couldn't run program");
     }
 
     #[test]
     fn cairo_run_hint_print_vars() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-        );
-        vm.cairo_run_py(
+        let mut runner = PyCairoRunner::new(
             "cairo_programs/hint_print_vars.json".to_string(),
             "main".to_string(),
-            false,
-            None,
-            None,
-            None,
         )
-        .expect("Couldn't run program");
+        .unwrap();
+        runner
+            .cairo_run_py(false, None, None, None)
+            .expect("Couldn't run program");
     }
 }
