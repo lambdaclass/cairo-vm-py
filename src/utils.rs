@@ -20,13 +20,13 @@ pub fn to_py_error<T: Display>(error: T) -> PyErr {
 
 fn get_constant_name(const_str: String) -> Result<String, VirtualMachineError> {
     let mut const_name: Vec<String> = const_str.split('.').map(|s| s.to_string()).collect();
-    const_name.pop().ok_or(VirtualMachineError::FailedToGetConstant)
+    const_name.pop().ok_or(VirtualMachineError::FailedToGetIds)
 }
 
-pub fn const_path_to_const_name(constants: HashMap<String, BigInt>) -> HashMap<String, BigInt> {
+pub fn const_path_to_const_name(constants: HashMap<String, BigInt>) -> Result<HashMap<String, BigInt>, VirtualMachineError> {
     let mut const_map = HashMap::new();
     for (key, value) in constants {
-        const_map.insert(key, value);
+        const_map.insert(get_constant_name(key)?, value);
     };
-    const_map
+    Ok(const_map)
 }

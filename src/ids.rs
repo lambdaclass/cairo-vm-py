@@ -35,9 +35,6 @@ pub struct PyIds {
 impl PyIds {
     #[getter]
     pub fn __getattr__(&self, name: &str, py: Python) -> PyResult<PyObject> {
-        println!("{:?}", name);
-        println!("MARIAN CARETA: {:?}", self.constants);
-
         if let Some(constant) = self.constants.get(name) {
             return Ok(constant.to_object(py));
         }
