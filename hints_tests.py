@@ -13,7 +13,7 @@ if __name__ == "__main__":
     test_program("vm_scope_hints")
     test_program("is_le_felt_hint")
     test_program("ec_mul_inner")
-    # test_program("ec_negate") # FAILING (Issue with ids structs)
+    # test_program("ec_negate") # ValueError: Variable value not present in current execution scope
     test_program("assert_nn_hint")
     # test_program("pow") # Custom Hint Error: AttributeError: 'builtins.Relocatable' object has no attribute 'exp'
     test_program("is_nn")
