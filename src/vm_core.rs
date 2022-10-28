@@ -684,7 +684,7 @@ vm_exit_scope()";
                 &mut HashMap::new(),
                 &mut exec_scopes,
                 &HashMap::new(),
-                Rc::new(HashMap::new())
+                Rc::new(HashMap::new()),
             ),
             Ok(())
         );
@@ -696,7 +696,7 @@ vm_exit_scope()";
                 &mut HashMap::new(),
                 &mut exec_scopes,
                 &HashMap::new(),
-                Rc::new(HashMap::new())
+                Rc::new(HashMap::new()),
             ),
             Ok(())
         );
@@ -720,7 +720,7 @@ vm_enter_scope()";
                 &mut HashMap::new(),
                 &mut exec_scopes,
                 &HashMap::new(),
-                Rc::new(HashMap::new())
+                Rc::new(HashMap::new()),
             ),
             Ok(())
         );

@@ -117,29 +117,19 @@ impl PyTypedId {
         match struct_type.get(name) {
             Some(member) => {
                 let vm = self.vm.borrow();
-                Ok(match member.cairo_type.as_deref() {
-                    Some("felt") | Some("felt*") => PyMaybeRelocatable::from(
-                        vm.get_maybe(
-                            &self
-                                .hint_value
-                                .add_int_mod(
-                                    &Into::<BigInt>::into(*member.offset.as_ref().unwrap()),
-                                    vm.get_prime(),
-                                )
-                                .map_err(to_py_error)?,
-                        )
+                Ok(match member.cairo_type.as_str() {
+                    "felt" | "felt*" => vm
+                        .get_maybe(&self.hint_value.add(member.offset).map_err(to_py_error)?)
                         .map_err(to_py_error)?
-                        .unwrap(),
-                    )
-                    .to_object(py),
-                    Some(cairo_type) => PyTypedId {
+                        .map(|x| PyMaybeRelocatable::from(x).to_object(py))
+                        .unwrap_or_else(|| py.None()),
+                    cairo_type => PyTypedId {
                         vm: self.vm.clone(),
                         hint_value: self.hint_value.clone(),
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }
                     .into_py(py),
-                    None => todo!(),
                 })
             }
             None => Err(PyAttributeError::new_err(format!(
