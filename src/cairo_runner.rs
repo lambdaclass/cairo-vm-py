@@ -145,7 +145,7 @@ impl PyCairoRunner {
 
     pub fn mark_as_accessed(&mut self, address: PyRelocatable, size: usize) -> PyResult<()> {
         self.inner
-            .mark_as_accessed((&address).into(), size, &mut self.pyvm.vm.borrow_mut())
+            .mark_as_accessed((&address).into(), size)
             .map_err(to_py_error)
     }
 

@@ -122,7 +122,10 @@ impl PyTypedId {
                         vm.get_maybe(
                             &self
                                 .hint_value
-                                .add_int_mod(member.offset.as_ref().unwrap(), vm.get_prime())
+                                .add_int_mod(
+                                    &Into::<BigInt>::into(*member.offset.as_ref().unwrap()),
+                                    vm.get_prime(),
+                                )
                                 .map_err(to_py_error)?,
                         )
                         .map_err(to_py_error)?
