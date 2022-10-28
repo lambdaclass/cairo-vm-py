@@ -15,7 +15,7 @@ if __name__ == "__main__":
     test_program("ec_mul_inner")
     # test_program("ec_negate") # ValueError: Variable value not present in current execution scope
     test_program("assert_nn_hint")
-    # test_program("pow") # Custom Hint Error: AttributeError: 'builtins.Relocatable' object has no attribute 'exp'
+    test_program("pow") # Custom Hint Error: AttributeError: 'builtins.Relocatable' object has no attribute 'exp'
     test_program("is_nn")
     test_program("is_positive")
     test_program("assert_not_zero")
