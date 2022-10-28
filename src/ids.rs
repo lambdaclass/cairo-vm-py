@@ -163,7 +163,7 @@ impl PyTypedId {
                 vm.insert_value(&field_addr, val).map_err(to_py_error)
             }
 
-            _ => unreachable!(),
+            cairo_type => todo!(),
         }
     }
 }

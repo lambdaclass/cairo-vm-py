@@ -26,8 +26,8 @@ if __name__ == "__main__":
     # test_program("is_zero") # Custom Hint Error: NameError: name 'to_felt_or_relocatable' is not defined
     test_program("div_mod_n")
     test_program("get_point_from_x")
-    # test_program("compute_slope") # ValueError: verify_zero: Invalid input 115792089237316195422966786669080118156105500425196604465460999109169899370287
-    # test_program("ec_doble") # ValueError: verify_zero: Invalid input -16289419471130179420082969341938614127691693058652915375562000746308067257337178941098315954201487874090
+    test_program("compute_slope") # ValueError: verify_zero: Invalid input 115792089237316195422966786669080118156105500425196604465460999109169899370287
+    test_program("ec_doble") # ValueError: verify_zero: Invalid input -16289419471130179420082969341938614127691693058652915375562000746308067257337178941098315954201487874090
     test_program("memcpy")
     test_program("memset")
     test_program("dict_new")
@@ -51,6 +51,5 @@ if __name__ == "__main__":
     test_program("signed_div_rem")
     test_program("find_element")
     test_program("search_sorted_lower")
-    test_program("struct_struct")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     print("\nAll test have passed")
