@@ -143,6 +143,12 @@ impl PyCairoRunner {
         Ok(())
     }
 
+    pub fn mark_as_accessed(&mut self, address: PyRelocatable, size: usize) -> PyResult<()> {
+        self.inner
+            .mark_as_accessed((&address).into(), size, &mut self.pyvm.vm.borrow_mut())
+            .map_err(to_py_error)
+    }
+
     pub fn relocate(&mut self) -> PyResult<()> {
         self.inner
             .relocate(&mut self.pyvm.vm.borrow_mut())
