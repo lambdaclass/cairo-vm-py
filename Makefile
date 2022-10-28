@@ -12,14 +12,12 @@ deps:
 	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
-	export PYENV_VERSION=pypy3.7-7.3.9
 
 deps-macos:
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
 	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
-	export PYENV_VERSION=pypy3.7-7.3.9
 
 deps-default-version:
 	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
@@ -46,7 +44,7 @@ clean:
 
 
 run-python-test-macos: $(COMPILED_TESTS)
-	. cairo-rs-py-env/bin/activate && \
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa && \
 	pip install cairo_lang==0.9.1 && \
 	maturin develop && \
@@ -54,7 +52,7 @@ run-python-test-macos: $(COMPILED_TESTS)
 	deactivate
 
 run-python-test: $(COMPILED_TESTS)
-	. cairo-rs-py-env/bin/activate && \
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	pip install cairo_lang==0.9.1 && \
 	maturin develop && \
 	python3 hints_tests.py && \
