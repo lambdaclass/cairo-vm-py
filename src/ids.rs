@@ -129,7 +129,7 @@ impl PyTypedId {
 
                     cairo_type => PyTypedId {
                         vm: self.vm.clone(),
-                        hint_value: self.hint_value.clone(),
+                        hint_value: self.hint_value.add(member.offset).map_err(to_py_error)?,
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }

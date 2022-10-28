@@ -41,8 +41,8 @@ if __name__ == "__main__":
     test_program("split_int")
     test_program("split_64")
     test_program("uint256_add")
-    # test_program("uint256_sqrt") # Custom Hint Error: ValueError: Failed to get ids value
-    # test_program("uint256_unsigned_div_rem") # Custom Hint Error: AttributeError: 'builtins.PyTypedId' object has no attribute 'low'
+    test_program("uint256_sqrt") # Custom Hint Error: ValueError: Failed to get ids value
+    test_program("uint256_unsigned_div_rem") # Custom Hint Error: AttributeError: 'builtins.PyTypedId' object has no attribute 'low'
     test_program("uint256_signed_nn")
     test_program("bigint_to_uint256")
     test_program("usort")
@@ -51,5 +51,6 @@ if __name__ == "__main__":
     test_program("signed_div_rem")
     test_program("find_element")
     test_program("search_sorted_lower")
+    test_program("struct_struct")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     print("\nAll test have passed")
