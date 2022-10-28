@@ -66,6 +66,7 @@ impl PyVM {
         hint_data: &HintProcessorData,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
+        constants: &HashMap<String, BigInt>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
@@ -77,6 +78,7 @@ impl PyVM {
                 self,
                 &hint_data.ids_data,
                 &hint_data.ap_tracking,
+                constants,
                 struct_types,
             );
             let enter_scope = pycell!(py, PyEnterScope::new());
@@ -160,6 +162,7 @@ impl PyVM {
                         hint_data,
                         hint_locals,
                         exec_scopes,
+                        constants,
                         Rc::clone(&struct_types),
                     )?;
                 }
@@ -269,6 +272,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -288,6 +292,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -321,6 +326,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -328,6 +334,46 @@ mod test {
         assert_eq!(
             vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
             Ok(Some(MaybeRelocatable::from(bigint!(2))))
+        );
+    }
+
+    #[test]
+    // Test the availability of cairo constants in ids
+    fn const_ids() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        let constants = HashMap::from([(String::from("CONST"), bigint!(1))]);
+
+        let mut exec_scopes = ExecutionScopes::new();
+        let code_1 = "assert(ids.CONST != 2)";
+        let hint_data = HintProcessorData::new_default(code_1.to_string(), HashMap::new());
+
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &constants,
+                Rc::new(HashMap::new())
+            ),
+            Ok(())
+        );
+
+        let code_2 = "assert(ids.CONST == 1)";
+        let hint_data = HintProcessorData::new_default(code_2.to_string(), HashMap::new());
+
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &constants,
+                Rc::new(HashMap::new())
+            ),
+            Ok(())
         );
     }
 
@@ -444,6 +490,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -454,6 +501,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -481,6 +529,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -491,6 +540,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -501,6 +551,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -511,6 +562,7 @@ mod test {
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -533,6 +585,7 @@ print(word)";
                 &hint_data,
                 &mut hint_locals,
                 &mut ExecutionScopes::new(),
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -561,6 +614,7 @@ print(word)";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Err(VirtualMachineError::MainScopeError(
@@ -583,6 +637,7 @@ print(word)";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -605,6 +660,7 @@ vm_exit_scope()";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -627,6 +683,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -648,6 +705,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -658,6 +716,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -680,6 +739,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
