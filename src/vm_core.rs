@@ -826,6 +826,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
@@ -858,6 +859,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             )
             .is_err());
@@ -888,6 +890,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),
             Ok(())
