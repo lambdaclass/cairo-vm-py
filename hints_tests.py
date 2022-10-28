@@ -15,7 +15,7 @@ if __name__ == "__main__":
     test_program("ec_mul_inner")
     # test_program("ec_negate") # ValueError: Variable value not present in current execution scope
     test_program("assert_nn_hint")
-    test_program("pow") # Custom Hint Error: AttributeError: 'builtins.Relocatable' object has no attribute 'exp'
+    test_program("pow")
     test_program("is_nn")
     test_program("is_positive")
     test_program("assert_not_zero")
@@ -41,8 +41,8 @@ if __name__ == "__main__":
     test_program("split_int")
     test_program("split_64")
     test_program("uint256_add")
-    test_program("uint256_sqrt") # Custom Hint Error: ValueError: Failed to get ids value
-    test_program("uint256_unsigned_div_rem") # Custom Hint Error: AttributeError: 'builtins.PyTypedId' object has no attribute 'low'
+    test_program("uint256_sqrt")
+    test_program("uint256_unsigned_div_rem")
     test_program("uint256_signed_nn")
     test_program("bigint_to_uint256")
     test_program("usort")
