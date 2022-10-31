@@ -1,7 +1,11 @@
 use crate::utils::const_path_to_const_name;
 use num_bigint::BigInt;
 use pyo3::exceptions::PyValueError;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use cairo_rs::{
     hint_processor::{
@@ -41,6 +45,39 @@ impl PyIds {
         if let Some(constant) = self.constants.get(name) {
             return Ok(constant.to_object(py));
         }
+
+        // Support for for ids.{Struct Definition} information
+        // Example: ids.DictAccess
+        let mut types_set = HashSet::new();
+        for key in self.struct_types.keys() {
+            types_set.insert(
+                key.rsplit('.')
+                    .next()
+                    .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+            );
+        }
+        if types_set.contains(name) {
+            let mut structs_size = HashMap::new();
+
+            for (key, v) in self.struct_types.iter() {
+                let max_member = v.values().max_by(|x, y| x.offset.cmp(&y.offset));
+
+                let max_offset = match max_member {
+                    Some(member) => member.offset + 1,
+                    _ => 0,
+                };
+                structs_size.insert(
+                    key.rsplit('.')
+                        .next()
+                        .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+                    max_offset,
+                );
+            }
+            if let Some(size) = structs_size.get(name) {
+                return Ok(CairoStruct { SIZE: *size }.into_py(py));
+            }
+        }
+
         let hint_ref = self
             .references
             .get(name)
@@ -98,6 +135,13 @@ impl PyIds {
             struct_types,
         }
     }
+}
+
+#[allow(non_snake_case)]
+#[pyclass(unsendable)]
+struct CairoStruct {
+    #[pyo3(get)]
+    SIZE: usize,
 }
 
 #[pyclass(unsendable)]
