@@ -1,5 +1,6 @@
 use crate::utils::const_path_to_const_name;
 use num_bigint::BigInt;
+use pyo3::exceptions::PyValueError;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use cairo_rs::{
@@ -163,7 +164,7 @@ impl PyTypedId {
                 vm.insert_value(&field_addr, val).map_err(to_py_error)
             }
 
-            cairo_type => todo!(),
+            _cairo_type => return Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
         }
     }
 }
