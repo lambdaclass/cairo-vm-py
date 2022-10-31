@@ -53,7 +53,7 @@ impl PyIds {
             types_set.insert(
                 key.rsplit('.')
                     .next()
-                    .ok_or(to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+                    .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
             );
         }
         if types_set.contains(name) {
@@ -69,7 +69,7 @@ impl PyIds {
                 structs_size.insert(
                     key.rsplit('.')
                         .next()
-                        .ok_or(to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+                        .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
                     max_offset,
                 );
             }
