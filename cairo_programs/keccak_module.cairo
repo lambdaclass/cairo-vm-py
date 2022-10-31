@@ -144,7 +144,6 @@ func keccak_add_uint256{range_check_ptr, bitwise_ptr : BitwiseBuiltin*, inputs :
 
     %{
         # TEST
-        print("hint tested: KECCAK_WRITE_ARGS")
         segments.write_arg(ids.inputs, [ids.low % 2 ** 64, ids.low // 2 ** 64])
         segments.write_arg(ids.inputs + 2, [ids.high % 2 ** 64, ids.high // 2 ** 64])
     %}
@@ -293,7 +292,6 @@ func _copy_inputs{
     n_bytes : felt,
     state : felt*,
 }():
-    %{print("hint tested: COMPARE_BYTES_IN_WORD_NONDET") %}
     if nondet %{ 
         # TEST
         ids.n_bytes < ids.BYTES_IN_WORD 
@@ -380,7 +378,6 @@ end
 
 func _block_permutation{keccak_ptr : felt*}():
     %{
-        print("hint tested: BLOCK_PERMUTATION")
         # TEST
         from starkware.cairo.common.cairo_keccak.keccak_utils import keccak_func
         _keccak_state_size_felts = int(ids.KECCAK_STATE_SIZE_FELTS)
@@ -398,7 +395,6 @@ end
 func _keccak{range_check_ptr, bitwise_ptr : BitwiseBuiltin*, keccak_ptr : felt*}(
     inputs : felt*, n_bytes : felt, state : felt*
 ) -> (output : felt*):
-    %{print("hint tested: COMPARE_KECCAK_FULL_RATE_IN_BYTES_NONDET")%}
     if nondet %{ 
         # TEST
         ids.n_bytes >= ids.KECCAK_FULL_RATE_IN_BYTES 
@@ -435,7 +431,6 @@ func finalize_keccak{range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
 
     %{
         # TEST
-        print("hint tested: CAIRO_KECCAK_FINALIZE")
         # Add dummy pairs of input and output.
         _keccak_state_size_felts = int(ids.KECCAK_STATE_SIZE_FELTS)
         _block_size = int(ids.BLOCK_SIZE)

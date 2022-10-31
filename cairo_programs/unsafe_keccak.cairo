@@ -5,7 +5,6 @@ func unsafe_keccak(data : felt*, length : felt) -> (low : felt, high : felt):
     local low
     local high
     %{
-        print("hint tested: UNSAFE_KECCAK")
         from eth_hash.auto import keccak
 
         data, length = ids.data, ids.length

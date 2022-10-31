@@ -7,7 +7,6 @@ func unsafe_keccak_finalize(keccak_state : KeccakState) -> (res : Uint256):
     local low
     local high
     %{
-        print("hint tested: UNSAFE_KECCAK_FINALIZE")
         from eth_hash.auto import keccak
         keccak_input = bytearray()
         n_elms = ids.keccak_state.end_ptr - ids.keccak_state.start_ptr
