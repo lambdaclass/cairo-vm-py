@@ -78,6 +78,8 @@ impl PyIds {
             }
         }
 
+        println!("references: {:?}", self.references.keys());
+
         let hint_ref = self
             .references
             .get(name)
@@ -156,6 +158,7 @@ struct PyTypedId {
 impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
+        println!("NAME: {:?}", name);
         let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
 
         if name == "address_" {
