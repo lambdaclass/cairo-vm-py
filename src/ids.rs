@@ -1,5 +1,6 @@
 use crate::utils::const_path_to_const_name;
 use num_bigint::BigInt;
+use pyo3::exceptions::PyValueError;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use cairo_rs::{
@@ -22,6 +23,7 @@ use crate::{relocatable::PyMaybeRelocatable, utils::to_py_error, vm_core::PyVM};
 
 const IDS_GET_ERROR_MSG: &str = "Failed to get ids value";
 const IDS_SET_ERROR_MSG: &str = "Failed to set ids value to Cairo memory";
+const STRUCT_TYPES_GET_ERROR_MSG: &str = "Failed to get struct type";
 
 #[pyclass(unsendable)]
 pub struct PyIds {
@@ -111,9 +113,11 @@ impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
         let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
+
         if name == "address_" {
             return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
         }
+
         match struct_type.get(name) {
             Some(member) => {
                 let vm = self.vm.borrow();
@@ -123,9 +127,10 @@ impl PyTypedId {
                         .map_err(to_py_error)?
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
+
                     cairo_type => PyTypedId {
                         vm: self.vm.clone(),
-                        hint_value: self.hint_value.clone(),
+                        hint_value: self.hint_value.add(member.offset).map_err(to_py_error)?,
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }
@@ -136,6 +141,30 @@ impl PyTypedId {
                 "'PyTypeId' object has no attribute '{}'",
                 name
             ))),
+        }
+    }
+
+    pub fn __setattr__(&self, field_name: &str, val: PyMaybeRelocatable) -> PyResult<()> {
+        let struct_type = self
+            .struct_types
+            .get(&self.cairo_type)
+            .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?;
+
+        let member = struct_type.get(field_name).ok_or_else(|| {
+            PyAttributeError::new_err(format!(
+                "'PyTypeId' object has no attribute '{}'",
+                field_name
+            ))
+        })?;
+
+        let mut vm = self.vm.borrow_mut();
+        match member.cairo_type.as_str() {
+            "felt" | "felt*" => {
+                let field_addr = self.hint_value.add(member.offset).map_err(to_py_error)?;
+                vm.insert_value(&field_addr, val).map_err(to_py_error)
+            }
+
+            _cairo_type => Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
         }
     }
 }
