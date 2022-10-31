@@ -1,39 +1,100 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use crate::utils::const_path_to_const_name;
+use num_bigint::BigInt;
+use pyo3::exceptions::PyValueError;
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use cairo_rs::{
     hint_processor::{
         hint_processor_definition::HintReference, hint_processor_utils::bigint_to_usize,
     },
-    serde::deserialize_program::ApTracking,
+    serde::deserialize_program::{ApTracking, Member},
     types::{
         instruction::Register,
         relocatable::{MaybeRelocatable, Relocatable},
     },
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
 };
-use pyo3::{pyclass, pymethods, PyObject, PyResult, Python, ToPyObject};
+use pyo3::{
+    exceptions::PyAttributeError, pyclass, pymethods, IntoPy, PyObject, PyResult, Python,
+    ToPyObject,
+};
 
 use crate::{relocatable::PyMaybeRelocatable, utils::to_py_error, vm_core::PyVM};
 
 const IDS_GET_ERROR_MSG: &str = "Failed to get ids value";
 const IDS_SET_ERROR_MSG: &str = "Failed to set ids value to Cairo memory";
+const STRUCT_TYPES_GET_ERROR_MSG: &str = "Failed to get struct type";
 
 #[pyclass(unsendable)]
 pub struct PyIds {
     vm: Rc<RefCell<VirtualMachine>>,
     references: HashMap<String, HintReference>,
     ap_tracking: ApTracking,
+    constants: HashMap<String, BigInt>,
+    struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
 
 #[pymethods]
 impl PyIds {
     #[getter]
     pub fn __getattr__(&self, name: &str, py: Python) -> PyResult<PyObject> {
+        if let Some(constant) = self.constants.get(name) {
+            return Ok(constant.to_object(py));
+        }
+
+        // Support for for ids.{Struct Definition} information
+        // Example: ids.DictAccess
+        let mut types_set = HashSet::new();
+        for key in self.struct_types.keys() {
+            types_set.insert(key.split('.').last());
+        }
+        if types_set.contains(&Some(name)) {
+            let mut structs_size = HashMap::new();
+
+            for (key, v) in self.struct_types.iter() {
+                let max_member = v.values().max_by(|x, y| x.offset.cmp(&y.offset));
+
+                let max_offset = match max_member {
+                    Some(member) => member.offset + 1,
+                    _ => 0,
+                };
+                structs_size.insert(key.split('.').last(), max_offset);
+            }
+            if let Some(size) = structs_size.get(&Some(name)) {
+                return Ok(CairoStruct { SIZE: *size }.into_py(py));
+            }
+        }
+
         let hint_ref = self
             .references
             .get(name)
             .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
-        Ok(get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?.to_object(py))
+
+        if let Some(cairo_type) = hint_ref.cairo_type.as_deref() {
+            if self.struct_types.contains_key(cairo_type) {
+                return Ok(PyTypedId {
+                    vm: self.vm.clone(),
+                    hint_value: compute_addr_from_reference(
+                        hint_ref,
+                        &self.vm.borrow(),
+                        &self.ap_tracking,
+                    )?,
+                    cairo_type: cairo_type.to_string(),
+                    struct_types: Rc::clone(&self.struct_types),
+                }
+                .into_py(py));
+            }
+        }
+
+        Ok(
+            get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?
+                .to_object(py)
+                .into_py(py),
+        )
     }
 
     pub fn __setattr__(&self, name: &str, val: PyMaybeRelocatable) -> PyResult<()> {
@@ -54,11 +115,91 @@ impl PyIds {
         vm: &PyVM,
         references: &HashMap<String, HintReference>,
         ap_tracking: &ApTracking,
+        constants: &HashMap<String, BigInt>,
+        struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
     ) -> PyIds {
         PyIds {
             vm: vm.get_vm(),
             references: references.clone(),
             ap_tracking: ap_tracking.clone(),
+            constants: const_path_to_const_name(constants),
+            struct_types,
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+#[pyclass(unsendable)]
+struct CairoStruct {
+    #[pyo3(get)]
+    SIZE: usize,
+}
+
+#[pyclass(unsendable)]
+struct PyTypedId {
+    vm: Rc<RefCell<VirtualMachine>>,
+    hint_value: Relocatable,
+    cairo_type: String,
+    struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+}
+
+#[pymethods]
+impl PyTypedId {
+    #[getter]
+    fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
+        let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
+
+        if name == "address_" {
+            return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
+        }
+
+        match struct_type.get(name) {
+            Some(member) => {
+                let vm = self.vm.borrow();
+                Ok(match member.cairo_type.as_str() {
+                    "felt" | "felt*" => vm
+                        .get_maybe(&self.hint_value.add(member.offset).map_err(to_py_error)?)
+                        .map_err(to_py_error)?
+                        .map(|x| PyMaybeRelocatable::from(x).to_object(py))
+                        .unwrap_or_else(|| py.None()),
+
+                    cairo_type => PyTypedId {
+                        vm: self.vm.clone(),
+                        hint_value: self.hint_value.add(member.offset).map_err(to_py_error)?,
+                        cairo_type: cairo_type.to_string(),
+                        struct_types: self.struct_types.clone(),
+                    }
+                    .into_py(py),
+                })
+            }
+            None => Err(PyAttributeError::new_err(format!(
+                "'PyTypeId' object has no attribute '{}'",
+                name
+            ))),
+        }
+    }
+
+    pub fn __setattr__(&self, field_name: &str, val: PyMaybeRelocatable) -> PyResult<()> {
+        let struct_type = self
+            .struct_types
+            .get(&self.cairo_type)
+            .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?;
+
+        let member = struct_type.get(field_name).ok_or_else(|| {
+            PyAttributeError::new_err(format!(
+                "'PyTypeId' object has no attribute '{}'",
+                field_name
+            ))
+        })?;
+
+        let mut vm = self.vm.borrow_mut();
+        match member.cairo_type.as_str() {
+            "felt" | "felt*" => {
+                let field_addr = self.hint_value.add(member.offset).map_err(to_py_error)?;
+                vm.insert_value(&field_addr, val).map_err(to_py_error)
+            }
+
+            _cairo_type => Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
         }
     }
 }
@@ -180,6 +321,11 @@ mod tests {
             //Create references
             let mut references = HashMap::new();
             references.insert(String::from("a"), HintReference::new_simple(1));
+
+            //Create constants
+            let mut constants = HashMap::new();
+            constants.insert(String::from("CONST"), bigint!(3));
+
             //Insert ids.a into memory
             vm.vm
                 .borrow_mut()
@@ -191,7 +337,13 @@ mod tests {
 
             let memory = PyMemory::new(&vm);
             let fp = PyRelocatable::from((1, 0));
-            let ids = PyIds::new(&vm, &references, &ApTracking::default());
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &constants,
+                Rc::new(HashMap::new()),
+            );
 
             let globals = PyDict::new(py);
             globals
@@ -204,7 +356,10 @@ mod tests {
                 .set_item("ids", PyCell::new(py, ids).unwrap())
                 .unwrap();
 
-            let code = "memory[fp] = ids.a";
+            let code = r#"
+memory[fp] = ids.a
+memory[fp+2] = ids.CONST
+"#;
 
             let py_result = py.run(code, Some(globals), None);
 
@@ -213,6 +368,10 @@ mod tests {
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2_i32))))
+            );
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(3))))
             );
         });
     }
@@ -231,6 +390,10 @@ mod tests {
             let mut references = HashMap::new();
             references.insert(String::from("a"), HintReference::new_simple(1));
 
+            //Create constants
+            let mut constants = HashMap::new();
+            constants.insert(String::from("CONST"), bigint!(3));
+
             vm.vm
                 .borrow_mut()
                 .insert_value(
@@ -241,7 +404,13 @@ mod tests {
 
             let memory = PyMemory::new(&vm);
             let fp = PyRelocatable::from((1, 0));
-            let ids = PyIds::new(&vm, &references, &ApTracking::default());
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &constants,
+                Rc::new(HashMap::new()),
+            );
 
             let globals = PyDict::new(py);
             globals

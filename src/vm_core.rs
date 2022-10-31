@@ -1,37 +1,29 @@
 use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
-use crate::utils::to_py_error;
+use crate::to_felt_or_relocatable::ToFeltOrRelocatableFunc;
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable, utils::to_vm_error,
 };
 use cairo_rs::any_box;
-use cairo_rs::cairo_run::write_output;
-use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
+use cairo_rs::serde::deserialize_program::Member;
 use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::types::program::Program;
-use cairo_rs::types::relocatable::Relocatable;
-use cairo_rs::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_rs::vm::errors::runner_errors::RunnerError;
-use cairo_rs::vm::errors::trace_errors::TraceError;
-use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
     vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
+use pyo3::PyCell;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
-use pyo3::{PyCell, PyResult};
 use std::any::Any;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::{cell::RefCell, rc::Rc};
 
-const GLOBAL_NAMES: [&str; 16] = [
+const GLOBAL_NAMES: [&str; 17] = [
     "memory",
     "segments",
     "ap",
@@ -39,6 +31,7 @@ const GLOBAL_NAMES: [&str; 16] = [
     "ids",
     "vm_enter_scope",
     "vm_exit_scope",
+    "to_felt_or_relocatable",
     "range_check_builtin",
     "PRIME",
     "__doc__",
@@ -63,65 +56,6 @@ impl PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
-
-    #[pyo3(name = "cairo_run")]
-    pub fn cairo_run_py(
-        &self,
-        path: String,
-        entrypoint: String,
-        print_output: bool,
-        trace_file: Option<&str>,
-        memory_file: Option<&str>,
-        hint_locals: Option<HashMap<String, PyObject>>,
-    ) -> PyResult<()> {
-        let path = Path::new(&path);
-        let program = Program::new(path, &entrypoint).map_err(to_py_error)?;
-        let hint_processor = BuiltinHintProcessor::new_empty();
-        let mut cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
-        let end = cairo_runner
-            .initialize(&mut self.vm.borrow_mut())
-            .map_err(to_py_error)?;
-        let mut hint_locals = hint_locals.unwrap_or_default();
-        self.run_until_pc(&mut cairo_runner, &end, &mut hint_locals, &hint_processor)
-            .map_err(to_py_error)?;
-
-        self.vm
-            .borrow_mut()
-            .verify_auto_deductions()
-            .map_err(to_py_error)?;
-
-        cairo_runner
-            .relocate(&mut self.vm.borrow_mut())
-            .map_err(to_py_error)?;
-
-        if print_output {
-            write_output(&mut cairo_runner, &mut self.vm.borrow_mut()).map_err(to_py_error)?;
-        }
-
-        if let Some(trace_path) = trace_file {
-            let trace_path = PathBuf::from(trace_path);
-            let relocated_trace = cairo_runner
-                .relocated_trace
-                .as_ref()
-                .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
-                .map_err(to_py_error)?;
-
-            match cairo_rs::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
-                Ok(()) => (),
-                Err(_e) => {
-                    return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
-                }
-            }
-        }
-
-        if let Some(memory_path) = memory_file {
-            let memory_path = PathBuf::from(memory_path);
-            cairo_rs::cairo_run::write_binary_memory(&cairo_runner.relocated_memory, &memory_path)
-                .map_err(|_| to_py_error(CairoRunError::Runner(RunnerError::WriteFail)))?;
-        }
-
-        Ok(())
-    }
 }
 
 impl PyVM {
@@ -134,18 +68,27 @@ impl PyVM {
         hint_data: &HintProcessorData,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
+        constants: &HashMap<String, BigInt>,
+        struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(self);
             let segments = PySegmentManager::new(self);
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
-            let ids = PyIds::new(self, &hint_data.ids_data, &hint_data.ap_tracking);
+            let ids = PyIds::new(
+                self,
+                &hint_data.ids_data,
+                &hint_data.ap_tracking,
+                constants,
+                struct_types,
+            );
             let enter_scope = pycell!(py, PyEnterScope::new());
             let exit_scope = pycell!(py, PyExitScope::new());
             let range_check_builtin =
                 PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
             let prime = self.vm.borrow().get_prime().clone();
+            let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
             let globals = py
@@ -172,18 +115,22 @@ impl PyVM {
             globals
                 .set_item("ids", pycell!(py, ids))
                 .map_err(to_vm_error)?;
-
             globals
                 .set_item("vm_enter_scope", enter_scope)
                 .map_err(to_vm_error)?;
             globals
                 .set_item("vm_exit_scope", exit_scope)
                 .map_err(to_vm_error)?;
-
             globals
                 .set_item("range_check_builtin", range_check_builtin)
                 .map_err(to_vm_error)?;
             globals.set_item("PRIME", prime).map_err(to_vm_error)?;
+            globals
+                .set_item(
+                    "to_felt_or_relocatable",
+                    pycell!(py, to_felt_or_relocatable),
+                )
+                .map_err(to_vm_error)?;
 
             for (name, pyobj) in hint_locals.iter() {
                 globals.set_item(name, pyobj).map_err(to_vm_error)?;
@@ -206,6 +153,7 @@ impl PyVM {
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         let pc_offset = self.vm.borrow().get_pc().offset;
@@ -217,7 +165,13 @@ impl PyVM {
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
 
-                    self.execute_hint(hint_data, hint_locals, exec_scopes)?;
+                    self.execute_hint(
+                        hint_data,
+                        hint_locals,
+                        exec_scopes,
+                        constants,
+                        Rc::clone(&struct_types),
+                    )?;
                 }
             }
         }
@@ -231,6 +185,7 @@ impl PyVM {
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
         self.step_hint(
@@ -238,6 +193,7 @@ impl PyVM {
             hint_locals,
             exec_scopes,
             hint_data_dictionary,
+            struct_types,
             constants,
         )?;
         self.vm.borrow_mut().step_instruction()
@@ -256,29 +212,6 @@ impl PyVM {
             Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
             Err(e) => Err(e),
         }
-    }
-
-    fn run_until_pc(
-        &self,
-        cairo_runner: &mut CairoRunner,
-        address: &Relocatable,
-        hint_locals: &mut HashMap<String, PyObject>,
-        hint_executor: &dyn HintProcessor,
-    ) -> Result<(), VirtualMachineError> {
-        let references = cairo_runner.get_reference_list();
-        let hint_data_dictionary =
-            cairo_runner.get_hint_data_dictionary(&references, hint_executor)?;
-        let constants = cairo_runner.get_constants().clone();
-        while self.vm.borrow().get_pc() != address {
-            self.step(
-                hint_executor,
-                hint_locals,
-                &mut cairo_runner.exec_scopes,
-                &hint_data_dictionary,
-                &constants,
-            )?;
-        }
-        Ok(())
     }
 }
 
@@ -314,7 +247,7 @@ pub(crate) fn update_scope_hint_locals(
 
 #[cfg(test)]
 mod test {
-    use crate::vm_core::PyVM;
+    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{
         bigint,
         hint_processor::{
@@ -331,7 +264,7 @@ mod test {
     };
     use num_bigint::{BigInt, Sign};
     use pyo3::{PyObject, Python, ToPyObject};
-    use std::collections::HashMap;
+    use std::{collections::HashMap, rc::Rc};
 
     #[test]
     fn execute_print_hint() {
@@ -342,7 +275,13 @@ mod test {
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut ExecutionScopes::new()),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut ExecutionScopes::new(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
     }
@@ -356,7 +295,13 @@ mod test {
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut ExecutionScopes::new()),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut ExecutionScopes::new(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
     }
@@ -384,12 +329,58 @@ mod test {
         let code = "ids.a = ids.b";
         let hint_data = HintProcessorData::new_default(code.to_string(), references);
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut ExecutionScopes::new()),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut ExecutionScopes::new(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         assert_eq!(
             vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
             Ok(Some(MaybeRelocatable::from(bigint!(2))))
+        );
+    }
+
+    #[test]
+    // Test the availability of cairo constants in ids
+    fn const_ids() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        let constants = HashMap::from([(String::from("CONST"), bigint!(1))]);
+
+        let mut exec_scopes = ExecutionScopes::new();
+        let code_1 = "assert(ids.CONST != 2)";
+        let hint_data = HintProcessorData::new_default(code_1.to_string(), HashMap::new());
+
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &constants,
+                Rc::new(HashMap::new())
+            ),
+            Ok(())
+        );
+
+        let code_2 = "assert(ids.CONST == 1)";
+        let hint_data = HintProcessorData::new_default(code_2.to_string(), HashMap::new());
+
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &constants,
+                Rc::new(HashMap::new())
+            ),
+            Ok(())
         );
     }
 
@@ -430,7 +421,8 @@ mod test {
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
-                &HashMap::new()
+                Rc::new(HashMap::new()),
+                &HashMap::new(),
             ),
             Ok(())
         );
@@ -478,7 +470,8 @@ mod test {
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
-                &HashMap::new()
+                Rc::new(HashMap::new()),
+                &HashMap::new(),
             ),
             Ok(())
         );
@@ -500,12 +493,24 @@ mod test {
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
 
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
     }
@@ -527,22 +532,46 @@ mod test {
         let code_d = "assert(num == 9)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_c.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_d.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
     }
@@ -559,7 +588,13 @@ print(word)";
         let word = Python::with_gil(|py| -> PyObject { "fruity".to_string().to_object(py) });
         let mut hint_locals = HashMap::from([("word".to_string(), word)]);
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut hint_locals, &mut ExecutionScopes::new()),
+            vm.execute_hint(
+                &hint_data,
+                &mut hint_locals,
+                &mut ExecutionScopes::new(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         let word_res = Python::with_gil(|py| -> String {
@@ -582,7 +617,13 @@ print(word)";
         let code = "vm_exit_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Err(VirtualMachineError::MainScopeError(
                 ExecScopeError::ExitMainScopeError
             ))
@@ -599,14 +640,20 @@ print(word)";
         let code = "vm_enter_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 2)
     }
 
     #[test]
-    fn enter_exit_scope_hint() {
+    fn enter_exit_scope_same_hint() {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
@@ -616,10 +663,75 @@ print(word)";
 vm_exit_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        assert_eq!(exec_scopes.data.len(), 1);
+    }
+
+    #[test]
+    fn enter_exit_scope_separate_hints() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code_a = "vm_enter_scope()";
+        let code_b = "vm_exit_scope()";
+        let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        assert_eq!(exec_scopes.data.len(), 2);
+        let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 1)
+    }
+
+    #[test]
+    fn enter_exit_enter_scope_same_hint() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "vm_enter_scope()
+vm_exit_scope()
+vm_enter_scope()";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        assert_eq!(exec_scopes.data.len(), 2)
     }
 
     #[test]
@@ -633,7 +745,13 @@ vm_exit_scope()";
 lista_b = [lista_a[k] for k in range(2)]";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
     }
@@ -649,12 +767,24 @@ lista_b = [lista_a[k] for k in range(2)]";
         let code_b = "assert(n == 12)";
         let hint_data = HintProcessorData::new_default(code_a.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         let hint_data = HintProcessorData::new_default(code_b.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
         );
         assert_eq!(exec_scopes.data.len(), 2);
@@ -671,8 +801,108 @@ lista_b = [lista_a[k] for k in range(2)]";
         let code = "assert(ap.segment_index == 1)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert_eq!(
-            vm.execute_hint(&hint_data, &mut HashMap::new(), &mut exec_scopes),
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
             Ok(())
+        );
+    }
+
+    #[test]
+    fn to_felt_or_relocatable_number() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "felt = to_felt_or_relocatable(456)";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        Python::with_gil(|py| {
+            assert_eq!(
+                exec_scopes
+                    .get_any_boxed_ref("felt")
+                    .unwrap()
+                    .downcast_ref::<PyObject>()
+                    .unwrap()
+                    .extract::<PyMaybeRelocatable>(py)
+                    .unwrap(),
+                PyMaybeRelocatable::from(bigint!(456))
+            );
+        });
+    }
+
+    #[test]
+    fn to_felt_or_relocatable_list_should_fail() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "felt = to_felt_or_relocatable([1,2,3])";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        assert!(vm
+            .execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn to_felt_or_relocatable_relocatable() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut exec_scopes = ExecutionScopes::new();
+        let code = "ids.test_value = to_felt_or_relocatable(ids.relocatable)";
+        vm.vm.borrow_mut().add_memory_segment();
+        vm.vm.borrow_mut().add_memory_segment();
+        //insert ids.relocatable
+        vm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .unwrap();
+        let ids = HashMap::from([
+            ("relocatable".to_string(), HintReference::new_simple(0)),
+            ("test_value".to_string(), HintReference::new_simple(1)),
+        ]);
+        let hint_data = HintProcessorData::new_default(code.to_string(), ids);
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        //Check the value of ids.test_value
+        assert_eq!(
+            vm.vm
+                .borrow()
+                .get_relocatable(&Relocatable::from((1, 1)))
+                .unwrap()
+                .into_owned(),
+            Relocatable::from((2, 0))
         );
     }
 }
