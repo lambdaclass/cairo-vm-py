@@ -155,7 +155,7 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
-    pub fn get_output(&mut self) -> PyResult<Option<String>> {
+    pub fn get_output(&mut self) -> PyResult<String> {
         self.inner
             .get_output(&mut self.pyvm.vm.borrow_mut())
             .map_err(to_py_error)
