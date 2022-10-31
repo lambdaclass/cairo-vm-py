@@ -39,6 +39,25 @@ impl PyIds {
         if let Some(constant) = self.constants.get(name) {
             return Ok(constant.to_object(py));
         }
+
+        let mut struct_types_2 = HashMap::new();
+
+        for (key, v) in self.struct_types.iter() {
+            let max_member = v.values().max_by(|x, y| x.offset.cmp(&y.offset));
+
+            let max_offset = match max_member {
+                Some(member) => member.offset + 1,
+                _ => 0,
+            };
+            struct_types_2.insert(key.split('.').last().unwrap(), max_offset);
+        }
+        if struct_types_2.get(name).is_some() {
+            return Ok(CairoStruct {
+                SIZE: struct_types_2.get(name).unwrap().clone(),
+            }
+            .into_py(py));
+        }
+
         let hint_ref = self
             .references
             .get(name)
@@ -96,6 +115,13 @@ impl PyIds {
             struct_types,
         }
     }
+}
+
+#[allow(non_snake_case)]
+#[pyclass(unsendable)]
+struct CairoStruct {
+    #[pyo3(get)]
+    SIZE: usize,
 }
 
 #[pyclass(unsendable)]
