@@ -52,10 +52,10 @@ if __name__ == "__main__":
     test_program("find_element")
     test_program("search_sorted_lower")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
-    # test_program("keccak")
-    # test_program("_keccak")
+    # test_program("keccak") #Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
+    # test_program("_keccak") #Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     test_program("keccak_add_uint256")
-    # test_program("keccak_copy_inputs")
+    test_program("keccak_copy_inputs")
     test_program("unsafe_keccak")
-    # test_program("unsafe_keccak_finalize")
+    # test_program("unsafe_keccak_finalize") #Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     print("\nAll test have passed")
