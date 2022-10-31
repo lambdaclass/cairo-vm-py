@@ -1,6 +1,10 @@
 use crate::utils::const_path_to_const_name;
 use num_bigint::BigInt;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use cairo_rs::{
     hint_processor::{
@@ -40,22 +44,27 @@ impl PyIds {
             return Ok(constant.to_object(py));
         }
 
-        let mut struct_types_2 = HashMap::new();
-
-        for (key, v) in self.struct_types.iter() {
-            let max_member = v.values().max_by(|x, y| x.offset.cmp(&y.offset));
-
-            let max_offset = match max_member {
-                Some(member) => member.offset + 1,
-                _ => 0,
-            };
-            struct_types_2.insert(key.split('.').last().unwrap(), max_offset);
+        // Support for for ids.{Struct Definition} information
+        // Example: ids.DictAccess
+        let mut types_set = HashSet::new();
+        for key in self.struct_types.keys() {
+            types_set.insert(key.split('.').last());
         }
-        if struct_types_2.get(name).is_some() {
-            return Ok(CairoStruct {
-                SIZE: struct_types_2.get(name).unwrap().clone(),
+        if types_set.contains(&Some(name)) {
+            let mut structs_size = HashMap::new();
+
+            for (key, v) in self.struct_types.iter() {
+                let max_member = v.values().max_by(|x, y| x.offset.cmp(&y.offset));
+
+                let max_offset = match max_member {
+                    Some(member) => member.offset + 1,
+                    _ => 0,
+                };
+                structs_size.insert(key.split('.').last(), max_offset);
             }
-            .into_py(py));
+            if let Some(size) = structs_size.get(&Some(name)) {
+                return Ok(CairoStruct { SIZE: *size }.into_py(py));
+            }
         }
 
         let hint_ref = self
