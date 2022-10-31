@@ -164,7 +164,7 @@ impl PyTypedId {
                 vm.insert_value(&field_addr, val).map_err(to_py_error)
             }
 
-            _cairo_type => return Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
+            _cairo_type => Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
         }
     }
 }
