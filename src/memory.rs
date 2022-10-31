@@ -9,7 +9,6 @@ use cairo_rs::{
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
     prelude::*,
-    types::PyList,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -53,31 +52,21 @@ impl PyMemory {
             .map_err(|_| PyValueError::new_err(MEMORY_SET_ERROR_MSG))
     }
 
-    pub fn get_range(&self, addr: PyMaybeRelocatable, size: usize) -> PyResult<PyList> {
-        Ok(PyList::from(AlgoDePrueba {
-            campo: self
-                .vm
-                .borrow()
-                .get_range_without_cow(&MaybeRelocatable::from(addr), size)
-                .map_err(|_| PyTypeError::new_err(MEMORY_GET_RANGE_ERROR_MSG))?,
-        }))
-    }
-}
-
-struct AlgoDePrueba {
-    campo: Vec<Option<MaybeRelocatable>>,
-}
-
-impl From<AlgoDePrueba> for PyList {
-    fn from(algo_de_prueba: AlgoDePrueba) -> PyList {
-        algo_de_prueba
-            .campo
-            .clone()
+    pub fn get_range(
+        &self,
+        addr: PyMaybeRelocatable,
+        size: usize,
+        py: Python,
+    ) -> PyResult<PyObject> {
+        Ok(self
+            .vm
+            .borrow()
+            .get_continuos_range(&MaybeRelocatable::from(addr), size)
+            .map_err(|_| PyTypeError::new_err(MEMORY_GET_RANGE_ERROR_MSG))?
             .into_iter()
-            .map(|elemento| match elemento {
-                Some(vaca_elemento) => Some(PyMaybeRelocatable::from(vaca_elemento)),
-                None => None,
-            })
+            .map(Into::<PyMaybeRelocatable>::into)
+            .collect::<Vec<PyMaybeRelocatable>>()
+            .to_object(py))
     }
 }
 
