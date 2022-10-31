@@ -50,9 +50,13 @@ impl PyIds {
         // Example: ids.DictAccess
         let mut types_set = HashSet::new();
         for key in self.struct_types.keys() {
-            types_set.insert(key.split('.').last());
+            types_set.insert(
+                key.rsplit('.')
+                    .next()
+                    .ok_or(to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+            );
         }
-        if types_set.contains(&Some(name)) {
+        if types_set.contains(name) {
             let mut structs_size = HashMap::new();
 
             for (key, v) in self.struct_types.iter() {
@@ -62,9 +66,14 @@ impl PyIds {
                     Some(member) => member.offset + 1,
                     _ => 0,
                 };
-                structs_size.insert(key.split('.').last(), max_offset);
+                structs_size.insert(
+                    key.rsplit('.')
+                        .next()
+                        .ok_or(to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+                    max_offset,
+                );
             }
-            if let Some(size) = structs_size.get(&Some(name)) {
+            if let Some(size) = structs_size.get(name) {
                 return Ok(CairoStruct { SIZE: *size }.into_py(py));
             }
         }
