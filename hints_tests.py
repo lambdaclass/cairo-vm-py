@@ -13,7 +13,7 @@ if __name__ == "__main__":
     test_program("vm_scope_hints")
     test_program("is_le_felt_hint")
     test_program("ec_mul_inner")
-    # test_program("ec_negate") # ValueError: Variable value not present in current execution scope
+    test_program("ec_negate")
     test_program("assert_nn_hint")
     test_program("pow")
     test_program("is_nn")
@@ -53,4 +53,5 @@ if __name__ == "__main__":
     test_program("find_element")
     test_program("search_sorted_lower")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
+    test_program("assert_250_bit")
     print("\nAll test have passed")
