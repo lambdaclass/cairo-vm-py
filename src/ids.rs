@@ -4,7 +4,6 @@ use pyo3::exceptions::PyValueError;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    ops::Add,
     rc::Rc,
 };
 
@@ -168,14 +167,14 @@ impl PyTypedId {
                 let vm = self.vm.borrow();
                 Ok(match member.cairo_type.as_str() {
                     "felt" | "felt*" => vm
-                        .get_maybe(&self.hint_value.clone().add(member.offset))
+                        .get_maybe(&(&self.hint_value + member.offset))
                         .map_err(to_py_error)?
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
 
                     cairo_type => PyTypedId {
                         vm: self.vm.clone(),
-                        hint_value: self.hint_value.clone().add(member.offset),
+                        hint_value: (&self.hint_value + member.offset),
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }
@@ -205,7 +204,7 @@ impl PyTypedId {
         let mut vm = self.vm.borrow_mut();
         match member.cairo_type.as_str() {
             "felt" | "felt*" => {
-                let field_addr = self.hint_value.clone().add(member.offset);
+                let field_addr = &self.hint_value + member.offset;
                 vm.insert_value(&field_addr, val).map_err(to_py_error)
             }
 
