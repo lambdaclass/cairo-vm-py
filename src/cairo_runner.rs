@@ -32,9 +32,11 @@ pub struct PyCairoRunner {
 #[pymethods]
 impl PyCairoRunner {
     #[new]
-    pub fn new(path: String, entrypoint: String) -> PyResult<Self> {
+    pub fn new(path: String, entrypoint: String, layout: Option<String>) -> PyResult<Self> {
         let program = Program::new(Path::new(&path), &entrypoint).map_err(to_py_error)?;
-        let cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
+        let cairo_runner =
+            CairoRunner::new(&program, layout.unwrap_or_else(|| "plain".to_string()))
+                .map_err(to_py_error)?;
 
         let struct_types = program
             .identifiers
@@ -175,6 +177,7 @@ mod test {
         PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            None,
         )
         .unwrap();
     }
@@ -184,6 +187,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            None,
         )
         .unwrap();
         runner.initialize().unwrap();
@@ -194,6 +198,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            None,
         )
         .unwrap();
         runner.relocate().unwrap();
@@ -204,6 +209,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            Some("small".to_string()),
         )
         .unwrap();
         runner.get_output().unwrap();
@@ -214,6 +220,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            Some("small".to_string()),
         )
         .unwrap();
         runner.write_output().unwrap();

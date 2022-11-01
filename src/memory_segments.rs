@@ -88,6 +88,8 @@ impl PySegmentManager {
 
 #[cfg(test)]
 mod test {
+    use std::ops::Add;
+
     use super::PySegmentManager;
     use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{bigint, types::relocatable::Relocatable};
@@ -166,7 +168,7 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.add(1).unwrap())
+                    .get_maybe(&relocatable.clone().add(1_i32))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -174,7 +176,7 @@ mod test {
                 &bigint!(4),
             );
             assert!(vm_ref
-                .get_maybe(&relocatable.add(2).unwrap())
+                .get_maybe(&relocatable.clone().add(2_i32))
                 .unwrap()
                 .is_none());
 
@@ -197,17 +199,14 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.add(1).unwrap())
+                    .get_maybe(&relocatable.clone().add(1_i32))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref
-                .get_maybe(&relocatable.add(2).unwrap())
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
 
             assert!(vm_ref
                 .get_maybe(&Relocatable::from((0, 4)))
