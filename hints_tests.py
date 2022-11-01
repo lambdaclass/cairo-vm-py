@@ -54,4 +54,5 @@ if __name__ == "__main__":
     test_program("search_sorted_lower")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     test_program("verify_zero")
+    test_program("assert_250_bit")
     print("\nAll test have passed")
