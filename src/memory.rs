@@ -61,7 +61,7 @@ impl PyMemory {
         Ok(self
             .vm
             .borrow()
-            .get_continuos_range(&MaybeRelocatable::from(addr), size)
+            .get_continuous_range(&MaybeRelocatable::from(addr), size)
             .map_err(|_| PyTypeError::new_err(MEMORY_GET_RANGE_ERROR_MSG))?
             .into_iter()
             .map(Into::<PyMaybeRelocatable>::into)
