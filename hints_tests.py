@@ -53,4 +53,5 @@ if __name__ == "__main__":
     test_program("find_element")
     test_program("search_sorted_lower")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
+    test_program("fast_ec_add")
     print("\nAll test have passed")
