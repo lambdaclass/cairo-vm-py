@@ -27,6 +27,7 @@ func fast_ec_add{range_check_ptr}(point0 : EcPoint, point1 : EcPoint) -> (res : 
     let (slope_sqr : UnreducedBigInt3) = unreduced_sqr(slope)
 
     %{
+        # TEST
         from starkware.cairo.common.cairo_secp.secp_utils import SECP_P, pack
 
         slope = pack(ids.slope, PRIME)
@@ -38,7 +39,10 @@ func fast_ec_add{range_check_ptr}(point0 : EcPoint, point1 : EcPoint) -> (res : 
     %}
     let (new_x : BigInt3) = nondet_bigint3()
 
-    %{ value = new_y = (slope * (x0 - new_x) - y0) % SECP_P %}
+    %{
+    # TEST 
+    value = new_y = (slope * (x0 - new_x) - y0) % SECP_P 
+    %}
 
     let (new_y : BigInt3) = nondet_bigint3()
 
