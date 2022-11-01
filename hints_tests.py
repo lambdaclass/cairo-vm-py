@@ -1,7 +1,7 @@
 import cairo_rs_py
 
 def new_runner(program_name: str):
-    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main")
+    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all")
 
 def test_program(program_name: str):
     print(new_runner(program_name).cairo_run(False))
