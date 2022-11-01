@@ -1,7 +1,7 @@
 import cairo_rs_py
 
 def new_runner(program_name: str):
-    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main")
+    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all")
 
 def test_program(program_name: str):
     print(new_runner(program_name).cairo_run(False))
@@ -54,4 +54,7 @@ if __name__ == "__main__":
     test_program("search_sorted_lower")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     # test_program("packed_sha256") # ValueError: Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
+    test_program("ec_double_slope")
+    test_program("verify_zero")
+    test_program("assert_250_bit")
     print("\nAll test have passed")
