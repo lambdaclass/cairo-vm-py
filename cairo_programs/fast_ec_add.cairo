@@ -1,6 +1,6 @@
 %builtins range_check
-
-from starkware.cairo.common.cairo_secp.bigint import BigInt3, UnreducedBigInt3, nondet_bigint3
+from nondet_bigint3 import nondet_bigint3
+from starkware.cairo.common.cairo_secp.bigint import BigInt3, UnreducedBigInt3
 from starkware.cairo.common.cairo_secp.field import is_zero, unreduced_mul, unreduced_sqr, verify_zero
 from starkware.cairo.common.cairo_secp.ec import EcPoint, compute_slope, ec_double
 
