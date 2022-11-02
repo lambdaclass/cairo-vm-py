@@ -1,4 +1,8 @@
-use crate::{relocatable::PyRelocatable, utils::to_py_error, vm_core::PyVM};
+use crate::{
+    relocatable::{PyMaybeRelocatable, PyRelocatable},
+    utils::to_py_error,
+    vm_core::PyVM,
+};
 use cairo_rs::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
@@ -164,6 +168,30 @@ impl PyCairoRunner {
     pub fn write_output(&mut self) -> PyResult<()> {
         write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
     }
+
+    pub fn add(&self) -> PyRelocatable {
+        self.pyvm.vm.borrow_mut().add_memory_segment().into()
+    }
+
+    pub fn get_builtins_initial_stack(&self, py: Python) -> PyObject {
+        self.pyvm
+            .vm
+            .borrow_mut()
+            .get_builtin_runners()
+            .iter()
+            .map(|(builtin_name, builtin_runner)| {
+                (
+                    builtin_name,
+                    builtin_runner
+                        .initial_stack()
+                        .into_iter()
+                        .map(Into::<PyMaybeRelocatable>::into)
+                        .collect::<Vec<PyMaybeRelocatable>>(),
+                )
+            })
+            .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
+            .to_object(py)
+    }
 }
 
 #[cfg(test)]
@@ -217,5 +245,28 @@ mod test {
         )
         .unwrap();
         runner.write_output().unwrap();
+    }
+
+    #[test]
+    fn add() {
+        let runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+        )
+        .unwrap();
+        runner.add();
+    }
+
+    #[test]
+    fn get_builtins_initial_stack() {
+        Python::with_gil(|py| {
+            let runner = PyCairoRunner::new(
+                "cairo_programs/fibonacci.json".to_string(),
+                "main".to_string(),
+            )
+            .unwrap();
+
+            runner.get_builtins_initial_stack(py);
+        });
     }
 }
