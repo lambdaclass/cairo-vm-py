@@ -1,4 +1,4 @@
-.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test run-python-test-macos full-test-macos full-test
+.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test  full-test
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
@@ -52,19 +52,10 @@ clean:
 	rm -f $(TEST_DIR)/*.json
 	rm -rf cairo-rs-py-env
 
-
-run-python-test-macos: $(COMPILED_TESTS)
-	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	maturin develop && \
-	python3 hints_tests.py && \
-	deactivate
-
 run-python-test: $(COMPILED_TESTS)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	maturin develop && \
 	python3 hints_tests.py && \
 	deactivate
-
-full-test-macos: test run-python-test-macos
 
 full-test: test run-python-test
