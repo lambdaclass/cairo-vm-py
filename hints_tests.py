@@ -1,7 +1,7 @@
 import cairo_rs_py
 
 def new_runner(program_name: str):
-    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main")
+    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all")
 
 def test_program(program_name: str):
     print(new_runner(program_name).cairo_run(False))
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     test_program("vm_scope_hints")
     test_program("is_le_felt_hint")
     test_program("ec_mul_inner")
-    # test_program("ec_negate") # ValueError: Variable value not present in current execution scope
+    test_program("ec_negate")
     test_program("assert_nn_hint")
     test_program("pow")
     test_program("is_nn")
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
     # test_program("dict_squash") # Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     test_program("ids_size")
-    test_program("split_felt") 
+    test_program("split_felt")
     test_program("split_int")
     test_program("split_64")
     test_program("uint256_add")
@@ -52,6 +52,7 @@ if __name__ == "__main__":
     test_program("signed_div_rem")
     test_program("find_element")
     test_program("search_sorted_lower")
+    test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     # test_program("keccak") #Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     # test_program("_keccak") #Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
@@ -59,4 +60,8 @@ if __name__ == "__main__":
     test_program("keccak_copy_inputs")
     test_program("unsafe_keccak")
     # test_program("unsafe_keccak_finalize") #Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
+    # test_program("packed_sha256") # ValueError: Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
+    test_program("ec_double_slope")
+    test_program("verify_zero")
+    test_program("assert_250_bit")
     print("\nAll test have passed")
