@@ -54,4 +54,7 @@ if __name__ == "__main__":
     test_program("search_sorted_lower")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     test_program("assert_250_bit")
+    test_program("blake2s_hello_world_hash") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
+    test_program("blake2s_finalize") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
+    test_program("blake2s_felt") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
     print("\nAll test have passed")
