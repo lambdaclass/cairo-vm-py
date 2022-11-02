@@ -1,5 +1,6 @@
 use crate::ids::PyIds;
 use crate::pycell;
+use crate::relocatable::PyMaybeRelocatable;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::to_felt_or_relocatable::ToFeltOrRelocatableFunc;
 use crate::{
@@ -17,6 +18,7 @@ use cairo_rs::{
 };
 use num_bigint::BigInt;
 use pyo3::PyCell;
+use pyo3::PyResult;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
 use std::any::Any;
@@ -55,6 +57,18 @@ impl PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
+    }
+
+    pub fn get_return_values(&self, n_ret: usize) -> PyResult<Vec<Option<PyMaybeRelocatable>>> {
+        let return_values = self
+            .get_vm()
+            .borrow()
+            .get_return_values(n_ret)
+            .map_err(|err| pyo3::exceptions::PyException::new_err(format!("{err}")))?
+            .into_iter()
+            .map(|o| o.map(|maybe_reloc| maybe_reloc.into()))
+            .collect();
+        Ok(return_values)
     }
 }
 
