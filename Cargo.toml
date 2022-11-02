@@ -13,6 +13,9 @@ default = ["pyo3/num-bigint", "pyo3/auto-initialize"]
 
 [dependencies]
 pyo3 = { version = "0.16.5" }
-cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "e9835245505726c8c259529cea3b9b9c0694708a" }
+cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "9f11d2f0b9d623331636776829eb2be04b57b0a0" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
+
+[dev-dependencies.rusty-hook]
+version = "0.11"

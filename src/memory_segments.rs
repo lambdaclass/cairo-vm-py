@@ -93,6 +93,7 @@ mod test {
     use cairo_rs::{bigint, types::relocatable::Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::{Python, ToPyObject};
+    use std::ops::Add;
 
     #[test]
     fn add_segment_test() {
@@ -166,17 +167,14 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.add(1).unwrap())
+                    .get_maybe(&relocatable.clone().add(1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref
-                .get_maybe(&relocatable.add(2).unwrap())
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&relocatable.add(2)).unwrap().is_none());
 
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 3)))
@@ -197,17 +195,14 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.add(1).unwrap())
+                    .get_maybe(&relocatable.clone().add(1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref
-                .get_maybe(&relocatable.add(2).unwrap())
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&relocatable.add(2)).unwrap().is_none());
 
             assert!(vm_ref
                 .get_maybe(&Relocatable::from((0, 4)))

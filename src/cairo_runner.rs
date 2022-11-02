@@ -34,7 +34,7 @@ impl PyCairoRunner {
     #[new]
     pub fn new(path: String, entrypoint: String) -> PyResult<Self> {
         let program = Program::new(Path::new(&path), &entrypoint).map_err(to_py_error)?;
-        let cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
+        let cairo_runner = CairoRunner::new(&program, "all".into()).map_err(to_py_error)?;
 
         let struct_types = program
             .identifiers
@@ -143,13 +143,19 @@ impl PyCairoRunner {
         Ok(())
     }
 
+    pub fn mark_as_accessed(&mut self, address: PyRelocatable, size: usize) -> PyResult<()> {
+        self.inner
+            .mark_as_accessed((&address).into(), size)
+            .map_err(to_py_error)
+    }
+
     pub fn relocate(&mut self) -> PyResult<()> {
         self.inner
             .relocate(&mut self.pyvm.vm.borrow_mut())
             .map_err(to_py_error)
     }
 
-    pub fn get_output(&mut self) -> PyResult<Option<String>> {
+    pub fn get_output(&mut self) -> PyResult<String> {
         self.inner
             .get_output(&mut self.pyvm.vm.borrow_mut())
             .map_err(to_py_error)
@@ -161,7 +167,7 @@ impl PyCairoRunner {
 
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
         self.inner
-            .get_execution_resources(&mut self.pyvm.vm.borrow_mut())
+            .get_execution_resources(&self.pyvm.vm.borrow())
             .map(PyExecutionResources)
             .map_err(to_py_error)
     }

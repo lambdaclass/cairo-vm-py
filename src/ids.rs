@@ -1,4 +1,6 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use crate::utils::const_path_to_const_name;
+use num_bigint::BigInt;
+use std::{cell::RefCell, collections::HashMap, ops::Add, rc::Rc};
 
 use cairo_rs::{
     hint_processor::{
@@ -26,6 +28,7 @@ pub struct PyIds {
     vm: Rc<RefCell<VirtualMachine>>,
     references: HashMap<String, HintReference>,
     ap_tracking: ApTracking,
+    constants: HashMap<String, BigInt>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
 
@@ -33,6 +36,9 @@ pub struct PyIds {
 impl PyIds {
     #[getter]
     pub fn __getattr__(&self, name: &str, py: Python) -> PyResult<PyObject> {
+        if let Some(constant) = self.constants.get(name) {
+            return Ok(constant.to_object(py));
+        }
         let hint_ref = self
             .references
             .get(name)
@@ -79,12 +85,14 @@ impl PyIds {
         vm: &PyVM,
         references: &HashMap<String, HintReference>,
         ap_tracking: &ApTracking,
+        constants: &HashMap<String, BigInt>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
     ) -> PyIds {
         PyIds {
             vm: vm.get_vm(),
             references: references.clone(),
             ap_tracking: ap_tracking.clone(),
+            constants: const_path_to_const_name(constants),
             struct_types,
         }
     }
@@ -109,26 +117,19 @@ impl PyTypedId {
         match struct_type.get(name) {
             Some(member) => {
                 let vm = self.vm.borrow();
-                Ok(match member.cairo_type.as_deref() {
-                    Some("felt") | Some("felt*") => PyMaybeRelocatable::from(
-                        vm.get_maybe(
-                            &self
-                                .hint_value
-                                .add_int_mod(member.offset.as_ref().unwrap(), vm.get_prime())
-                                .map_err(to_py_error)?,
-                        )
+                Ok(match member.cairo_type.as_str() {
+                    "felt" | "felt*" => vm
+                        .get_maybe(&self.hint_value.clone().add(member.offset))
                         .map_err(to_py_error)?
-                        .unwrap(),
-                    )
-                    .to_object(py),
-                    Some(cairo_type) => PyTypedId {
+                        .map(|x| PyMaybeRelocatable::from(x).to_object(py))
+                        .unwrap_or_else(|| py.None()),
+                    cairo_type => PyTypedId {
                         vm: self.vm.clone(),
                         hint_value: self.hint_value.clone(),
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }
                     .into_py(py),
-                    None => todo!(),
                 })
             }
             None => Err(PyAttributeError::new_err(format!(
@@ -256,6 +257,11 @@ mod tests {
             //Create references
             let mut references = HashMap::new();
             references.insert(String::from("a"), HintReference::new_simple(1));
+
+            //Create constants
+            let mut constants = HashMap::new();
+            constants.insert(String::from("CONST"), bigint!(3));
+
             //Insert ids.a into memory
             vm.vm
                 .borrow_mut()
@@ -271,6 +277,7 @@ mod tests {
                 &vm,
                 &references,
                 &ApTracking::default(),
+                &constants,
                 Rc::new(HashMap::new()),
             );
 
@@ -285,7 +292,10 @@ mod tests {
                 .set_item("ids", PyCell::new(py, ids).unwrap())
                 .unwrap();
 
-            let code = "memory[fp] = ids.a";
+            let code = r#"
+memory[fp] = ids.a
+memory[fp+2] = ids.CONST
+"#;
 
             let py_result = py.run(code, Some(globals), None);
 
@@ -294,6 +304,10 @@ mod tests {
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2_i32))))
+            );
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(3))))
             );
         });
     }
@@ -312,6 +326,10 @@ mod tests {
             let mut references = HashMap::new();
             references.insert(String::from("a"), HintReference::new_simple(1));
 
+            //Create constants
+            let mut constants = HashMap::new();
+            constants.insert(String::from("CONST"), bigint!(3));
+
             vm.vm
                 .borrow_mut()
                 .insert_value(
@@ -326,6 +344,7 @@ mod tests {
                 &vm,
                 &references,
                 &ApTracking::default(),
+                &constants,
                 Rc::new(HashMap::new()),
             );
 
