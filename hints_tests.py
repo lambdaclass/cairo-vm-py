@@ -52,6 +52,7 @@ if __name__ == "__main__":
     test_program("signed_div_rem")
     test_program("find_element")
     test_program("search_sorted_lower")
+    test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     # test_program("packed_sha256") # ValueError: Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     test_program("ec_double_slope")
