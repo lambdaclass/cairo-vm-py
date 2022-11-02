@@ -8,7 +8,7 @@ use cairo_rs::{
         errors::{
             cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
         },
-        runners::cairo_runner::CairoRunner,
+        runners::cairo_runner::{CairoRunner, ExecutionResources},
     },
 };
 use num_bigint::{BigInt, Sign};
@@ -165,6 +165,34 @@ impl PyCairoRunner {
 
     pub fn write_output(&mut self) -> PyResult<()> {
         write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
+    }
+
+    pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
+        self.inner
+            .get_execution_resources(&self.pyvm.vm.borrow())
+            .map(PyExecutionResources)
+            .map_err(to_py_error)
+    }
+}
+
+#[pyclass]
+pub struct PyExecutionResources(ExecutionResources);
+
+#[pymethods]
+impl PyExecutionResources {
+    #[getter]
+    fn n_steps(&self) -> usize {
+        self.0.n_steps
+    }
+
+    #[getter]
+    fn n_memory_holes(&self) -> usize {
+        self.0.n_memory_holes
+    }
+
+    #[getter]
+    fn a(&self) -> Vec<(String, usize)> {
+        self.0.builtin_instance_counter.clone()
     }
 }
 

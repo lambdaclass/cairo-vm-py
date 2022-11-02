@@ -88,13 +88,12 @@ impl PySegmentManager {
 
 #[cfg(test)]
 mod test {
-    use std::ops::Add;
-
     use super::PySegmentManager;
     use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{bigint, types::relocatable::Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::{Python, ToPyObject};
+    use std::ops::Add;
 
     #[test]
     fn add_segment_test() {
@@ -175,10 +174,7 @@ mod test {
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref
-                .get_maybe(&relocatable.clone().add(2_i32))
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
 
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 3)))

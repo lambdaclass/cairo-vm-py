@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
     # test_program("dict_squash") # Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     test_program("ids_size")
-    test_program("split_felt") 
+    test_program("split_felt")
     test_program("split_int")
     test_program("split_64")
     test_program("uint256_add")
