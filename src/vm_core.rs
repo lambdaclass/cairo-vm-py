@@ -73,7 +73,7 @@ impl PyVM {
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(self);
-            let segments = PySegmentManager::new(self);
+            let segments = PySegmentManager::new(self, PyMemory::new(self));
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
             let ids = PyIds::new(
