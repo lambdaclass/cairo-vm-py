@@ -563,3 +563,8 @@ func blake2s_felts{range_check_ptr, bitwise_ptr : BitwiseBuiltin*, blake2s_ptr :
     let (res) = blake2s(data=data_start, n_bytes=n_elements * 32)
     return (res=res)
 end
+
+func main():
+
+    return ()
+end
