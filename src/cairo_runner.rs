@@ -12,12 +12,14 @@ use cairo_rs::{
     },
 };
 use num_bigint::{BigInt, Sign};
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyTypeError, prelude::*};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };
+
+const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 
 #[pyclass(unsendable)]
 #[pyo3(name = "CairoRunner")]
@@ -172,6 +174,16 @@ impl PyCairoRunner {
             .get_execution_resources(&self.pyvm.vm.borrow())
             .map(PyExecutionResources)
             .map_err(to_py_error)
+    }
+
+    pub fn get_segment_used_size(&self, index: usize, py: Python) -> PyResult<PyObject> {
+        Ok(self
+            .pyvm
+            .vm
+            .borrow()
+            .get_segment_used_size(index)
+            .ok_or_else(|| PyTypeError::new_err(MEMORY_GET_SEGMENT_USED_SIZE_MSG))?
+            .to_object(py))
     }
 }
 
