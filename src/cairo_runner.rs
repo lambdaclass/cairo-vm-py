@@ -173,6 +173,10 @@ impl PyCairoRunner {
             .map(PyExecutionResources)
             .map_err(to_py_error)
     }
+
+    fn get_ap(&self) -> PyResult<PyRelocatable> {
+        Ok(PyRelocatable::from(self.pyvm.vm.borrow().get_ap()))
+    }
 }
 
 #[pyclass]
@@ -252,5 +256,16 @@ mod test {
         )
         .unwrap();
         runner.write_output().unwrap();
+    }
+
+    #[test]
+    fn get_ap() {
+        let runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            Some("small".to_string()),
+        )
+        .unwrap();
+        assert_eq!(runner.get_ap().unwrap(), PyRelocatable::from((1, 0)));
     }
 }
