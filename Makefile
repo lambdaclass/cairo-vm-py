@@ -59,4 +59,3 @@ run-python-test: $(COMPILED_TESTS)
 	deactivate
 
 full-test: test run-python-test
-
