@@ -203,6 +203,10 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
+    pub fn get_ap(&self) -> PyResult<PyRelocatable> {
+        Ok(PyRelocatable::from(self.pyvm.vm.borrow().get_ap()))
+    }
+
     pub fn get_return_values(&self, n_ret: usize, py: Python) -> PyResult<PyObject> {
         let return_values = self
             .pyvm
@@ -309,6 +313,17 @@ mod test {
     }
 
     #[test]
+    fn get_ap() {
+        let runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            Some("small".to_string()),
+        )
+        .unwrap();
+        assert_eq!(runner.get_ap().unwrap(), PyRelocatable::from((1, 0)));
+    }
+
+    #[test]
     fn add_segment() {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/get_builtins_initial_stack.json".to_string(),
@@ -316,6 +331,7 @@ mod test {
             Some("small".to_string()),
         )
         .unwrap();
+
         runner.cairo_run_py(false, None, None, None).unwrap();
         let new_segment = runner.add_segment();
         assert_eq!(
