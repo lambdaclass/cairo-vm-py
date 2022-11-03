@@ -18,9 +18,9 @@ pub enum PyMaybeRelocatable {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyRelocatable {
     #[pyo3(get)]
-    segment_index: isize,
+    pub segment_index: isize,
     #[pyo3(get)]
-    offset: usize,
+    pub offset: usize,
 }
 
 #[pymethods]
