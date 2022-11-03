@@ -1,7 +1,7 @@
 import cairo_rs_py
 
 def new_runner(program_name: str):
-    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main")
+    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all")
 
 def test_program(program_name: str):
     print(new_runner(program_name).cairo_run(False))
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
     # test_program("dict_squash") # Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     test_program("ids_size")
-    test_program("split_felt") 
+    test_program("split_felt")
     test_program("split_int")
     test_program("split_64")
     test_program("uint256_add")
@@ -54,4 +54,19 @@ if __name__ == "__main__":
     test_program("search_sorted_lower")
     # test_program("set_add") # Custom Hint Error: AttributeError: 'builtins.PyMemory' object has no attribute 'get_range'
     test_program("fast_ec_add") 
+    test_program("set_add")
+    test_program("set_add")
+    test_program("keccak")
+    test_program("_keccak")
+    test_program("keccak_add_uint256")
+    test_program("keccak_copy_inputs")
+    test_program("unsafe_keccak")
+    test_program("unsafe_keccak_finalize")
+    test_program("packed_sha256")
+    test_program("ec_double_slope")
+    test_program("verify_zero")
+    test_program("assert_250_bit")
+    # test_program("blake2s_hello_world_hash") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
+    # test_program("blake2s_finalize") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
+    # test_program("blake2s_felt") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
     print("\nAll test have passed")
