@@ -281,6 +281,7 @@ mod test {
         assert_eq!(runner.get_ap().unwrap(), PyRelocatable::from((1, 0)));
     }
 
+    #[test]
     fn get_segment_used_size_of_segment_0() {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
