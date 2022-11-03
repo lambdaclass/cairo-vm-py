@@ -59,15 +59,16 @@ impl PyVM {
         }
     }
 
-    pub fn get_return_values(&self, n_ret: usize) -> PyResult<Vec<Option<PyMaybeRelocatable>>> {
+    pub fn get_return_values(&self, n_ret: usize, py: Python) -> PyResult<PyObject> {
         let return_values = self
             .get_vm()
             .borrow()
             .get_return_values(n_ret)
             .map_err(|err| pyo3::exceptions::PyException::new_err(format!("{err}")))?
             .into_iter()
-            .map(|o| o.map(|maybe_reloc| maybe_reloc.into()))
-            .collect();
+            .map(|maybe_reloc| maybe_reloc.into())
+            .collect::<Vec<PyMaybeRelocatable>>()
+            .to_object(py);
         Ok(return_values)
     }
 }
