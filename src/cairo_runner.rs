@@ -12,12 +12,14 @@ use cairo_rs::{
     },
 };
 use num_bigint::{BigInt, Sign};
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyTypeError, prelude::*};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };
+
+const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 
 #[pyclass(unsendable)]
 #[pyo3(name = "CairoRunner")]
@@ -33,9 +35,9 @@ pub struct PyCairoRunner {
 impl PyCairoRunner {
     #[new]
     pub fn new(path: String, entrypoint: String, layout: Option<String>) -> PyResult<Self> {
-        let program = Program::new(Path::new(&path), &entrypoint).map_err(to_py_error)?;
+        let program = Program::from_file(Path::new(&path), &entrypoint).map_err(to_py_error)?;
         let cairo_runner =
-            CairoRunner::new(&program, layout.unwrap_or_else(|| "plain".to_string()))
+            CairoRunner::new(&program, &layout.unwrap_or_else(|| "plain".to_string()))
                 .map_err(to_py_error)?;
 
         let struct_types = program
@@ -173,6 +175,16 @@ impl PyCairoRunner {
             .map(PyExecutionResources)
             .map_err(to_py_error)
     }
+
+    pub fn get_segment_used_size(&self, index: usize, py: Python) -> PyResult<PyObject> {
+        Ok(self
+            .pyvm
+            .vm
+            .borrow()
+            .get_segment_used_size(index)
+            .ok_or_else(|| PyTypeError::new_err(MEMORY_GET_SEGMENT_USED_SIZE_MSG))?
+            .to_object(py))
+    }
 }
 
 #[pyclass]
@@ -252,5 +264,47 @@ mod test {
         )
         .unwrap();
         runner.write_output().unwrap();
+    }
+
+    #[test]
+    fn get_segment_used_size_of_segment_0() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+        )
+        .unwrap();
+        runner.cairo_run_py(false, None, None, None).unwrap();
+        Python::with_gil(|py| {
+            assert_eq!(
+                24,
+                runner
+                    .get_segment_used_size(0, py)
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap()
+            )
+        });
+    }
+
+    #[test]
+    fn get_segment_used_size_of_segment_2() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+        )
+        .unwrap();
+        runner.cairo_run_py(false, None, None, None).unwrap();
+        Python::with_gil(|py| {
+            assert_eq!(
+                0,
+                runner
+                    .get_segment_used_size(2, py)
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap()
+            )
+        });
     }
 }
