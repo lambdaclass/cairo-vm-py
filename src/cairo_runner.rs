@@ -171,7 +171,7 @@ impl PyCairoRunner {
         write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
     }
 
-    pub fn add(&self) -> PyRelocatable {
+    pub fn add_segment(&self) -> PyRelocatable {
         self.pyvm.vm.borrow_mut().add_memory_segment().into()
     }
 
@@ -226,6 +226,7 @@ impl PyExecutionResources {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
 
     #[test]
     fn create_cairo_runner() {
@@ -282,27 +283,59 @@ mod test {
     }
 
     #[test]
-    fn add() {
-        let runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+    fn add_segment() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/get_builtins_initial_stack.json".to_string(),
             "main".to_string(),
             Some("small".to_string()),
         )
         .unwrap();
-        runner.add();
+        runner.cairo_run_py(false, None, None, None).unwrap();
+        let new_segment = runner.add_segment();
+        assert_eq!(
+            new_segment,
+            PyRelocatable {
+                segment_index: 5,
+                offset: 0
+            }
+        );
+        let new_segment = runner.add_segment();
+        assert_eq!(
+            new_segment,
+            PyRelocatable {
+                segment_index: 6,
+                offset: 0
+            }
+        );
     }
 
     #[test]
     fn get_builtins_initial_stack() {
-        Python::with_gil(|py| {
-            let runner = PyCairoRunner::new(
-                "cairo_programs/fibonacci.json".to_string(),
-                "main".to_string(),
-                Some("small".to_string()),
-            )
-            .unwrap();
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/get_builtins_initial_stack.json".to_string(),
+            "main".to_string(),
+            Some("small".to_string()),
+        )
+        .unwrap();
 
-            runner.get_builtins_initial_stack(py);
+        runner.cairo_run_py(false, None, None, None).unwrap();
+
+        let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![(
+            "range_check",
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 2,
+                offset: 0,
+            })],
+        )];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_builtins_initial_stack(py)
+                    .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
+                    .unwrap(),
+                expected_output
+            );
         });
     }
 }
