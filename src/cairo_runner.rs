@@ -1,4 +1,4 @@
-use crate::{relocatable::PyRelocatable, utils::to_py_error, vm_core::PyVM};
+use crate::{relocatable::{PyMaybeRelocatable, PyRelocatable}, utils::to_py_error, vm_core::PyVM};
 use cairo_rs::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
@@ -172,6 +172,20 @@ impl PyCairoRunner {
             .get_execution_resources(&self.pyvm.vm.borrow())
             .map(PyExecutionResources)
             .map_err(to_py_error)
+    }
+
+    pub fn get_return_values(&self, n_ret: usize, py: Python) -> PyResult<PyObject> {
+        let return_values = self
+            .pyvm
+            .get_vm()
+            .borrow()
+            .get_return_values(n_ret)
+            .map_err(|err| pyo3::exceptions::PyException::new_err(format!("{err}")))?
+            .into_iter()
+            .map(|maybe_reloc| maybe_reloc.into())
+            .collect::<Vec<PyMaybeRelocatable>>()
+            .to_object(py);
+        Ok(return_values)
     }
 }
 
