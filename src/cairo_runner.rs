@@ -1,4 +1,8 @@
-use crate::{relocatable::{PyMaybeRelocatable, PyRelocatable}, utils::to_py_error, vm_core::PyVM};
+use crate::{
+    relocatable::{PyMaybeRelocatable, PyRelocatable},
+    utils::to_py_error,
+    vm_core::PyVM,
+};
 use cairo_rs::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
