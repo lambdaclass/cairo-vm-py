@@ -56,7 +56,7 @@ run-python-test: $(COMPILED_TESTS)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	maturin develop && \
 	python3 hints_tests.py && \
-	python3 prepare_os_context_test.py && \
+	python3 get_builtins_initial_stack.py && \
 	deactivate
 
 full-test: test run-python-test
