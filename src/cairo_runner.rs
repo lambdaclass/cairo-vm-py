@@ -8,7 +8,7 @@ use cairo_rs::{
         errors::{
             cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
         },
-        runners::cairo_runner::CairoRunner,
+        runners::cairo_runner::{CairoRunner, ExecutionResources},
     },
 };
 use num_bigint::{BigInt, Sign};
@@ -32,9 +32,11 @@ pub struct PyCairoRunner {
 #[pymethods]
 impl PyCairoRunner {
     #[new]
-    pub fn new(path: String, entrypoint: String) -> PyResult<Self> {
+    pub fn new(path: String, entrypoint: String, layout: Option<String>) -> PyResult<Self> {
         let program = Program::new(Path::new(&path), &entrypoint).map_err(to_py_error)?;
-        let cairo_runner = CairoRunner::new(&program).map_err(to_py_error)?;
+        let cairo_runner =
+            CairoRunner::new(&program, layout.unwrap_or_else(|| "plain".to_string()))
+                .map_err(to_py_error)?;
 
         let struct_types = program
             .identifiers
@@ -164,6 +166,34 @@ impl PyCairoRunner {
     pub fn write_output(&mut self) -> PyResult<()> {
         write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
     }
+
+    pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
+        self.inner
+            .get_execution_resources(&self.pyvm.vm.borrow())
+            .map(PyExecutionResources)
+            .map_err(to_py_error)
+    }
+}
+
+#[pyclass]
+pub struct PyExecutionResources(ExecutionResources);
+
+#[pymethods]
+impl PyExecutionResources {
+    #[getter]
+    fn n_steps(&self) -> usize {
+        self.0.n_steps
+    }
+
+    #[getter]
+    fn n_memory_holes(&self) -> usize {
+        self.0.n_memory_holes
+    }
+
+    #[getter]
+    fn a(&self) -> Vec<(String, usize)> {
+        self.0.builtin_instance_counter.clone()
+    }
 }
 
 #[cfg(test)]
@@ -175,6 +205,7 @@ mod test {
         PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            None,
         )
         .unwrap();
     }
@@ -184,6 +215,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            None,
         )
         .unwrap();
         runner.initialize().unwrap();
@@ -194,6 +226,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            None,
         )
         .unwrap();
         runner.relocate().unwrap();
@@ -204,6 +237,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            Some("small".to_string()),
         )
         .unwrap();
         runner.get_output().unwrap();
@@ -214,6 +248,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
+            Some("small".to_string()),
         )
         .unwrap();
         runner.write_output().unwrap();

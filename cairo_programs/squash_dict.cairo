@@ -64,6 +64,7 @@ func squash_dict{range_check_ptr}(
         squashed_dict=squashed_dict,
         big_keys=big_keys)
     %{ 
+        #TEST
         vm_exit_scope() 
     %}
     return (squashed_dict=squashed_dict)
@@ -173,7 +174,10 @@ func squash_dict_inner(
     [ap] = dict_accesses_end_minus1 - cast(last_loop_locals.access_ptr, felt)
     [ap] = [last_loop_locals.range_check_ptr]; ap++
     tempvar n_used_accesses = last_loop_locals.range_check_ptr - range_check_ptr
-    %{ assert ids.n_used_accesses == len(access_indices[key]) %}
+    %{ 
+        #TEST
+        assert ids.n_used_accesses == len(access_indices[key]) 
+    %}
 
     # Write last value to dict_diff.
     last_loop_locals.value = dict_diff.new_value
