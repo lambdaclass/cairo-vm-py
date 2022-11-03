@@ -265,4 +265,46 @@ mod test {
         .unwrap();
         runner.write_output().unwrap();
     }
+
+    #[test]
+    fn get_segment_used_size_of_segment_0() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+        )
+        .unwrap();
+        runner.cairo_run_py(false, None, None, None).unwrap();
+        Python::with_gil(|py| {
+            assert_eq!(
+                24,
+                runner
+                    .get_segment_used_size(0, py)
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap()
+            )
+        });
+    }
+
+    #[test]
+    fn get_segment_used_size_of_segment_2() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+        )
+        .unwrap();
+        runner.cairo_run_py(false, None, None, None).unwrap();
+        Python::with_gil(|py| {
+            assert_eq!(
+                0,
+                runner
+                    .get_segment_used_size(2, py)
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap()
+            )
+        });
+    }
 }
