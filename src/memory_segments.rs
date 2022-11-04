@@ -9,7 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(name = "MemorySegmentManager", unsendable)]
 pub struct PySegmentManager {
-    vm: Rc<RefCell<VirtualMachine>>,
+    pub(crate) vm: Rc<RefCell<VirtualMachine>>,
 }
 
 #[pymethods]
