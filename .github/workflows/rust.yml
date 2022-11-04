@@ -36,5 +36,7 @@ jobs:
       run: make clippy
     - name: Clean
       run: make clean
+    - name: Maturin
+      run: maturin develop
     - name: Compare-Memory-Trace
       run : make compare_trace_memory
