@@ -52,7 +52,7 @@ if __name__ == "__main__":
     test_program("signed_div_rem")
     test_program("find_element")
     test_program("search_sorted_lower")
-    test_program("set_add")
+    test_program("fast_ec_add") 
     test_program("set_add")
     test_program("keccak")
     test_program("_keccak")
@@ -64,7 +64,8 @@ if __name__ == "__main__":
     test_program("ec_double_slope")
     test_program("verify_zero")
     test_program("assert_250_bit")
-    # test_program("blake2s_hello_world_hash") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
-    # test_program("blake2s_finalize") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
-    # test_program("blake2s_felt") # ValueError: Custom Hint Error: AttributeError: 'builtins.MemorySegmentManager' object has no attribute 'memory'
+    test_program("blake2s_hello_world_hash")
+    test_program("blake2s_finalize")
+    test_program("blake2s_felt")
+    test_program("blake2s_integration_tests")
     print("\nAll test have passed")
