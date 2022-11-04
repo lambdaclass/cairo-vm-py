@@ -84,6 +84,12 @@ impl PySegmentManager {
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
+
+    pub fn add_temporary_segment(&mut self) -> PyResult<PyRelocatable> {
+        Ok(PyRelocatable::from(
+            self.vm.borrow_mut().add_temporary_segment(),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -209,5 +215,15 @@ mod test {
                 .unwrap()
                 .is_none());
         });
+    }
+
+    #[test]
+    fn add_temporary_segment_test() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let mut segments = PySegmentManager::new(&mut vm);
+        assert!(segments.add_temporary_segment().is_ok());
     }
 }
