@@ -52,6 +52,7 @@ if __name__ == "__main__":
     test_program("signed_div_rem")
     test_program("find_element")
     test_program("search_sorted_lower")
+    test_program("fast_ec_add") 
     test_program("set_add")
     test_program("keccak")
     test_program("_keccak")
