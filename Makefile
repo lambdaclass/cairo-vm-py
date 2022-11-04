@@ -32,6 +32,11 @@ deps:
 	pip install cairo_lang==0.9.1 && \
 	deactivate
 
+maturin: 
+	python3 -m venv cairo-rs-py-env
+	cairo-rs-py-env/bin/activate
+	maturin develop
+
 deps-macos:
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
 	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
