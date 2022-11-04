@@ -1,0 +1,12 @@
+import cairo_rs_py
+import sys
+
+def new_runner(program_name: str):
+    cairo_runner = cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all")
+    cairo_runner.cairo_run(False, f"cairo_programs/{program_name}.trace", f"cairo_programs/{program_name}.rs-py.memory")
+
+
+if __name__ == "__main__":
+    program_name = sys.argv[1]
+    new_runner(program_name)
+    print("Pass")
