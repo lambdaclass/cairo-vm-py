@@ -40,9 +40,8 @@ impl PyCairoRunner {
     #[new]
     pub fn new(path: String, entrypoint: String, layout: Option<String>) -> PyResult<Self> {
         let program = Program::from_file(Path::new(&path), &entrypoint).map_err(to_py_error)?;
-        let cairo_runner =
-            CairoRunner::new(&program, &layout.unwrap_or_else(|| "plain".to_string()))
-                .map_err(to_py_error)?;
+        let cairo_runner = CairoRunner::new(&program, layout.as_deref().unwrap_or("plain"))
+            .map_err(to_py_error)?;
 
         let struct_types = program
             .identifiers
