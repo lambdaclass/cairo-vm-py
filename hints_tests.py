@@ -53,7 +53,6 @@ if __name__ == "__main__":
     test_program("find_element")
     test_program("search_sorted_lower")
     test_program("set_add")
-    test_program("set_add")
     test_program("keccak")
     test_program("_keccak")
     test_program("keccak_add_uint256")
