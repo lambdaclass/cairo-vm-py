@@ -196,6 +196,7 @@ impl PyCairoRunner {
             .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
             .to_object(py)
     }
+
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
         self.inner
             .get_execution_resources(&self.pyvm.vm.borrow())
@@ -229,6 +230,15 @@ impl PyCairoRunner {
             .get_segment_used_size(index)
             .ok_or_else(|| PyTypeError::new_err(MEMORY_GET_SEGMENT_USED_SIZE_MSG))?
             .to_object(py))
+    }
+
+    /// Inserts a value into a memory address given by a Relocatable value.
+    pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
+        self.pyvm
+            .get_vm()
+            .borrow_mut()
+            .insert_value(&key.into(), value)
+            .map_err(to_py_error)
     }
 }
 
