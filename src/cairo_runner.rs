@@ -265,6 +265,10 @@ impl PyExecutionResources {
 
 #[cfg(test)]
 mod test {
+    use std::borrow::BorrowMut;
+
+    use cairo_rs::bigint;
+
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
 
@@ -431,5 +435,69 @@ mod test {
                     .unwrap()
             )
         });
+    }
+
+    /// Test that `PyCairoRunner::insert()` inserts values correctly.
+    #[test]
+    fn insert() {
+        let runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+        )
+        .unwrap();
+
+        (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
+        runner
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .unwrap();
+        runner
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .unwrap();
+        runner
+            .insert(&(0, 2).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .unwrap();
+        assert_eq!(
+            runner
+                .pyvm
+                .get_vm()
+                .borrow()
+                .get_continuous_range(&(0, 0).into(), 3),
+            Ok(vec![
+                bigint!(3).into(),
+                bigint!(4).into(),
+                bigint!(5).into(),
+            ]),
+        )
+    }
+
+    /// Test that `PyCairoRunner::insert()` fails when it should.
+    #[test]
+    fn insert_duplicate() {
+        let runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+        )
+        .unwrap();
+
+        (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
+        runner
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .unwrap();
+        runner
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .unwrap();
+        runner
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .expect_err("insertion succeeded when it should've failed");
+        assert_eq!(
+            runner
+                .pyvm
+                .get_vm()
+                .borrow()
+                .get_continuous_range(&(0, 0).into(), 2),
+            Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
+        )
     }
 }
