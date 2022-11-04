@@ -36,3 +36,5 @@ jobs:
       run: make clippy
     - name: Clean
       run: make clean
+    - name: Compare-Memory-Trace
+      run : make compare_trace_memory

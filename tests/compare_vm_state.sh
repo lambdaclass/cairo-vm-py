@@ -20,7 +20,7 @@ done
 
 for file in $(ls $tests_path | grep .cairo$ | sed -E 's/\.cairo$//'); do
     path_file="$tests_path/$file"
-
+    
     if $trace; then
         if ! diff -q $path_file.trace $path_file.rs.trace; then
             echo "Traces for $file differ"
