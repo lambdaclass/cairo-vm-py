@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 tests_path="../cairo_programs"
 exit_code=0
@@ -21,7 +21,7 @@ done
 for file in $(ls $tests_path | grep .cairo$ | sed -E 's/\.cairo$//'); do
     path_file="$tests_path/$file"
 
-    if ! ([[ "$file" == "blake2s_felt" ]] || [[ "$file" == "blake2s_finalize" ]] || [[ "$file" == "blake2s_hello_world_hash" ]] || [[ "$file" == "dict_squash" ]] || [[ "$file" == "squash_dict" ]] || [[ "$file" == "dict_write" ]]); then
+    if ! ([ "$file" = "blake2s_felt" ] || [ "$file" = "blake2s_finalize" ] || [ "$file" = "blake2s_hello_world_hash" ] || [ "$file" = "dict_squash" ] || [ "$file" = "squash_dict" ] || [ "$file" = "dict_write" ]); then
         if $trace; then
             if ! diff -q $path_file.trace $path_file.rs.trace; then
                 echo "Traces for $file differ"
