@@ -220,7 +220,7 @@ impl PyCairoRunner {
         Ok(PyRelocatable::from(
             self.inner
                 .get_initial_fp()
-                .ok_or(PyTypeError::new_err(FAILED_TO_GET_INITIAL_FP))?,
+                .ok_or_else(|| PyTypeError::new_err(FAILED_TO_GET_INITIAL_FP))?,
         ))
     }
 
