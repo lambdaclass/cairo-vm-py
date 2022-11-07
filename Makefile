@@ -82,6 +82,13 @@ run-python-test: $(COMPILED_TESTS)
 	python3 get_builtins_initial_stack.py && \
 	deactivate
 
+run-comparer-tracer: $(COMPILED_TESTS)
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
+	maturin develop && \
+	cd tests && \
+	./compare_vm_state.sh trace memory && \
+	deactivate
+
 full-test: test run-python-test
 
 compare_trace_memory: $(CAIRO_RS_TRACE) $(CAIRO_TRACE) $(CAIRO_RS_MEM) $(CAIRO_MEM)

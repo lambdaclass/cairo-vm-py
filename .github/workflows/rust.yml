@@ -36,9 +36,5 @@ jobs:
       run: make clippy
     - name: Clean
       run: make clean
-    - name: Python build
-      run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
-    - name: Maturin
-      run:  make maturin
     - name: Compare-Memory-Trace
       run : make compare_trace_memory
