@@ -16,7 +16,10 @@ use cairo_rs::{
     },
 };
 use num_bigint::{BigInt, Sign};
-use pyo3::{exceptions::PyTypeError, prelude::*};
+use pyo3::{
+    exceptions::{PyNotImplementedError, PyTypeError},
+    prelude::*,
+};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -229,6 +232,40 @@ impl PyCairoRunner {
             .get_segment_used_size(index)
             .ok_or_else(|| PyTypeError::new_err(MEMORY_GET_SEGMENT_USED_SIZE_MSG))?
             .to_object(py))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn run_from_entrypoint(
+        &mut self,
+        entrypoint: &PyAny,
+        _args: Vec<&PyAny>,
+        typed_args: Option<bool>,
+        verify_secure: Option<bool>,
+        apply_modulo_to_args: Option<bool>,
+    ) -> PyResult<()> {
+        let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
+            x
+        } else if entrypoint.extract::<String>().is_ok() {
+            return Err(PyNotImplementedError::new_err(()));
+        } else {
+            return Err(PyTypeError::new_err("entrypoint must be int or str"));
+        };
+
+        // let args = if let Ok()
+
+        let vm = self.pyvm.get_vm();
+        let mut vm = vm.borrow_mut();
+        self.inner
+            .run_from_entrypoint(
+                entrypoint,
+                vec![],
+                typed_args.unwrap_or(false),
+                verify_secure.unwrap_or(true),
+                apply_modulo_to_args.unwrap_or(true),
+                &mut vm,
+                &self.hint_processor,
+            )
+            .map_err(to_py_error)
     }
 }
 
