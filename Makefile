@@ -82,7 +82,7 @@ run-python-test: $(COMPILED_TESTS)
 	python3 get_builtins_initial_stack.py && \
 	deactivate
 
-run-comparer-tracer: $(COMPILED_TESTS)
+run-comparer-tracer: $(CAIRO_RS_TRACE) $(CAIRO_TRACE) $(CAIRO_RS_MEM) $(CAIRO_MEM)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	maturin develop && \
 	cd tests && \
