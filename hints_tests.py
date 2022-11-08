@@ -1,7 +1,7 @@
 import cairo_rs_py
 
 def new_runner(program_name: str):
-    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all")
+    return cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all", False)
 
 def test_program(program_name: str):
     print(new_runner(program_name).cairo_run(False))
@@ -52,6 +52,7 @@ if __name__ == "__main__":
     test_program("signed_div_rem")
     test_program("find_element")
     test_program("search_sorted_lower")
+    test_program("fast_ec_add") 
     test_program("set_add")
     test_program("keccak")
     test_program("_keccak")
@@ -66,4 +67,5 @@ if __name__ == "__main__":
     test_program("blake2s_hello_world_hash")
     test_program("blake2s_finalize")
     test_program("blake2s_felt")
+    test_program("blake2s_integration_tests")
     print("\nAll test have passed")
