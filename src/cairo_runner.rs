@@ -19,11 +19,11 @@ use cairo_rs::{
     },
 };
 use num_bigint::{BigInt, Sign};
-use std::iter::zip;
 use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError},
     prelude::*,
 };
+use std::iter::zip;
 use std::{
     any::Any,
     collections::HashMap,
