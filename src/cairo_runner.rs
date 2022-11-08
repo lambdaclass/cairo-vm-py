@@ -140,7 +140,7 @@ impl PyCairoRunner {
         self.inner
             .initialize(&mut self.pyvm.vm.borrow_mut())
             .map(PyRelocatable::from)
-            .map_err(to_py_error);
+            .map_err(to_py_error)
     }
 
     pub fn initialize_segments(&mut self) {
@@ -380,7 +380,7 @@ mod test {
             false,
         )
         .unwrap();
-        let b = runner.initialize().unwrap();
+        runner.initialize().unwrap();
     }
 
     #[test]
