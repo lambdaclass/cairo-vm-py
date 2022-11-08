@@ -17,6 +17,7 @@ use cairo_rs::{
 };
 use num_bigint::{BigInt, Sign};
 use pyo3::{exceptions::PyTypeError, prelude::*};
+use std::iter::zip;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -207,17 +208,25 @@ impl PyCairoRunner {
     }
 
     pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable, _py: Python) -> PyRelocatable {
-        self.pyvm
-            .vm
-            .borrow_mut()
-            .get_builtin_runners_as_mut()
-            .iter_mut()
-            .fold(stack_ptr, |st_ptr, (_, b)| {
-                PyRelocatable::from(
-                    b.final_stack(&self.pyvm.vm.borrow(), Into::<Relocatable>::into(&st_ptr))
-                        .unwrap(),
-                )
-            })
+        let mut stack_ptr = Relocatable::from(&stack_ptr);
+        let mut stop_ptrs = Vec::new();
+        let mut stop_ptr;
+
+        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners() {
+            (stack_ptr, stop_ptr) = runner
+                .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
+                .unwrap();
+            stop_ptrs.push(stop_ptr);
+        }
+
+        for ((_, runner), stop_ptr) in zip(
+            self.pyvm.vm.borrow_mut().get_builtin_runners_as_mut(),
+            stop_ptrs,
+        ) {
+            runner.set_stop_ptr(stop_ptr);
+        }
+
+        stack_ptr.into()
     }
 
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
