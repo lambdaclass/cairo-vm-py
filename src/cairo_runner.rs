@@ -40,9 +40,12 @@ impl PyCairoRunner {
     #[new]
     pub fn new(path: String, entrypoint: String, layout: Option<String>) -> PyResult<Self> {
         let program = Program::from_file(Path::new(&path), &entrypoint).map_err(to_py_error)?;
-        let cairo_runner =
-            CairoRunner::new(&program, &layout.unwrap_or_else(|| "plain".to_string()))
-                .map_err(to_py_error)?;
+        let cairo_runner = CairoRunner::new(
+            &program,
+            &layout.unwrap_or_else(|| "plain".to_string()),
+            false,
+        )
+        .map_err(to_py_error)?;
 
         let struct_types = program
             .identifiers
@@ -196,6 +199,21 @@ impl PyCairoRunner {
             .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
             .to_object(py)
     }
+
+    pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable, _py: Python) -> PyRelocatable {
+        self.pyvm
+            .vm
+            .borrow_mut()
+            .get_builtin_runners_as_mut()
+            .iter_mut()
+            .fold(stack_ptr, |st_ptr, (_, b)| {
+                PyRelocatable::from(
+                    b.final_stack(&self.pyvm.vm.borrow(), Into::<Relocatable>::into(&st_ptr))
+                        .unwrap(),
+                )
+            })
+    }
+
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
         self.inner
             .get_execution_resources(&self.pyvm.vm.borrow())
