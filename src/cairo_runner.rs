@@ -264,8 +264,6 @@ impl PyExecutionResources {
 
 #[cfg(test)]
 mod test {
-    use std::borrow::BorrowMut;
-
     use cairo_rs::bigint;
 
     use super::*;
@@ -350,7 +348,7 @@ mod test {
         assert_eq!(
             new_segment,
             PyRelocatable {
-                segment_index: 5,
+                segment_index: 7,
                 offset: 0
             }
         );
@@ -358,7 +356,7 @@ mod test {
         assert_eq!(
             new_segment,
             PyRelocatable {
-                segment_index: 6,
+                segment_index: 8,
                 offset: 0
             }
         );
@@ -375,13 +373,17 @@ mod test {
 
         runner.cairo_run_py(false, None, None, None).unwrap();
 
-        let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![(
-            "range_check",
-            vec![RelocatableValue(PyRelocatable {
-                segment_index: 2,
-                offset: 0,
-            })],
-        )];
+        let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![
+            ("output", vec![]),
+            ("pedersen", vec![]),
+            (
+                "range_check",
+                vec![RelocatableValue(PyRelocatable {
+                    segment_index: 4,
+                    offset: 0,
+                })],
+            ),
+        ];
 
         Python::with_gil(|py| {
             assert_eq!(

@@ -20,7 +20,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/array_sum.json".to_string(),
             "main".to_string(),
-            None,
+            Some("all".to_owned()),
         )
         .unwrap();
         runner
