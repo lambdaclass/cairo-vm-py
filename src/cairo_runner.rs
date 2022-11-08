@@ -7,7 +7,10 @@ use cairo_rs::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
-    types::{program::Program, relocatable::Relocatable},
+    types::{
+        program::Program,
+        relocatable::{MaybeRelocatable, Relocatable},
+    },
     vm::{
         errors::{
             cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
@@ -21,6 +24,7 @@ use pyo3::{
     prelude::*,
 };
 use std::{
+    any::Any,
     collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
@@ -243,6 +247,20 @@ impl PyCairoRunner {
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
+        enum Either {
+            MaybeRelocatable(MaybeRelocatable),
+            VecMaybeRelocatable(Vec<MaybeRelocatable>),
+        }
+
+        impl Either {
+            pub fn as_any(&self) -> &dyn Any {
+                match self {
+                    Self::MaybeRelocatable(x) => x as &dyn Any,
+                    Self::VecMaybeRelocatable(x) => x as &dyn Any,
+                }
+            }
+        }
+
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
             x
         } else if entrypoint.extract::<String>().is_ok() {
@@ -251,14 +269,25 @@ impl PyCairoRunner {
             return Err(PyTypeError::new_err("entrypoint must be int or str"));
         };
 
-        // let args = if let Ok()
+        let mut args = Vec::new();
+        for arg in _args {
+            let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
+                Either::MaybeRelocatable(x.into())
+            } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
+                Either::VecMaybeRelocatable(x.into_iter().map(|x| x.into()).collect())
+            } else {
+                return Err(PyTypeError::new_err("Argument has unsupported type."));
+            };
+
+            args.push(arg_box);
+        }
 
         let vm = self.pyvm.get_vm();
         let mut vm = vm.borrow_mut();
         self.inner
             .run_from_entrypoint(
                 entrypoint,
-                vec![],
+                args.iter().map(|x| x.as_any()).collect(),
                 typed_args.unwrap_or(false),
                 verify_secure.unwrap_or(true),
                 apply_modulo_to_args.unwrap_or(true),
