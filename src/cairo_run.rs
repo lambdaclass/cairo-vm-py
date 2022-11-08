@@ -8,6 +8,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             None,
+            false,
         )
         .unwrap();
         runner
@@ -20,7 +21,8 @@ mod test {
         let mut runner = PyCairoRunner::new(
             "cairo_programs/array_sum.json".to_string(),
             "main".to_string(),
-            None,
+            Some(String::from("all")),
+            false,
         )
         .unwrap();
         runner
@@ -34,6 +36,7 @@ mod test {
             "cairo_programs/hint_print_vars.json".to_string(),
             "main".to_string(),
             None,
+            false,
         )
         .unwrap();
         runner
