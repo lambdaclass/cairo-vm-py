@@ -207,7 +207,7 @@ impl PyCairoRunner {
             .to_object(py)
     }
 
-    pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable, _py: Python) -> PyRelocatable {
+    pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable) -> PyRelocatable {
         let mut stack_ptr = Relocatable::from(&stack_ptr);
         let mut stop_ptrs = Vec::new();
         let mut stop_ptr;
@@ -425,6 +425,29 @@ mod test {
                     .get_builtins_initial_stack(py)
                     .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
                     .unwrap(),
+                expected_output
+            );
+        });
+    }
+
+    #[test]
+    fn get_builtins_final_stack() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/get_builtins_initial_stack.json".to_string(),
+            "main".to_string(),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.cairo_run_py(false, None, None, None).unwrap();
+
+        let expected_output = PyRelocatable::from((1, 8));
+
+        Python::with_gil(|_py| {
+            let final_stack = PyRelocatable::from((1, 9));
+            assert_eq!(
+                runner.get_builtins_final_stack(final_stack),
                 expected_output
             );
         });
