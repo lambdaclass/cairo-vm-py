@@ -168,7 +168,7 @@ memory[ap] = 3
                 .unwrap();
 
             let code = r#"
-memory[ap] = fp 
+memory[ap] = fp
 assert memory[ap] == fp
 "#;
 

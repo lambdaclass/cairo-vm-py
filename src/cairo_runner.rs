@@ -31,6 +31,7 @@ use std::{
 };
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
+const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
 
 #[pyclass(unsendable)]
 #[pyo3(name = "CairoRunner")]
@@ -45,11 +46,19 @@ pub struct PyCairoRunner {
 #[pymethods]
 impl PyCairoRunner {
     #[new]
-    pub fn new(path: String, entrypoint: String, layout: Option<String>) -> PyResult<Self> {
+    pub fn new(
+        path: String,
+        entrypoint: String,
+        layout: Option<String>,
+        proof_mode: bool,
+    ) -> PyResult<Self> {
         let program = Program::from_file(Path::new(&path), &entrypoint).map_err(to_py_error)?;
-        let cairo_runner =
-            CairoRunner::new(&program, &layout.unwrap_or_else(|| "plain".to_string()))
-                .map_err(to_py_error)?;
+        let cairo_runner = CairoRunner::new(
+            &program,
+            &layout.unwrap_or_else(|| "plain".to_string()),
+            proof_mode,
+        )
+        .map_err(to_py_error)?;
 
         let struct_types = program
             .identifiers
@@ -131,7 +140,12 @@ impl PyCairoRunner {
         self.inner
             .initialize(&mut self.pyvm.vm.borrow_mut())
             .map(PyRelocatable::from)
-            .map_err(to_py_error)
+            .map_err(to_py_error);
+    }
+
+    pub fn initialize_segments(&mut self) {
+        self.inner
+            .initialize_segments(&mut self.pyvm.vm.borrow_mut(), None)
     }
 
     pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
@@ -203,6 +217,7 @@ impl PyCairoRunner {
             .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
             .to_object(py)
     }
+
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
         self.inner
             .get_execution_resources(&self.pyvm.vm.borrow())
@@ -212,6 +227,14 @@ impl PyCairoRunner {
 
     pub fn get_ap(&self) -> PyResult<PyRelocatable> {
         Ok(PyRelocatable::from(self.pyvm.vm.borrow().get_ap()))
+    }
+
+    pub fn get_initial_fp(&self) -> PyResult<PyRelocatable> {
+        Ok(PyRelocatable::from(
+            self.inner
+                .get_initial_fp()
+                .ok_or_else(|| PyTypeError::new_err(FAILED_TO_GET_INITIAL_FP))?,
+        ))
     }
 
     pub fn get_return_values(&self, n_ret: usize, py: Python) -> PyResult<PyObject> {
@@ -283,7 +306,9 @@ impl PyCairoRunner {
         }
 
         let vm = self.pyvm.get_vm();
+
         let mut vm = vm.borrow_mut();
+
         self.inner
             .run_from_entrypoint(
                 entrypoint,
@@ -294,6 +319,15 @@ impl PyCairoRunner {
                 &mut vm,
                 &self.hint_processor,
             )
+            .map_err(to_py_error)
+    }
+
+    /// Inserts a value into a memory address given by a Relocatable value.
+    pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
+        self.pyvm
+            .get_vm()
+            .borrow_mut()
+            .insert_value(&key.into(), value)
             .map_err(to_py_error)
     }
 }
@@ -321,6 +355,8 @@ impl PyExecutionResources {
 
 #[cfg(test)]
 mod test {
+    use cairo_rs::bigint;
+
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
 
@@ -330,6 +366,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             None,
+            false,
         )
         .unwrap();
     }
@@ -340,9 +377,10 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             None,
+            false,
         )
         .unwrap();
-        runner.initialize().unwrap();
+        let b = runner.initialize().unwrap();
     }
 
     #[test]
@@ -351,6 +389,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             None,
+            false,
         )
         .unwrap();
         runner.relocate().unwrap();
@@ -362,6 +401,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             Some("small".to_string()),
+            false,
         )
         .unwrap();
         runner.get_output().unwrap();
@@ -373,6 +413,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             Some("small".to_string()),
+            false,
         )
         .unwrap();
         runner.write_output().unwrap();
@@ -384,6 +425,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             Some("small".to_string()),
+            false,
         )
         .unwrap();
         assert_eq!(runner.get_ap().unwrap(), PyRelocatable::from((1, 0)));
@@ -395,6 +437,7 @@ mod test {
             "cairo_programs/get_builtins_initial_stack.json".to_string(),
             "main".to_string(),
             Some("small".to_string()),
+            false,
         )
         .unwrap();
 
@@ -423,6 +466,7 @@ mod test {
             "cairo_programs/get_builtins_initial_stack.json".to_string(),
             "main".to_string(),
             Some("small".to_string()),
+            false,
         )
         .unwrap();
 
@@ -453,6 +497,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             None,
+            false,
         )
         .unwrap();
         runner.cairo_run_py(false, None, None, None).unwrap();
@@ -474,6 +519,7 @@ mod test {
             "cairo_programs/fibonacci.json".to_string(),
             "main".to_string(),
             None,
+            false,
         )
         .unwrap();
         runner.cairo_run_py(false, None, None, None).unwrap();
@@ -495,13 +541,15 @@ mod test {
             "cairo_programs/not_main.json".to_string(),
             "main".to_string(),
             Some("plain".to_string()),
+            false,
         )
         .unwrap();
 
         // Without `runner.initialize()`, an uninitialized error is returned.
         // With `runner.initialize()`, an invalid memory assignment is returned...
         //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize().unwrap();
+        runner.initialize_segments();
+
         Python::with_gil(|py| {
             runner
                 .run_from_entrypoint(
@@ -530,5 +578,87 @@ mod test {
     #[test]
     fn run_from_entrypoint_with_multiple_untyped_args() {
         // Multiple args (no typed)
+        // Test that `PyCairoRunner::insert()` inserts values correctly.
+    }
+
+    #[test]
+    fn insert() {
+        let runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+            true,
+        )
+        .unwrap();
+
+        (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
+        runner
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .unwrap();
+        runner
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .unwrap();
+        runner
+            .insert(&(0, 2).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .unwrap();
+        assert_eq!(
+            runner
+                .pyvm
+                .get_vm()
+                .borrow()
+                .get_continuous_range(&(0, 0).into(), 3),
+            Ok(vec![
+                bigint!(3).into(),
+                bigint!(4).into(),
+                bigint!(5).into(),
+            ]),
+        )
+    }
+
+    /// Test that `PyCairoRunner::insert()` fails when it should.
+    #[test]
+    fn insert_duplicate() {
+        let runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            None,
+            true,
+        )
+        .unwrap();
+
+        (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
+        runner
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .unwrap();
+        runner
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .unwrap();
+        runner
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .expect_err("insertion succeeded when it should've failed");
+        assert_eq!(
+            runner
+                .pyvm
+                .get_vm()
+                .borrow()
+                .get_continuous_range(&(0, 0).into(), 2),
+            Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
+        );
+    }
+
+    #[test]
+    fn get_initial_fp_test() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            Some(String::from("all")),
+            false,
+        )
+        .unwrap();
+        runner.cairo_run_py(false, None, None, None).unwrap();
+        assert_eq! {
+            PyRelocatable::from((1,2)),
+            runner.get_initial_fp().unwrap()
+        };
     }
 }
