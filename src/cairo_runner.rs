@@ -242,7 +242,7 @@ impl PyCairoRunner {
     pub fn run_from_entrypoint(
         &mut self,
         entrypoint: &PyAny,
-        _args: Vec<&PyAny>,
+        args: Vec<&PyAny>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
@@ -269,8 +269,8 @@ impl PyCairoRunner {
             return Err(PyTypeError::new_err("entrypoint must be int or str"));
         };
 
-        let mut args = Vec::new();
-        for arg in _args {
+        let mut processed_args = Vec::new();
+        for arg in args {
             let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
                 Either::MaybeRelocatable(x.into())
             } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
@@ -279,7 +279,7 @@ impl PyCairoRunner {
                 return Err(PyTypeError::new_err("Argument has unsupported type."));
             };
 
-            args.push(arg_box);
+            processed_args.push(arg_box);
         }
 
         let vm = self.pyvm.get_vm();
@@ -287,7 +287,7 @@ impl PyCairoRunner {
         self.inner
             .run_from_entrypoint(
                 entrypoint,
-                args.iter().map(|x| x.as_any()).collect(),
+                processed_args.iter().map(|x| x.as_any()).collect(),
                 typed_args.unwrap_or(false),
                 verify_secure.unwrap_or(true),
                 apply_modulo_to_args.unwrap_or(true),
@@ -487,5 +487,48 @@ mod test {
                     .unwrap()
             )
         });
+    }
+
+    #[test]
+    fn run_from_entrypoint_without_args() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/not_main.json".to_string(),
+            "main".to_string(),
+            Some("plain".to_string()),
+        )
+        .unwrap();
+
+        // Without `runner.initialize()`, an uninitialized error is returned.
+        // With `runner.initialize()`, an invalid memory assignment is returned...
+        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
+        runner.initialize().unwrap();
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py.eval("0", None, None).unwrap(),
+                    vec![],
+                    Some(false),
+                    None,
+                    None,
+                )
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_with_one_typed_arg() {
+        // One arg (typed)
+        //   value
+    }
+
+    #[test]
+    fn run_from_entrypoint_with_one_typed_vec_arg() {
+        // One arg (typed)
+        //   vec
+    }
+
+    #[test]
+    fn run_from_entrypoint_with_multiple_untyped_args() {
+        // Multiple args (no typed)
     }
 }
