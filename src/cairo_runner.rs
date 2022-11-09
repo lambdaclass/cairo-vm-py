@@ -24,12 +24,7 @@ use pyo3::{
     prelude::*,
 };
 use std::iter::zip;
-use std::{
-    any::Any,
-    collections::HashMap,
-    path::PathBuf,
-    rc::Rc,
-};
+use std::{any::Any, collections::HashMap, path::PathBuf, rc::Rc};
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
@@ -378,8 +373,8 @@ impl PyExecutionResources {
 
 #[cfg(test)]
 mod test {
-    use std::fs;
     use cairo_rs::bigint;
+    use std::fs;
 
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
@@ -388,26 +383,14 @@ mod test {
     fn create_cairo_runner() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            None,
-            false,
-        )
-        .unwrap();
+        PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
     }
 
     #[test]
     fn initialize_runner() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            None,
-            false,
-        )
-        .unwrap();
+        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
         runner.initialize().unwrap();
     }
 
@@ -415,13 +398,7 @@ mod test {
     fn runner_relocate() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            None,
-            false,
-        )
-        .unwrap();
+        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
         runner.relocate().unwrap();
     }
 
@@ -581,13 +558,9 @@ mod test {
     fn final_stack_when_using_two_builtins() {
         let path = "cairo_programs/final_stack.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            Some("all".to_string()),
-            false,
-        )
-        .unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
+                .unwrap();
 
         runner.cairo_run_py(false, None, None, None).unwrap();
 
@@ -621,13 +594,7 @@ mod test {
     fn get_segment_used_size_of_segment_0() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            None,
-            false,
-        )
-        .unwrap();
+        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
         runner.cairo_run_py(false, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
@@ -645,13 +612,7 @@ mod test {
     fn get_segment_used_size_of_segment_2() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            None,
-            false,
-        )
-        .unwrap();
+        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
         runner.cairo_run_py(false, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
@@ -717,13 +678,7 @@ mod test {
     fn insert() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let runner = PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            None,
-            true,
-        )
-        .unwrap();
+        let runner = PyCairoRunner::new(program, "main".to_string(), None, true).unwrap();
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
@@ -754,13 +709,7 @@ mod test {
     fn insert_duplicate() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let runner = PyCairoRunner::new(
-            program,
-            "main".to_string(),
-            None,
-            true,
-        )
-        .unwrap();
+        let runner = PyCairoRunner::new(program, "main".to_string(), None, true).unwrap();
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
