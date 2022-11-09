@@ -229,7 +229,8 @@ mod test {
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        let mut segments = PySegmentManager::new(&mut vm);
+        let memory = PyMemory::new(&vm);
+        let mut segments = PySegmentManager::new(&mut vm, memory);
         assert!(segments.add_temporary_segment().is_ok());
     }
 }
