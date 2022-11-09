@@ -13,7 +13,7 @@ default = ["pyo3/num-bigint", "pyo3/auto-initialize"]
 
 [dependencies]
 pyo3 = { version = "0.16.5" }
-# cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "a28f47f3a5c139d10e07f49840925998c5c4485f" }
+# cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bf20daf372371ca2af1012d868971d475748d69c" }
 cairo-rs = { path = "../cairo-rs" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
