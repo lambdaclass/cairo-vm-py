@@ -1,7 +1,6 @@
-from starkware.cairo.common.segments import relocate_segment
 from starkware.cairo.common.alloc import alloc
 
-func relocate_segment2(src_ptr : felt*, dest_ptr : felt*):
+func relocate_segment(src_ptr : felt*, dest_ptr : felt*):
     %{ 
         # TEST
         memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr) 
@@ -33,7 +32,7 @@ func main():
     assert array[1] = 51
 
     # Realocate temporary_array into the array segment
-    relocate_segment2(src_ptr=temporary_array, dest_ptr=array)
+    relocate_segment(src_ptr=temporary_array, dest_ptr=array)
 
     # Assert that the realocated temporary_array gets their values from the array segment
     assert temporary_array[0] = 50
