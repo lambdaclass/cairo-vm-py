@@ -93,3 +93,4 @@ compare_trace: $(CAIRO_RS_TRACE) $(CAIRO_TRACE)
 
 compare_memory: $(CAIRO_RS_MEM) $(CAIRO_MEM)
 	cd tests; ./compare_vm_state.sh memory
+	
