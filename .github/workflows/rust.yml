@@ -34,7 +34,7 @@ jobs:
       run: make full-test
     - name: Run clippy
       run: make clippy
-    - name: Compare-Memory-Trace
+    - name: Compare-Trace-Memory
       run : make run-comparer-tracer
     - name: Clean
       run: make clean

@@ -1,4 +1,4 @@
-.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test full-test
+.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test full-test run-comparer-tracer
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
@@ -31,11 +31,6 @@ deps:
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	pip install cairo_lang==0.9.1 && \
 	deactivate
-
-maturin: 
-	python3 -m venv cairo-rs-py-env
-	cairo-rs-py-env/bin/activate
-	maturin develop
 
 deps-macos:
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
