@@ -1,4 +1,6 @@
 use crate::{
+    memory::PyMemory,
+    memory_segments::PySegmentManager,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
@@ -142,6 +144,10 @@ impl PyCairoRunner {
     pub fn initialize_segments(&mut self) {
         self.inner
             .initialize_segments(&mut self.pyvm.vm.borrow_mut(), None)
+    }
+
+    pub fn segments(&self) -> PySegmentManager {
+        PySegmentManager::new(&self.pyvm, PyMemory::new(&self.pyvm))
     }
 
     pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
