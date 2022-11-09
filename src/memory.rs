@@ -14,8 +14,10 @@ use std::{cell::RefCell, rc::Rc};
 
 const MEMORY_GET_ERROR_MSG: &str = "Failed to get value from Cairo memory";
 const MEMORY_SET_ERROR_MSG: &str = "Failed to set value to Cairo memory";
+const MEMORY_GET_RANGE_ERROR_MSG: &str = "Failed to call get_range method from Cairo memory";
 
 #[pyclass(unsendable)]
+#[derive(Clone)]
 pub struct PyMemory {
     vm: Rc<RefCell<VirtualMachine>>,
 }
@@ -49,6 +51,23 @@ impl PyMemory {
             .borrow_mut()
             .insert_value(&key, value)
             .map_err(|_| PyValueError::new_err(MEMORY_SET_ERROR_MSG))
+    }
+
+    pub fn get_range(
+        &self,
+        addr: PyMaybeRelocatable,
+        size: usize,
+        py: Python,
+    ) -> PyResult<PyObject> {
+        Ok(self
+            .vm
+            .borrow()
+            .get_continuous_range(&MaybeRelocatable::from(addr), size)
+            .map_err(|_| PyTypeError::new_err(MEMORY_GET_RANGE_ERROR_MSG))?
+            .into_iter()
+            .map(Into::<PyMaybeRelocatable>::into)
+            .collect::<Vec<PyMaybeRelocatable>>()
+            .to_object(py))
     }
 }
 
@@ -149,7 +168,7 @@ memory[ap] = 3
                 .unwrap();
 
             let code = r#"
-memory[ap] = fp 
+memory[ap] = fp
 assert memory[ap] == fp
 "#;
 

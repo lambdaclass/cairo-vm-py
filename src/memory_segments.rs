@@ -1,4 +1,5 @@
 use crate::{
+    memory::PyMemory,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
@@ -10,13 +11,18 @@ use std::{cell::RefCell, rc::Rc};
 #[pyclass(name = "MemorySegmentManager", unsendable)]
 pub struct PySegmentManager {
     vm: Rc<RefCell<VirtualMachine>>,
+    #[pyo3(get)]
+    memory: PyMemory,
 }
 
 #[pymethods]
 impl PySegmentManager {
     #[new]
-    pub fn new(vm: &PyVM) -> PySegmentManager {
-        PySegmentManager { vm: vm.get_vm() }
+    pub fn new(vm: &PyVM, memory: PyMemory) -> PySegmentManager {
+        PySegmentManager {
+            vm: vm.get_vm(),
+            memory,
+        }
     }
 
     pub fn add(&self) -> PyResult<PyRelocatable> {
@@ -89,10 +95,11 @@ impl PySegmentManager {
 #[cfg(test)]
 mod test {
     use super::PySegmentManager;
-    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
+    use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{bigint, types::relocatable::Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::{Python, ToPyObject};
+    use std::ops::Add;
 
     #[test]
     fn add_segment_test() {
@@ -100,7 +107,7 @@ mod test {
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        let segments = PySegmentManager::new(&vm);
+        let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
         assert!(segments.add().is_ok());
     }
 
@@ -111,7 +118,7 @@ mod test {
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             );
-            let segments = PySegmentManager::new(&vm);
+            let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
 
             let ptr = segments.add().unwrap();
             segments
@@ -166,17 +173,14 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.add(1).unwrap())
+                    .get_maybe(&relocatable.clone().add(1_i32))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref
-                .get_maybe(&relocatable.add(2).unwrap())
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
 
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 3)))
@@ -197,17 +201,14 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.add(1).unwrap())
+                    .get_maybe(&relocatable.clone().add(1_i32))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref
-                .get_maybe(&relocatable.add(2).unwrap())
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
 
             assert!(vm_ref
                 .get_maybe(&Relocatable::from((0, 4)))
