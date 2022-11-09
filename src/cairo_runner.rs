@@ -27,7 +27,7 @@ use std::iter::zip;
 use std::{
     any::Any,
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::Rc,
 };
 
@@ -48,12 +48,12 @@ pub struct PyCairoRunner {
 impl PyCairoRunner {
     #[new]
     pub fn new(
-        path: String,
+        program: String,
         entrypoint: String,
         layout: Option<String>,
         proof_mode: bool,
     ) -> PyResult<Self> {
-        let program = Program::from_file(Path::new(&path), &entrypoint).map_err(to_py_error)?;
+        let program = Program::from_reader(program.as_bytes(), &entrypoint).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(
             &program,
             &layout.unwrap_or_else(|| "plain".to_string()),
@@ -378,6 +378,7 @@ impl PyExecutionResources {
 
 #[cfg(test)]
 mod test {
+    use std::fs;
     use cairo_rs::bigint;
 
     use super::*;
@@ -385,8 +386,10 @@ mod test {
 
     #[test]
     fn create_cairo_runner() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             None,
             false,
@@ -396,8 +399,10 @@ mod test {
 
     #[test]
     fn initialize_runner() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             None,
             false,
@@ -408,8 +413,10 @@ mod test {
 
     #[test]
     fn runner_relocate() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             None,
             false,
@@ -420,8 +427,10 @@ mod test {
 
     #[test]
     fn get_output() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             Some("small".to_string()),
             false,
@@ -432,8 +441,10 @@ mod test {
 
     #[test]
     fn write_output() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             Some("small".to_string()),
             false,
@@ -444,8 +455,10 @@ mod test {
 
     #[test]
     fn get_ap() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             Some("small".to_string()),
             false,
@@ -456,8 +469,10 @@ mod test {
 
     #[test]
     fn add_segment() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/get_builtins_initial_stack.json".to_string(),
+            program,
             "main".to_string(),
             Some("small".to_string()),
             false,
@@ -485,8 +500,10 @@ mod test {
 
     #[test]
     fn get_builtins_initial_stack() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/get_builtins_initial_stack.json".to_string(),
+            program,
             "main".to_string(),
             Some("small".to_string()),
             false,
@@ -516,8 +533,10 @@ mod test {
 
     #[test]
     fn get_builtins_final_stack() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/get_builtins_initial_stack.json".to_string(),
+            program,
             "main".to_string(),
             Some("small".to_string()),
             false,
@@ -537,8 +556,10 @@ mod test {
 
     #[test]
     fn final_stack_when_not_using_builtins() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             Some("small".to_string()),
             false,
@@ -558,8 +579,10 @@ mod test {
 
     #[test]
     fn final_stack_when_using_two_builtins() {
+        let path = "cairo_programs/final_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/final_stack.json".to_string(),
+            program,
             "main".to_string(),
             Some("all".to_string()),
             false,
@@ -596,8 +619,10 @@ mod test {
 
     #[test]
     fn get_segment_used_size_of_segment_0() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             None,
             false,
@@ -618,8 +643,10 @@ mod test {
 
     #[test]
     fn get_segment_used_size_of_segment_2() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             None,
             false,
@@ -640,8 +667,10 @@ mod test {
 
     #[test]
     fn run_from_entrypoint_without_args() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/not_main.json".to_string(),
+            program,
             "main".to_string(),
             Some("plain".to_string()),
             false,
@@ -686,8 +715,10 @@ mod test {
 
     #[test]
     fn insert() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             None,
             true,
@@ -721,8 +752,10 @@ mod test {
     /// Test that `PyCairoRunner::insert()` fails when it should.
     #[test]
     fn insert_duplicate() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             None,
             true,
@@ -751,8 +784,10 @@ mod test {
 
     #[test]
     fn get_initial_fp_test() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
-            "cairo_programs/fibonacci.json".to_string(),
+            program,
             "main".to_string(),
             Some(String::from("all")),
             false,
