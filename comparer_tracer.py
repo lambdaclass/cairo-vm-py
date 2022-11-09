@@ -8,7 +8,7 @@ def new_runner(program_name: str):
 
 if __name__ == "__main__":
     program_name = sys.argv[1]
-    if program_name in ["blake2s_felt", "blake2s_finalize", "blake2s_hello_world_hash", "dict_squash", "squash_dict", "dict_write"]:
+    if program_name in ["blake2s_felt", "blake2s_finalize", "blake2s_integration_tests", "blake2s_hello_world_hash", "dict_squash", "squash_dict", "dict_write"]:
         pass
     else: 
         new_runner(program_name)
