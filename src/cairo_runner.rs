@@ -23,12 +23,7 @@ use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError},
     prelude::*,
 };
-use std::{
-    any::Any,
-    collections::HashMap,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::{any::Any, collections::HashMap, path::PathBuf, rc::Rc};
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
@@ -47,12 +42,12 @@ pub struct PyCairoRunner {
 impl PyCairoRunner {
     #[new]
     pub fn new(
-        path: String,
+        program: String,
         entrypoint: String,
         layout: Option<String>,
         proof_mode: bool,
     ) -> PyResult<Self> {
-        let program = Program::from_file(Path::new(&path), &entrypoint).map_err(to_py_error)?;
+        let program = Program::from_reader(program.as_bytes(), &entrypoint).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(
             &program,
             &layout.unwrap_or_else(|| "plain".to_string()),
