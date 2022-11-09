@@ -1,4 +1,5 @@
 use crate::{
+    memory::PyMemory,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
@@ -10,13 +11,18 @@ use std::{cell::RefCell, rc::Rc};
 #[pyclass(name = "MemorySegmentManager", unsendable)]
 pub struct PySegmentManager {
     vm: Rc<RefCell<VirtualMachine>>,
+    #[pyo3(get)]
+    memory: PyMemory,
 }
 
 #[pymethods]
 impl PySegmentManager {
     #[new]
-    pub fn new(vm: &PyVM) -> PySegmentManager {
-        PySegmentManager { vm: vm.get_vm() }
+    pub fn new(vm: &PyVM, memory: PyMemory) -> PySegmentManager {
+        PySegmentManager {
+            vm: vm.get_vm(),
+            memory,
+        }
     }
 
     pub fn add(&self) -> PyResult<PyRelocatable> {
@@ -89,7 +95,7 @@ impl PySegmentManager {
 #[cfg(test)]
 mod test {
     use super::PySegmentManager;
-    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
+    use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{bigint, types::relocatable::Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::{Python, ToPyObject};
@@ -101,7 +107,7 @@ mod test {
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        let segments = PySegmentManager::new(&vm);
+        let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
         assert!(segments.add().is_ok());
     }
 
@@ -112,7 +118,7 @@ mod test {
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             );
-            let segments = PySegmentManager::new(&vm);
+            let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
 
             let ptr = segments.add().unwrap();
             segments
