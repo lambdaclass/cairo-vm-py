@@ -23,6 +23,7 @@ use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError},
     prelude::*,
 };
+use std::iter::zip;
 use std::{
     any::Any,
     collections::HashMap,
@@ -216,6 +217,28 @@ impl PyCairoRunner {
             })
             .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
             .to_object(py)
+    }
+
+    pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable) -> PyResult<PyRelocatable> {
+        let mut stack_ptr = Relocatable::from(&stack_ptr);
+        let mut stop_ptrs = Vec::new();
+        let mut stop_ptr;
+
+        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners() {
+            (stack_ptr, stop_ptr) = runner
+                .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
+                .map_err(to_py_error)?;
+            stop_ptrs.push(stop_ptr);
+        }
+
+        for ((_, runner), stop_ptr) in zip(
+            self.pyvm.vm.borrow_mut().get_builtin_runners_as_mut(),
+            stop_ptrs,
+        ) {
+            runner.set_stop_ptr(stop_ptr);
+        }
+
+        Ok(stack_ptr.into())
     }
 
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
@@ -489,6 +512,86 @@ mod test {
                 expected_output
             );
         });
+    }
+
+    #[test]
+    fn get_builtins_final_stack() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/get_builtins_initial_stack.json".to_string(),
+            "main".to_string(),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.cairo_run_py(false, None, None, None).unwrap();
+
+        let expected_output = PyRelocatable::from((1, 8));
+
+        let final_stack = PyRelocatable::from((1, 9));
+        assert_eq!(
+            runner.get_builtins_final_stack(final_stack).unwrap(),
+            expected_output
+        );
+    }
+
+    #[test]
+    fn final_stack_when_not_using_builtins() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/fibonacci.json".to_string(),
+            "main".to_string(),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.cairo_run_py(false, None, None, None).unwrap();
+
+        let expected_output = PyRelocatable::from((1, 0));
+
+        let final_stack = PyRelocatable::from((1, 0));
+        assert_eq!(
+            runner.get_builtins_final_stack(final_stack).unwrap(),
+            expected_output
+        );
+    }
+
+    #[test]
+    fn final_stack_when_using_two_builtins() {
+        let mut runner = PyCairoRunner::new(
+            "cairo_programs/final_stack.json".to_string(),
+            "main".to_string(),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.cairo_run_py(false, None, None, None).unwrap();
+
+        // Insert os_context in the VM's stack:
+        //  * range_check segment base in (1, 41)
+        //  * bitwise segment base in (1, 41)
+        runner
+            .insert(
+                &(1, 41).into(),
+                PyMaybeRelocatable::RelocatableValue(PyRelocatable::new((2, 0))),
+            )
+            .unwrap();
+
+        runner
+            .insert(
+                &(1, 42).into(),
+                PyMaybeRelocatable::RelocatableValue(PyRelocatable::new((3, 0))),
+            )
+            .unwrap();
+
+        let expected_output = PyRelocatable::from((1, 40));
+        let final_stack = PyRelocatable::from((1, 42));
+
+        assert_eq!(
+            runner.get_builtins_final_stack(final_stack).unwrap(),
+            expected_output
+        );
     }
 
     #[test]
