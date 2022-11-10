@@ -755,4 +755,63 @@ mod test {
             runner.get_initial_fp().unwrap()
         };
     }
+
+    #[test]
+    fn initialize_function_runner() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
+                .unwrap();
+
+        runner.initialize_function_runner().unwrap();
+
+        let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![
+            (
+                "output",
+                vec![RelocatableValue(PyRelocatable {
+                    segment_index: 2,
+                    offset: 0,
+                })],
+            ),
+            (
+                "pedersen",
+                vec![RelocatableValue(PyRelocatable {
+                    segment_index: 3,
+                    offset: 0,
+                })],
+            ),
+            (
+                "range_check",
+                vec![RelocatableValue(PyRelocatable {
+                    segment_index: 4,
+                    offset: 0,
+                })],
+            ),
+            (
+                "bitwise",
+                vec![RelocatableValue(PyRelocatable {
+                    segment_index: 5,
+                    offset: 0,
+                })],
+            ),
+            (
+                "ec_op",
+                vec![RelocatableValue(PyRelocatable {
+                    segment_index: 6,
+                    offset: 0,
+                })],
+            ),
+        ];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_builtins_initial_stack(py)
+                    .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
+                    .unwrap(),
+                expected_output
+            );
+        });
+    }
 }
