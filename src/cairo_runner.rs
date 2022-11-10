@@ -82,6 +82,7 @@ impl PyCairoRunner {
     pub fn cairo_run_py(
         &mut self,
         print_output: bool,
+        entrypoint: Option<String>,
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
@@ -466,7 +467,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         let new_segment = runner.add_segment();
         assert_eq!(
             new_segment,
@@ -497,7 +498,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![(
             "range_check",
@@ -530,7 +531,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output = PyRelocatable::from((1, 8));
 
@@ -553,7 +554,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output = PyRelocatable::from((1, 0));
 
@@ -576,7 +577,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         // Insert os_context in the VM's stack:
         //  * range_check segment base in (1, 41)
@@ -610,7 +611,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 24,
@@ -629,7 +630,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 0,
@@ -758,7 +759,7 @@ mod test {
             false,
         )
         .unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         assert_eq! {
             PyRelocatable::from((1,2)),
             runner.get_initial_fp().unwrap()
