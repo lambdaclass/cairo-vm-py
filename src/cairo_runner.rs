@@ -348,6 +348,13 @@ impl PyCairoRunner {
             .insert_value(&key.into(), value)
             .map_err(to_py_error)
     }
+
+    // Initialize all the builtins and segments.
+    pub fn initialize_function_runner(&mut self) -> PyResult<()> {
+        self.inner
+            .initialize_function_runner(&mut self.pyvm.vm.borrow_mut())
+            .map_err(to_py_error)
+    }
 }
 
 #[pyclass]
