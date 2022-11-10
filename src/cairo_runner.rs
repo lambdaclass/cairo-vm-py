@@ -14,8 +14,10 @@ use cairo_rs::{
     vm::{
         errors::{
             cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
+            vm_errors::VirtualMachineError,
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
+        security::verify_secure_runner,
     },
 };
 use num_bigint::{BigInt, Sign};
@@ -322,22 +324,70 @@ impl PyCairoRunner {
 
             processed_args.push(arg_box);
         }
+        let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
 
-        let vm = self.pyvm.get_vm();
+        let stack = if typed_args.unwrap_or(false) {
+            if processed_args.len() != 1 {
+                return Err(VirtualMachineError::InvalidArgCount(
+                    1,
+                    processed_args.len(),
+                ))
+                .map_err(to_py_error);
+            }
 
-        let mut vm = vm.borrow_mut();
+            self.pyvm
+                .vm
+                .borrow()
+                .gen_typed_args(processed_args)
+                .map_err(to_py_error)?
+        } else {
+            let mut stack = Vec::new();
+            for arg in processed_args {
+                let prime = match apply_modulo_to_args.unwrap_or(true) {
+                    true => Some(self.pyvm.vm.borrow().get_prime().clone()),
+                    false => None,
+                };
+
+                stack.push(
+                    self.pyvm
+                        .vm
+                        .borrow_mut()
+                        .gen_arg(arg, prime.as_ref())
+                        .map_err(to_py_error)?,
+                );
+            }
+
+            stack
+        };
+
+        let return_fp = self.pyvm.vm.borrow_mut().add_memory_segment();
+
+        let end = self
+            .inner
+            .initialize_function_entrypoint(
+                &mut self.pyvm.vm.borrow_mut(),
+                entrypoint,
+                stack,
+                return_fp.into(),
+            )
+            .map_err(to_py_error)?;
 
         self.inner
-            .run_from_entrypoint(
-                entrypoint,
-                processed_args.iter().map(|x| x.as_any()).collect(),
-                typed_args.unwrap_or(false),
-                verify_secure.unwrap_or(true),
-                apply_modulo_to_args.unwrap_or(true),
-                &mut vm,
-                &self.hint_processor,
-            )
-            .map_err(to_py_error)
+            .initialize_vm(&mut self.pyvm.vm.borrow_mut())
+            .map_err(to_py_error)?;
+
+        self.run_until_pc(&PyRelocatable::from(end))?;
+
+        self.inner
+            .end_run(true, false, &mut self.pyvm.vm.borrow_mut())
+            .map_err(to_py_error)?;
+
+        if verify_secure.unwrap_or(true) {
+            verify_secure_runner(&self.inner, false, &mut self.pyvm.vm.borrow_mut())
+                .map_err(to_py_error)?;
+        }
+
+        Ok(())
     }
 
     /// Inserts a value into a memory address given by a Relocatable value.
