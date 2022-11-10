@@ -194,7 +194,7 @@ impl PyCairoRunner {
         self.pyvm.vm.borrow_mut().add_memory_segment().into()
     }
 
-    pub fn get_builtins_initial_stack(&self, py: Python) -> PyObject {
+    pub fn get_program_builtins_initial_stack(&self, py: Python) -> PyObject {
         self.pyvm
             .vm
             .borrow_mut()
@@ -209,6 +209,9 @@ impl PyCairoRunner {
                         .map(Into::<PyMaybeRelocatable>::into)
                         .collect::<Vec<PyMaybeRelocatable>>(),
                 )
+            })
+            .filter(|(builtin_name, _initial_stack)| {
+                self.inner.get_program().builtins.contains(builtin_name)
             })
             .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
             .to_object(py)
@@ -507,7 +510,7 @@ mod test {
         Python::with_gil(|py| {
             assert_eq!(
                 runner
-                    .get_builtins_initial_stack(py)
+                    .get_program_builtins_initial_stack(py)
                     .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
                     .unwrap(),
                 expected_output
@@ -807,7 +810,7 @@ mod test {
         Python::with_gil(|py| {
             assert_eq!(
                 runner
-                    .get_builtins_initial_stack(py)
+                    .get_program_builtins_initial_stack(py)
                     .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
                     .unwrap(),
                 expected_output
