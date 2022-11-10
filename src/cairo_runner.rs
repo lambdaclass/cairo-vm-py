@@ -82,10 +82,10 @@ impl PyCairoRunner {
     pub fn cairo_run_py(
         &mut self,
         print_output: bool,
-        entrypoint: Option<String>,
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
+        entrypoint: Option<String>,
     ) -> PyResult<()> {
         if let Some(entrypoint) = entrypoint {
             self.inner
