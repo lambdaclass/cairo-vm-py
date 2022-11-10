@@ -73,9 +73,11 @@ impl PyMemory {
 
 #[cfg(test)]
 mod test {
+    use crate::relocatable::PyMaybeRelocatable;
     use crate::utils::to_vm_error;
     use crate::vm_core::PyVM;
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
+    use cairo_rs::types::relocatable::MaybeRelocatable;
     use num_bigint::{BigInt, Sign};
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};
@@ -175,6 +177,48 @@ assert memory[ap] == fp
             let py_result = py.run(code, Some(globals), None);
 
             assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+        });
+    }
+
+    #[test]
+    fn get_range() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+
+            let ap = PyRelocatable::from(vm.vm.borrow().get_ap());
+
+            let globals = PyDict::new(py);
+            let memory = PyMemory::new(&vm);
+            globals
+                .set_item("memory", PyCell::new(py, memory.clone()).unwrap())
+                .unwrap();
+            globals
+                .set_item("ap", PyCell::new(py, ap).unwrap())
+                .unwrap();
+
+            let code = "memory[ap] = 5";
+
+            py.run(code, Some(globals), None).unwrap();
+
+            let maybe_relocatable = MaybeRelocatable::from((0, 0));
+            let size = 1;
+
+            let range = memory
+                .get_range(maybe_relocatable.into(), size, py)
+                .unwrap()
+                .extract::<Vec<PyMaybeRelocatable>>(py)
+                .unwrap();
+
+            println!("{:?}", range);
+
+            assert_eq!(1, 0);
         });
     }
 }
