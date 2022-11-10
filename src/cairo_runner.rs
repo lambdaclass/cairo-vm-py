@@ -200,20 +200,17 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .map(|(builtin_name, builtin_runner)| {
-                (
-                    builtin_name,
-                    builtin_runner
-                        .initial_stack()
-                        .into_iter()
-                        .map(Into::<PyMaybeRelocatable>::into)
-                        .collect::<Vec<PyMaybeRelocatable>>(),
-                )
-            })
-            .filter(|(builtin_name, _initial_stack)| {
+            .filter(|(builtin_name, _builtin_runner)| {
                 self.inner.get_program_builtins().contains(builtin_name)
             })
-            .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
+            .map(|(_builtin_name, builtin_runner)| {
+                builtin_runner
+                    .initial_stack()
+                    .into_iter()
+                    .map(Into::<PyMaybeRelocatable>::into)
+                    .collect::<Vec<PyMaybeRelocatable>>()
+            })
+            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
             .to_object(py)
     }
 
@@ -499,22 +496,25 @@ mod test {
 
         runner.cairo_run_py(false, None, None, None).unwrap();
 
-        let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![(
-            "range_check",
-            vec![RelocatableValue(PyRelocatable {
+        let expected_output: Vec<Vec<PyMaybeRelocatable>> =
+            vec![vec![RelocatableValue(PyRelocatable {
                 segment_index: 2,
                 offset: 0,
-            })],
-        )];
+            })]];
 
         Python::with_gil(|py| {
             assert_eq!(
-                runner
-                    .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
-                    .unwrap(),
-                expected_output
-            );
+                            runner
+            <<<<<<< HEAD
+                                .get_program_builtins_initial_stack(py)
+                                .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
+            =======
+                                .get_builtins_initial_stack(py)
+                                .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+            >>>>>>> e0198e7c47ac6563111bbc3ef7f4b8a6bf7469a5
+                                .unwrap(),
+                            expected_output
+                        );
         });
     }
 
@@ -773,7 +773,7 @@ mod test {
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
+                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
                     .unwrap(),
                 vec![]
             );
