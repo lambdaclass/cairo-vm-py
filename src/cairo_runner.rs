@@ -284,10 +284,10 @@ impl PyCairoRunner {
         &mut self,
         entrypoint: &PyAny,
         args: Vec<&PyAny>,
+        hint_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
-        hint_locals: Option<HashMap<String, PyObject>>,
     ) -> PyResult<()> {
         enum Either {
             MaybeRelocatable(MaybeRelocatable),
@@ -660,8 +660,8 @@ mod test {
                 .run_from_entrypoint(
                     py.eval("0", None, None).unwrap(),
                     vec![],
-                    Some(false),
                     None,
+                    Some(false),
                     None,
                     None,
                 )
@@ -688,13 +688,13 @@ mod test {
                 .run_from_entrypoint(
                     py.eval("0", None, None).unwrap(),
                     vec![],
-                    Some(false),
-                    None,
-                    None,
                     Some(HashMap::from([(
                         String::from("syscall_handler"),
                         1.to_object(py),
                     )])),
+                    Some(false),
+                    None,
+                    None,
                 )
                 .unwrap();
             assert!(!runner.hint_locals.is_empty());
