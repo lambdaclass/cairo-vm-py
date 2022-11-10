@@ -22,6 +22,7 @@ use num_bigint::{BigInt, Sign};
 use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError},
     prelude::*,
+    types::PyIterator,
 };
 use std::iter::zip;
 use std::{any::Any, collections::HashMap, path::PathBuf, rc::Rc};
@@ -355,6 +356,68 @@ impl PyCairoRunner {
             .initialize_function_runner(&mut self.pyvm.vm.borrow_mut())
             .map_err(to_py_error)
     }
+
+    pub fn gen_arg(
+        &self,
+        py: Python,
+        arg: Py<PyAny>,
+        apply_modulo_to_args: bool,
+    ) -> PyResult<PyObject> {
+        Ok(
+            PyMaybeRelocatable::from(match PyIterator::from_object(py, &arg) {
+                Ok(iterator) => {
+                    let segment_ptr = MaybeRelocatable::RelocatableValue(
+                        self.pyvm.vm.borrow_mut().add_memory_segment(),
+                    );
+                    self.write_arg(
+                        py,
+                        segment_ptr.clone().into(),
+                        iterator.to_object(py),
+                        apply_modulo_to_args,
+                    )?;
+                    segment_ptr
+                }
+                _ => {
+                    let mut value: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>(py)?.into();
+                    if apply_modulo_to_args {
+                        value = value
+                            .mod_floor(self.pyvm.vm.borrow().get_prime())
+                            .map_err(to_py_error)?;
+                    }
+                    value
+                }
+            })
+            .to_object(py),
+        )
+    }
+
+    #[args(apply_modulo_to_args = true)]
+    pub fn write_arg(
+        &self,
+        py: Python<'_>,
+        ptr: PyMaybeRelocatable,
+        arg: Py<PyAny>,
+        apply_modulo_to_args: bool,
+    ) -> PyResult<PyObject> {
+        let ptr: MaybeRelocatable = ptr.into();
+
+        let arg_iter = PyIterator::from_object(py, &arg)?;
+        let mut data = Vec::new();
+        for value in arg_iter {
+            data.push(
+                self.gen_arg(py, value?.to_object(py), apply_modulo_to_args)?
+                    .extract::<PyMaybeRelocatable>(py)?
+                    .into(),
+            );
+        }
+
+        self.pyvm
+            .vm
+            .borrow_mut()
+            .load_data(&ptr, data)
+            .map(|x| PyMaybeRelocatable::from(x).to_object(py))
+            .map_err(to_py_error)
+    }
 }
 
 #[pyclass]
@@ -382,6 +445,7 @@ impl PyExecutionResources {
 mod test {
     use cairo_rs::bigint;
     use std::fs;
+    use std::ops::Add;
 
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
@@ -812,6 +876,112 @@ mod test {
                     .unwrap(),
                 expected_output
             );
+        });
+    }
+
+    #[test]
+    fn write_arg_test() {
+        Python::with_gil(|py| {
+            let path = "cairo_programs/fibonacci.json".to_string();
+            let program = fs::read_to_string(path).unwrap();
+            let runner =
+                PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
+                    .unwrap();
+
+            let ptr = runner.add_segment();
+            runner
+                .write_arg(
+                    py,
+                    PyMaybeRelocatable::RelocatableValue(ptr),
+                    py.eval("[1, 2, [3, 4], [5, 6]]", None, None)
+                        .unwrap()
+                        .to_object(py),
+                    true,
+                )
+                .unwrap();
+
+            let vm_ref = runner.pyvm.get_vm();
+            let vm_ref = vm_ref.borrow();
+
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&Relocatable::from((0, 0)))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(1),
+            );
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&Relocatable::from((0, 1)))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(2),
+            );
+
+            let relocatable = vm_ref
+                .get_maybe(&Relocatable::from((0, 2)))
+                .unwrap()
+                .unwrap()
+                .get_relocatable()
+                .unwrap()
+                .clone();
+
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable)
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(3),
+            );
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(4),
+            );
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+
+            let relocatable = vm_ref
+                .get_maybe(&Relocatable::from((0, 3)))
+                .unwrap()
+                .unwrap()
+                .get_relocatable()
+                .unwrap()
+                .clone();
+
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable)
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(5),
+            );
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(6),
+            );
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+
+            assert!(vm_ref
+                .get_maybe(&Relocatable::from((0, 4)))
+                .unwrap()
+                .is_none());
         });
     }
 }
