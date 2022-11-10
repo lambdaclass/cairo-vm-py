@@ -769,51 +769,13 @@ mod test {
 
         runner.initialize_function_runner().unwrap();
 
-        let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![
-            (
-                "output",
-                vec![RelocatableValue(PyRelocatable {
-                    segment_index: 2,
-                    offset: 0,
-                })],
-            ),
-            (
-                "pedersen",
-                vec![RelocatableValue(PyRelocatable {
-                    segment_index: 3,
-                    offset: 0,
-                })],
-            ),
-            (
-                "range_check",
-                vec![RelocatableValue(PyRelocatable {
-                    segment_index: 4,
-                    offset: 0,
-                })],
-            ),
-            (
-                "bitwise",
-                vec![RelocatableValue(PyRelocatable {
-                    segment_index: 5,
-                    offset: 0,
-                })],
-            ),
-            (
-                "ec_op",
-                vec![RelocatableValue(PyRelocatable {
-                    segment_index: 6,
-                    offset: 0,
-                })],
-            ),
-        ];
-
         Python::with_gil(|py| {
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
                     .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
                     .unwrap(),
-                expected_output
+                vec![]
             );
         });
     }
