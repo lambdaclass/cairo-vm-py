@@ -24,8 +24,7 @@ use pyo3::{
     prelude::*,
     types::PyIterator,
 };
-use std::iter::zip;
-use std::{any::Any, collections::HashMap, path::PathBuf, rc::Rc};
+use std::{any::Any, borrow::BorrowMut, collections::HashMap, iter::zip, path::PathBuf, rc::Rc};
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
@@ -88,17 +87,23 @@ impl PyCairoRunner {
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
     ) -> PyResult<()> {
+        if let Some(entrypoint) = entrypoint {
+            self.inner
+                .borrow_mut()
+                .set_entrypoint(Some(&entrypoint))
+                .map_err(to_py_error)?;
+        }
+
         let end = self.initialize()?;
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
         if trace_file.is_none() {
-            self.pyvm.vm.borrow_mut().disable_trace();
+            (*self.pyvm.vm).borrow_mut().disable_trace();
         }
         self.run_until_pc(&end)?;
 
-        self.pyvm
-            .vm
+        (*self.pyvm.vm)
             .borrow_mut()
             .verify_auto_deductions()
             .map_err(to_py_error)?;
@@ -137,14 +142,14 @@ impl PyCairoRunner {
 
     pub fn initialize(&mut self) -> PyResult<PyRelocatable> {
         self.inner
-            .initialize(&mut self.pyvm.vm.borrow_mut())
+            .initialize(&mut (*self.pyvm.vm).borrow_mut())
             .map(PyRelocatable::from)
             .map_err(to_py_error)
     }
 
     pub fn initialize_segments(&mut self) {
         self.inner
-            .initialize_segments(&mut self.pyvm.vm.borrow_mut(), None)
+            .initialize_segments(&mut (*self.pyvm.vm).borrow_mut(), None)
     }
 
     pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
@@ -179,27 +184,26 @@ impl PyCairoRunner {
 
     pub fn relocate(&mut self) -> PyResult<()> {
         self.inner
-            .relocate(&mut self.pyvm.vm.borrow_mut())
+            .relocate(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)
     }
 
     pub fn get_output(&mut self) -> PyResult<String> {
         self.inner
-            .get_output(&mut self.pyvm.vm.borrow_mut())
+            .get_output(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)
     }
 
     pub fn write_output(&mut self) -> PyResult<()> {
-        write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
+        write_output(&mut self.inner, &mut (*self.pyvm.vm).borrow_mut()).map_err(to_py_error)
     }
 
     pub fn add_segment(&self) -> PyRelocatable {
-        self.pyvm.vm.borrow_mut().add_memory_segment().into()
+        (*self.pyvm.vm).borrow_mut().add_memory_segment().into()
     }
 
     pub fn get_builtins_initial_stack(&self, py: Python) -> PyObject {
-        self.pyvm
-            .vm
+        (*self.pyvm.vm)
             .borrow_mut()
             .get_builtin_runners()
             .iter()
@@ -230,7 +234,7 @@ impl PyCairoRunner {
         }
 
         for ((_, runner), stop_ptr) in zip(
-            self.pyvm.vm.borrow_mut().get_builtin_runners_as_mut(),
+            (*self.pyvm.vm).borrow_mut().get_builtin_runners_as_mut(),
             stop_ptrs,
         ) {
             runner.set_stop_ptr(stop_ptr);
@@ -327,8 +331,7 @@ impl PyCairoRunner {
         }
 
         let vm = self.pyvm.get_vm();
-
-        let mut vm = vm.borrow_mut();
+        let mut vm = (*vm).borrow_mut();
 
         self.inner
             .run_from_entrypoint(
@@ -345,8 +348,7 @@ impl PyCairoRunner {
 
     /// Inserts a value into a memory address given by a Relocatable value.
     pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
-        self.pyvm
-            .get_vm()
+        (*self.pyvm.vm)
             .borrow_mut()
             .insert_value(&key.into(), value)
             .map_err(to_py_error)
@@ -355,7 +357,7 @@ impl PyCairoRunner {
     // Initialize all the builtins and segments.
     pub fn initialize_function_runner(&mut self) -> PyResult<()> {
         self.inner
-            .initialize_function_runner(&mut self.pyvm.vm.borrow_mut())
+            .initialize_function_runner(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)
     }
 
@@ -369,7 +371,7 @@ impl PyCairoRunner {
             PyMaybeRelocatable::from(match PyIterator::from_object(py, &arg) {
                 Ok(iterator) => {
                     let segment_ptr = MaybeRelocatable::RelocatableValue(
-                        self.pyvm.vm.borrow_mut().add_memory_segment(),
+                        (*self.pyvm.vm).borrow_mut().add_memory_segment(),
                     );
                     self.write_arg(
                         py,
@@ -413,8 +415,7 @@ impl PyCairoRunner {
             );
         }
 
-        self.pyvm
-            .vm
+        (*self.pyvm.vm)
             .borrow_mut()
             .load_data(&ptr, data)
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
@@ -1000,5 +1001,17 @@ mod test {
                 .unwrap()
                 .is_none());
         });
+    }
+
+    #[test]
+    fn test() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, None, Some("small".to_string()), false).unwrap();
+
+        runner
+            .cairo_run_py(false, Some("main".to_string()), None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
     }
 }
