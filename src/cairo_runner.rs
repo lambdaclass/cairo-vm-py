@@ -211,7 +211,7 @@ impl PyCairoRunner {
                 )
             })
             .filter(|(builtin_name, _initial_stack)| {
-                self.inner.get_program().builtins.contains(builtin_name)
+                self.inner.get_program_builtins().contains(builtin_name)
             })
             .collect::<Vec<(&String, Vec<PyMaybeRelocatable>)>>()
             .to_object(py)
