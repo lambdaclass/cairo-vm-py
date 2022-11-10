@@ -2,8 +2,8 @@ import cairo_rs_py
 import sys
 
 def new_runner(program_name: str):
-    cairo_runner = cairo_rs_py.CairoRunner(f"cairo_programs/{program_name}.json", "main", "all")
-    cairo_runner.cairo_run(False, f"cairo_programs/{program_name}.rs.trace", f"cairo_programs/{program_name}.rs.memory")
+    with open(f"cairo_programs/{program_name}.json") as file:
+        return cairo_rs_py.CairoRunner(file.read(), "main", "all", False)
 
 
 if __name__ == "__main__":
