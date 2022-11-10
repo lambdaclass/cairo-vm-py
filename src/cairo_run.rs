@@ -9,7 +9,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
         runner
-            .cairo_run_py(false, None, None, None)
+            .cairo_run_py(false, None, None, None, None)
             .expect("Couldn't run program");
     }
 
@@ -25,7 +25,7 @@ mod test {
         )
         .unwrap();
         runner
-            .cairo_run_py(false, None, None, None)
+            .cairo_run_py(false, None, None, None, None)
             .expect("Couldn't run program");
     }
 
@@ -35,7 +35,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
         runner
-            .cairo_run_py(false, None, None, None)
+            .cairo_run_py(false, None, None, None, None)
             .expect("Couldn't run program");
     }
 }

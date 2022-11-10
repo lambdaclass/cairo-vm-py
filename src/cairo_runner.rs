@@ -84,11 +84,15 @@ impl PyCairoRunner {
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
+        static_locals: Option<HashMap<String, PyObject>>,
     ) -> PyResult<()> {
         let end = self.initialize()?;
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
+
+        self.pyvm.static_locals = static_locals;
+
         if trace_file.is_none() {
             self.pyvm.vm.borrow_mut().disable_trace();
         }
@@ -463,7 +467,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         let new_segment = runner.add_segment();
         assert_eq!(
             new_segment,
@@ -494,7 +498,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output: Vec<(&str, Vec<PyMaybeRelocatable>)> = vec![(
             "range_check",
@@ -527,7 +531,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output = PyRelocatable::from((1, 8));
 
@@ -550,7 +554,7 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output = PyRelocatable::from((1, 0));
 
@@ -569,7 +573,7 @@ mod test {
             PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
                 .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         // Insert os_context in the VM's stack:
         //  * range_check segment base in (1, 41)
@@ -602,7 +606,7 @@ mod test {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 24,
@@ -620,7 +624,7 @@ mod test {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 0,
@@ -749,7 +753,7 @@ mod test {
             false,
         )
         .unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         assert_eq! {
             PyRelocatable::from((1,2)),
             runner.get_initial_fp().unwrap()

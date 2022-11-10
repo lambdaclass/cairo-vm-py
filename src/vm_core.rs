@@ -46,6 +46,7 @@ const GLOBAL_NAMES: [&str; 17] = [
 #[pyclass(unsendable)]
 pub struct PyVM {
     pub(crate) vm: Rc<RefCell<VirtualMachine>>,
+    pub(crate) static_locals: Option<HashMap<String, PyObject>>,
 }
 
 #[pymethods]
@@ -54,6 +55,7 @@ impl PyVM {
     pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
+            static_locals: None,
         }
     }
 }
