@@ -55,7 +55,7 @@ clean:
 run-python-test: $(COMPILED_TESTS)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	maturin develop && \
-	./run_tests.sh && \
+	./run_python_tests.sh && \
 	deactivate
 
 full-test: test run-python-test
