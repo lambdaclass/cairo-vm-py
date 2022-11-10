@@ -14,7 +14,7 @@ def test_program(program_name: str):
     
     builtins_final_stack = runner.get_builtins_initial_stack()
     
-    expected_output = [('range_check', [(2, 0)])]
+    expected_output = [[(2, 0)]]
     assert str(builtins_final_stack) == str(expected_output)
 
 if __name__ == "__main__":
