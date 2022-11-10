@@ -85,12 +85,12 @@ impl PyCairoRunner {
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
-        entrypoint: Option<String>,
+        entrypoint: Option<&str>,
     ) -> PyResult<()> {
         if let Some(entrypoint) = entrypoint {
             self.inner
                 .borrow_mut()
-                .set_entrypoint(Some(&entrypoint))
+                .set_entrypoint(Some(entrypoint))
                 .map_err(to_py_error)?;
         }
 
@@ -991,7 +991,7 @@ mod test {
             PyCairoRunner::new(program, None, Some("small".to_string()), false).unwrap();
 
         runner
-            .cairo_run_py(false, Some("main".to_string()), None, None, None)
+            .cairo_run_py(false, None, None, None, Some("main"))
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
     }
 }
