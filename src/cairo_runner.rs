@@ -504,17 +504,12 @@ mod test {
 
         Python::with_gil(|py| {
             assert_eq!(
-                            runner
-            <<<<<<< HEAD
-                                .get_program_builtins_initial_stack(py)
-                                .extract::<Vec<(&str, Vec<PyMaybeRelocatable>)>>(py)
-            =======
-                                .get_builtins_initial_stack(py)
-                                .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
-            >>>>>>> e0198e7c47ac6563111bbc3ef7f4b8a6bf7469a5
-                                .unwrap(),
-                            expected_output
-                        );
+                runner
+                    .get_program_builtins_initial_stack(py)
+                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .unwrap(),
+                expected_output
+            );
         });
     }
 
@@ -769,13 +764,15 @@ mod test {
 
         runner.initialize_function_runner().unwrap();
 
+        let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
+
         Python::with_gil(|py| {
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
                     .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
                     .unwrap(),
-                vec![]
+                expected_output
             );
         });
     }
