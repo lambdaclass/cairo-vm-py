@@ -984,7 +984,7 @@ mod test {
     }
 
     #[test]
-    fn test() {
+    fn set_entrypoint() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
