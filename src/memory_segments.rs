@@ -1,4 +1,5 @@
 use crate::{
+    memory::PyMemory,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
@@ -9,14 +10,19 @@ use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(name = "MemorySegmentManager", unsendable)]
 pub struct PySegmentManager {
-    pub(crate) vm: Rc<RefCell<VirtualMachine>>,
+    vm: Rc<RefCell<VirtualMachine>>,
+    #[pyo3(get)]
+    memory: PyMemory,
 }
 
 #[pymethods]
 impl PySegmentManager {
     #[new]
-    pub fn new(vm: &PyVM) -> PySegmentManager {
-        PySegmentManager { vm: vm.get_vm() }
+    pub fn new(vm: &PyVM, memory: PyMemory) -> PySegmentManager {
+        PySegmentManager {
+            vm: vm.get_vm(),
+            memory,
+        }
     }
 
     pub fn add(&self) -> PyResult<PyRelocatable> {
@@ -84,12 +90,18 @@ impl PySegmentManager {
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
+
+    pub fn add_temporary_segment(&mut self) -> PyResult<PyRelocatable> {
+        Ok(PyRelocatable::from(
+            self.vm.borrow_mut().add_temporary_segment(),
+        ))
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::PySegmentManager;
-    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
+    use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{bigint, types::relocatable::Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::{Python, ToPyObject};
@@ -101,7 +113,7 @@ mod test {
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        let segments = PySegmentManager::new(&vm);
+        let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
         assert!(segments.add().is_ok());
     }
 
@@ -112,7 +124,7 @@ mod test {
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             );
-            let segments = PySegmentManager::new(&vm);
+            let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
 
             let ptr = segments.add().unwrap();
             segments
@@ -209,5 +221,16 @@ mod test {
                 .unwrap()
                 .is_none());
         });
+    }
+
+    #[test]
+    fn add_temporary_segment_test() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let memory = PyMemory::new(&vm);
+        let mut segments = PySegmentManager::new(&mut vm, memory);
+        assert!(segments.add_temporary_segment().is_ok());
     }
 }
