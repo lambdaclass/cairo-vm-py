@@ -74,10 +74,12 @@ impl PyMemory {
 #[cfg(test)]
 mod test {
     use crate::relocatable::PyMaybeRelocatable;
+    use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use crate::utils::to_vm_error;
     use crate::vm_core::PyVM;
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
-    use cairo_rs::types::relocatable::MaybeRelocatable;
+    use cairo_rs::bigint;
+    use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};
@@ -192,23 +194,26 @@ assert memory[ap] == fp
                 vm.vm.borrow_mut().add_memory_segment();
             }
 
-            let ap = PyRelocatable::from(vm.vm.borrow().get_ap());
+            vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
+            vm.vm.borrow_mut().set_ap(2);
+            vm.vm.borrow_mut().set_fp(2);
 
-            let globals = PyDict::new(py);
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+                .unwrap();
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+                .unwrap();
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0)))
+                .unwrap();
+
+            let maybe_relocatable = MaybeRelocatable::from((1, 0));
+            let size = 2;
             let memory = PyMemory::new(&vm);
-            globals
-                .set_item("memory", PyCell::new(py, memory.clone()).unwrap())
-                .unwrap();
-            globals
-                .set_item("ap", PyCell::new(py, ap).unwrap())
-                .unwrap();
-
-            let code = "memory[ap] = 5";
-
-            py.run(code, Some(globals), None).unwrap();
-
-            let maybe_relocatable = MaybeRelocatable::from((0, 0));
-            let size = 1;
 
             let range = memory
                 .get_range(maybe_relocatable.into(), size, py)
@@ -216,9 +221,61 @@ assert memory[ap] == fp
                 .extract::<Vec<PyMaybeRelocatable>>(py)
                 .unwrap();
 
-            println!("{:?}", range);
+            assert_eq!(
+                range,
+                vec![
+                    RelocatableValue(PyRelocatable {
+                        segment_index: 2,
+                        offset: 0
+                    }),
+                    RelocatableValue(PyRelocatable {
+                        segment_index: 3,
+                        offset: 0
+                    })
+                ]
+            );
+        });
+    }
 
-            assert_eq!(1, 0);
+    #[test]
+    fn get_range_with_gap() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+
+            vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
+            vm.vm.borrow_mut().set_ap(2);
+            vm.vm.borrow_mut().set_fp(2);
+
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+                .unwrap();
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+                .unwrap();
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 2)), &Relocatable::from((3, 0)))
+                .unwrap();
+
+            let maybe_relocatable = MaybeRelocatable::from((1, 0));
+            let size = 2;
+            let memory = PyMemory::new(&vm);
+
+            let range = memory
+                .get_range(maybe_relocatable.into(), size, py)
+                .unwrap()
+                .extract::<Vec<PyMaybeRelocatable>>(py);
+
+            assert_eq!();
         });
     }
 }
