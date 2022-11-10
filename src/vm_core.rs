@@ -73,7 +73,7 @@ impl PyVM {
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(self);
-            let segments = PySegmentManager::new(self);
+            let segments = PySegmentManager::new(self, memory.clone());
             let ap = PyRelocatable::from(self.vm.borrow().get_ap());
             let fp = PyRelocatable::from(self.vm.borrow().get_fp());
             let ids = PyIds::new(
@@ -947,6 +947,48 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &hint_data,
                 &mut HashMap::new(),
                 &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        )
+    }
+
+    #[test]
+    fn test_segments_memory_get_range() {
+        let pyvm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let code = "assert(segments.memory.get_range(ids.address, 2) == [9,12])";
+
+        let ids = HashMap::from([("address".to_string(), HintReference::new_simple(0))]);
+
+        for _ in 0..3 {
+            pyvm.vm.borrow_mut().add_memory_segment();
+        }
+
+        pyvm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .unwrap();
+
+        pyvm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((2, 0)), bigint!(9))
+            .unwrap();
+
+        pyvm.vm
+            .borrow_mut()
+            .insert_value(&Relocatable::from((2, 1)), bigint!(12))
+            .unwrap();
+
+        let hint_data = HintProcessorData::new_default(code.to_string(), ids);
+        assert_eq!(
+            pyvm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
             ),

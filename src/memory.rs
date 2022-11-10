@@ -17,6 +17,7 @@ const MEMORY_SET_ERROR_MSG: &str = "Failed to set value to Cairo memory";
 const MEMORY_GET_RANGE_ERROR_MSG: &str = "Failed to call get_range method from Cairo memory";
 
 #[pyclass(unsendable)]
+#[derive(Clone)]
 pub struct PyMemory {
     vm: Rc<RefCell<VirtualMachine>>,
 }
@@ -167,7 +168,7 @@ memory[ap] = 3
                 .unwrap();
 
             let code = r#"
-memory[ap] = fp 
+memory[ap] = fp
 assert memory[ap] == fp
 "#;
 
