@@ -294,6 +294,20 @@ mod test {
     }
 
     #[test]
+    fn py_relocatable_sub_with_relocatable_value_err() {
+        Python::with_gil(|py| {
+            let values1 = (12, 5);
+            let values2 = (2, 4);
+
+            let py_relocatable1 = PyRelocatable::new(values1);
+            let py_relocatable2 = PyRelocatable::new(values2);
+
+            let py_maybe_relocatable = PyMaybeRelocatable::RelocatableValue(py_relocatable2);
+            assert!(py_relocatable1.__sub__(py_maybe_relocatable, py).is_err());
+        });
+    }
+
+    #[test]
     fn py_relocatable_richcmp_valid() {
         let values1 = (2, 5);
         let values2 = (2, 4);
