@@ -310,6 +310,7 @@ impl PyCairoRunner {
         entrypoint: &PyAny,
         args: Vec<&PyAny>,
         hint_locals: Option<HashMap<String, PyObject>>,
+        static_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
@@ -331,6 +332,8 @@ impl PyCairoRunner {
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
+
+        self.pyvm.static_locals = static_locals;
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
             x
@@ -800,6 +803,7 @@ mod test {
                     py.eval("0", None, None).unwrap(),
                     vec![],
                     None,
+                    None,
                     Some(false),
                     None,
                     None,
@@ -831,6 +835,7 @@ mod test {
                         String::from("syscall_handler"),
                         1.to_object(py),
                     )])),
+                    None,
                     Some(false),
                     None,
                     None,
@@ -845,6 +850,51 @@ mod test {
                     .extract::<usize>(py)
                     .unwrap(),
                 1
+            )
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_without_args_set_static_locals() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            "main".to_string(),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py.eval("0", None, None).unwrap(),
+                    vec![],
+                    None,
+                    Some(HashMap::from([(
+                        String::from("__keccak_max_size"),
+                        100.to_object(py),
+                    )])),
+                    Some(false),
+                    None,
+                    None,
+                )
+                .unwrap();
+            assert!(!runner.pyvm.static_locals.as_ref().unwrap().is_empty());
+            assert_eq!(
+                runner
+                    .pyvm
+                    .static_locals
+                    .as_ref()
+                    .unwrap()
+                    .get("__keccak_max_size")
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap(),
+                100
             )
         });
     }
