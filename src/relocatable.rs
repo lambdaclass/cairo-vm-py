@@ -199,3 +199,145 @@ impl From<BigInt> for PyMaybeRelocatable {
         PyMaybeRelocatable::Int(val)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use cairo_rs::bigint;
+    use num_bigint::BigInt;
+    use pyo3::{pyclass::CompareOp, Python};
+
+    use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
+
+    #[test]
+    fn py_relocatable_new() {
+        let values = (1, 2);
+
+        let py_relocatable = PyRelocatable::new(values);
+
+        assert_eq!(
+            py_relocatable,
+            PyRelocatable {
+                segment_index: values.0,
+                offset: values.1,
+            }
+        );
+    }
+
+    #[test]
+    fn py_relocatable_repr() {
+        let values = (1, 2);
+
+        let py_relocatable = PyRelocatable::new(values);
+
+        assert_eq!(
+            py_relocatable.__repr__(),
+            format!(
+                "({}, {})",
+                py_relocatable.segment_index, py_relocatable.offset
+            )
+        );
+    }
+
+    #[test]
+    fn py_relocatable_add() {
+        let values = (1, 2);
+
+        let py_relocatable = PyRelocatable::new(values);
+
+        assert_eq!(py_relocatable.__add__(2), PyRelocatable::new((1, 4)));
+    }
+
+    #[test]
+    fn py_relocatable_sub_with_int() {
+        Python::with_gil(|py| {
+            let values = (1, 2);
+
+            let py_relocatable = PyRelocatable::new(values);
+            let bigint_value = bigint!(1);
+            let py_maybe_relocatable_int_variant = PyMaybeRelocatable::Int(bigint_value.clone());
+            let substraction = py_relocatable
+                .__sub__(py_maybe_relocatable_int_variant, py)
+                .unwrap()
+                .extract::<PyMaybeRelocatable>(py)
+                .unwrap();
+
+            assert_eq!(
+                substraction,
+                PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                    segment_index: 1,
+                    offset: 1,
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn py_relocatable_sub_with_relocatable_value() {
+        Python::with_gil(|py| {
+            let values1 = (2, 5);
+            let values2 = (2, 4);
+
+            let py_relocatable1 = PyRelocatable::new(values1);
+            let py_relocatable2 = PyRelocatable::new(values2);
+
+            let py_maybe_relocatable = PyMaybeRelocatable::RelocatableValue(py_relocatable2);
+            let substraction = py_relocatable1
+                .__sub__(py_maybe_relocatable, py)
+                .unwrap()
+                .extract::<PyMaybeRelocatable>(py)
+                .unwrap();
+
+            assert_eq!(substraction, PyMaybeRelocatable::Int(bigint!(1)));
+        });
+    }
+
+    #[test]
+    fn py_relocatable_richcmp_valid() {
+        let values1 = (2, 5);
+        let values2 = (2, 4);
+
+        let py_relocatable1 = PyRelocatable::new(values1);
+        let py_relocatable2 = PyRelocatable::new(values2);
+
+        assert!(!py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Eq)
+            .unwrap());
+        assert!(py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Ge)
+            .unwrap());
+        assert!(py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Gt)
+            .unwrap());
+        assert!(!py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Le)
+            .unwrap());
+        assert!(!py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Lt)
+            .unwrap());
+        assert!(py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Ne)
+            .unwrap());
+    }
+
+    #[test]
+    fn py_relocatable_richcmp_error() {
+        let values1 = (1, 5);
+        let values2 = (2, 4);
+
+        let py_relocatable1 = PyRelocatable::new(values1);
+        let py_relocatable2 = PyRelocatable::new(values2);
+
+        assert!(py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Ge)
+            .is_err());
+        assert!(py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Gt)
+            .is_err());
+        assert!(py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Le)
+            .is_err());
+        assert!(py_relocatable1
+            .__richcmp__(&py_relocatable2, CompareOp::Lt)
+            .is_err());
+    }
+}
