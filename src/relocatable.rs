@@ -170,6 +170,12 @@ impl From<&PyRelocatable> for Relocatable {
     }
 }
 
+impl From<PyRelocatable> for Relocatable {
+    fn from(val: PyRelocatable) -> Self {
+        Relocatable::from((val.segment_index, val.offset))
+    }
+}
+
 impl From<(isize, usize)> for PyRelocatable {
     fn from(val: (isize, usize)) -> Self {
         PyRelocatable::new((val.0, val.1))

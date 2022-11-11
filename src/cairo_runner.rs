@@ -207,14 +207,14 @@ impl PyCairoRunner {
             .filter(|(builtin_name, _builtin_runner)| {
                 self.inner.get_program_builtins().contains(builtin_name)
             })
-            .map(|(_builtin_name, builtin_runner)| {
+            .flat_map(|(_builtin_name, builtin_runner)| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
                     .map(Into::<PyMaybeRelocatable>::into)
                     .collect::<Vec<PyMaybeRelocatable>>()
             })
-            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
+            .collect::<Vec<PyMaybeRelocatable>>()
             .to_object(py)
     }
 
@@ -312,7 +312,7 @@ impl PyCairoRunner {
     ) -> PyResult<()> {
         enum Either {
             MaybeRelocatable(MaybeRelocatable),
-            VecMaybeRelocatable(Vec<MaybeRelocatable>),
+            VecMaybeRelocatable(Vec<Relocatable>),
         }
 
         impl Either {
@@ -338,19 +338,23 @@ impl PyCairoRunner {
 
         let mut processed_args = Vec::new();
         for arg in args {
+            println!("Processing arg: {:?}", arg);
             let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
                 Either::MaybeRelocatable(x.into())
-            } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
-                Either::VecMaybeRelocatable(x.into_iter().map(|x| x.into()).collect())
+            } else if let Ok(x) = arg.extract::<Vec<PyRelocatable>>() {
+                Either::VecMaybeRelocatable(x.iter().map(|x| x.into()).collect())
             } else {
+                println!("arg failed: {:?}", arg);
                 return Err(PyTypeError::new_err("Argument has unsupported type."));
             };
 
             processed_args.push(arg_box);
         }
+        println!("[run_from_entrypoint] all arguments processed!");
         let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
 
         let stack = if typed_args.unwrap_or(false) {
+            println!("typed_args: {:?}", typed_args);
             if processed_args.len() != 1 {
                 return Err(VirtualMachineError::InvalidArgCount(
                     1,
@@ -365,6 +369,7 @@ impl PyCairoRunner {
                 .gen_typed_args(processed_args)
                 .map_err(to_py_error)?
         } else {
+            println!("typed_args: {:?}, else branch", typed_args);
             let mut stack = Vec::new();
             for arg in processed_args {
                 let prime = match apply_modulo_to_args.unwrap_or(true) {
@@ -372,6 +377,7 @@ impl PyCairoRunner {
                     false => None,
                 };
 
+                println!("generating arg {:?}", arg);
                 stack.push(
                     self.pyvm
                         .vm
@@ -441,9 +447,11 @@ impl PyCairoRunner {
         arg: Py<PyAny>,
         apply_modulo_to_args: bool,
     ) -> PyResult<PyObject> {
+        println!("[gen_arg-cairo-rs-py]");
         Ok(
             PyMaybeRelocatable::from(match PyIterator::from_object(py, &arg) {
                 Ok(iterator) => {
+                    println!("[gen_arg - cairo-rs-py] list ");
                     let segment_ptr = MaybeRelocatable::RelocatableValue(
                         self.pyvm.vm.borrow_mut().add_memory_segment(),
                     );
@@ -456,11 +464,20 @@ impl PyCairoRunner {
                     segment_ptr
                 }
                 _ => {
+                    println!("[gen_arg - cairo-rs-py] non list ");
                     let mut value: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>(py)?.into();
                     if apply_modulo_to_args {
-                        value = value
-                            .mod_floor(self.pyvm.vm.borrow().get_prime())
-                            .map_err(to_py_error)?;
+                        match value {
+                            MaybeRelocatable::RelocatableValue(ref val) => {
+                                println!("gen-arg: relocatable value {:?}", val);
+                            }
+                            MaybeRelocatable::Int(ref int_val) => {
+                                println!("gen-arg relocatable int {:?}", int_val);
+                                value = value
+                                    .mod_floor(self.pyvm.vm.borrow().get_prime())
+                                    .map_err(to_py_error)?;
+                            }
+                        }
                     }
                     value
                 }
