@@ -212,14 +212,14 @@ impl PyCairoRunner {
             .filter(|(builtin_name, _builtin_runner)| {
                 self.inner.get_program_builtins().contains(builtin_name)
             })
-            .map(|(_builtin_name, builtin_runner)| {
+            .flat_map(|(_builtin_name, builtin_runner)| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
                     .map(Into::<PyMaybeRelocatable>::into)
                     .collect::<Vec<PyMaybeRelocatable>>()
             })
-            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
+            .collect::<Vec<PyMaybeRelocatable>>()
             .to_object(py)
     }
 
@@ -640,17 +640,16 @@ mod test {
 
         runner.cairo_run_py(false, None, None, None, None).unwrap();
 
-        let expected_output: Vec<Vec<PyMaybeRelocatable>> =
-            vec![vec![RelocatableValue(PyRelocatable {
-                segment_index: 2,
-                offset: 0,
-            })]];
+        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        })];
 
         Python::with_gil(|py| {
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
                     .unwrap(),
                 expected_output
             );
