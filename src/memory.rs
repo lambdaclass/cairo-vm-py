@@ -80,6 +80,7 @@ mod test {
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
     use cairo_rs::bigint;
     use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
+    use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
     use num_bigint::{BigInt, Sign};
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};
@@ -272,10 +273,13 @@ assert memory[ap] == fp
 
             let range = memory
                 .get_range(maybe_relocatable.into(), size, py)
-                .unwrap()
-                .extract::<Vec<PyMaybeRelocatable>>(py);
+                .map_err(to_vm_error);
 
-            assert_eq!();
+            let expected_error = VirtualMachineError::CustomHint(String::from(
+                "TypeError: Failed to call get_range method from Cairo memory",
+            ));
+            assert!(range.is_err());
+            assert_eq!(range.unwrap_err(), expected_error);
         });
     }
 }
