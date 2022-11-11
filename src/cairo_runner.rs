@@ -14,8 +14,10 @@ use cairo_rs::{
     vm::{
         errors::{
             cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
+            vm_errors::VirtualMachineError,
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
+        security::verify_secure_runner,
     },
 };
 use num_bigint::{BigInt, Sign};
@@ -202,6 +204,25 @@ impl PyCairoRunner {
         (*self.pyvm.vm).borrow_mut().add_memory_segment().into()
     }
 
+    pub fn get_program_builtins_initial_stack(&self, py: Python) -> PyObject {
+        (*self.pyvm.vm)
+            .borrow_mut()
+            .get_builtin_runners()
+            .iter()
+            .filter(|(builtin_name, _builtin_runner)| {
+                self.inner.get_program_builtins().contains(builtin_name)
+            })
+            .map(|(_builtin_name, builtin_runner)| {
+                builtin_runner
+                    .initial_stack()
+                    .into_iter()
+                    .map(Into::<PyMaybeRelocatable>::into)
+                    .collect::<Vec<PyMaybeRelocatable>>()
+            })
+            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
+            .to_object(py)
+    }
+
     pub fn get_builtins_initial_stack(&self, py: Python) -> PyObject {
         (*self.pyvm.vm)
             .borrow_mut()
@@ -288,6 +309,7 @@ impl PyCairoRunner {
         &mut self,
         entrypoint: &PyAny,
         args: Vec<&PyAny>,
+        hint_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
@@ -304,6 +326,10 @@ impl PyCairoRunner {
                     Self::VecMaybeRelocatable(x) => x as &dyn Any,
                 }
             }
+        }
+
+        if let Some(locals) = hint_locals {
+            self.hint_locals = locals
         }
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
@@ -326,21 +352,74 @@ impl PyCairoRunner {
 
             processed_args.push(arg_box);
         }
+        let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
 
-        let vm = self.pyvm.get_vm();
-        let mut vm = (*vm).borrow_mut();
+        let stack = if typed_args.unwrap_or(false) {
+            if processed_args.len() != 1 {
+                return Err(VirtualMachineError::InvalidArgCount(
+                    1,
+                    processed_args.len(),
+                ))
+                .map_err(to_py_error);
+            }
+
+            self.pyvm
+                .vm
+                .borrow()
+                .gen_typed_args(processed_args)
+                .map_err(to_py_error)?
+        } else {
+            let mut stack = Vec::new();
+            for arg in processed_args {
+                let prime = match apply_modulo_to_args.unwrap_or(true) {
+                    true => Some(self.pyvm.vm.borrow().get_prime().clone()),
+                    false => None,
+                };
+
+                stack.push(
+                    (*self.pyvm.vm)
+                        .borrow_mut()
+                        .gen_arg(arg, prime.as_ref())
+                        .map_err(to_py_error)?,
+                );
+            }
+
+            stack
+        };
+
+        let return_fp = (*self.pyvm.vm).borrow_mut().add_memory_segment();
+
+        let end = self
+            .inner
+            .initialize_function_entrypoint(
+                &mut (*self.pyvm.vm).borrow_mut(),
+                entrypoint,
+                stack,
+                return_fp.into(),
+            )
+            .map_err(to_py_error)?;
 
         self.inner
-            .run_from_entrypoint(
-                entrypoint,
-                processed_args.iter().map(|x| x.as_any()).collect(),
-                typed_args.unwrap_or(false),
-                verify_secure.unwrap_or(true),
-                apply_modulo_to_args.unwrap_or(true),
-                &mut vm,
+            .initialize_vm(&mut (*self.pyvm.vm).borrow_mut())
+            .map_err(to_py_error)?;
+
+        self.run_until_pc(&PyRelocatable::from(end))?;
+
+        self.inner
+            .end_run(
+                true,
+                false,
+                &mut (*self.pyvm.vm).borrow_mut(),
                 &self.hint_processor,
             )
-            .map_err(to_py_error)
+            .map_err(to_py_error)?;
+
+        if verify_secure.unwrap_or(true) {
+            verify_secure_runner(&self.inner, false, &mut (*self.pyvm.vm).borrow_mut())
+                .map_err(to_py_error)?;
+        }
+
+        Ok(())
     }
 
     /// Inserts a value into a memory address given by a Relocatable value.
@@ -570,7 +649,7 @@ mod test {
         Python::with_gil(|py| {
             assert_eq!(
                 runner
-                    .get_builtins_initial_stack(py)
+                    .get_program_builtins_initial_stack(py)
                     .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
                     .unwrap(),
                 expected_output
@@ -724,11 +803,53 @@ mod test {
                 .run_from_entrypoint(
                     py.eval("0", None, None).unwrap(),
                     vec![],
+                    None,
                     Some(false),
                     None,
                     None,
                 )
                 .unwrap();
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_without_args_set_hint_locals() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py.eval("0", None, None).unwrap(),
+                    vec![],
+                    Some(HashMap::from([(
+                        String::from("syscall_handler"),
+                        1.to_object(py),
+                    )])),
+                    Some(false),
+                    None,
+                    None,
+                )
+                .unwrap();
+            assert!(!runner.hint_locals.is_empty());
+            assert_eq!(
+                runner
+                    .hint_locals
+                    .get("syscall_handler")
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap(),
+                1
+            )
         });
     }
 
@@ -866,6 +987,33 @@ mod test {
             assert_eq!(
                 runner
                     .get_builtins_initial_stack(py)
+                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .unwrap(),
+                expected_output
+            );
+        });
+    }
+
+    #[test]
+    fn program_builtins_initial_stack_are_empty_when_no_program_builtins() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_function_runner().unwrap();
+
+        let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_program_builtins_initial_stack(py)
                     .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
                     .unwrap(),
                 expected_output
