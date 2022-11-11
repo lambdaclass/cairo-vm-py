@@ -202,10 +202,12 @@ impl From<BigInt> for PyMaybeRelocatable {
 
 #[cfg(test)]
 mod test {
-    use cairo_rs::bigint;
+    use cairo_rs::{bigint, types::relocatable::MaybeRelocatable};
     use num_bigint::BigInt;
+    use pyo3::ToPyObject;
     use pyo3::{pyclass::CompareOp, Python};
 
+    use crate::relocatable::Relocatable;
     use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
 
     #[test]
@@ -339,5 +341,209 @@ mod test {
         assert!(py_relocatable1
             .__richcmp__(&py_relocatable2, CompareOp::Lt)
             .is_err());
+    }
+
+    #[test]
+    fn maybe_relocatable_from_py_maybe_relocatable() {
+        let py_maybe_relocatable_int = PyMaybeRelocatable::Int(bigint!(1));
+        let py_relocatable = PyRelocatable::new((1, 1));
+        let py_maybe_relocatable_relocatable = PyMaybeRelocatable::RelocatableValue(py_relocatable);
+
+        assert_eq!(
+            MaybeRelocatable::from(py_maybe_relocatable_int),
+            MaybeRelocatable::Int(bigint!(1))
+        );
+        assert_eq!(
+            MaybeRelocatable::from(py_maybe_relocatable_relocatable),
+            MaybeRelocatable::RelocatableValue(Relocatable::from((1, 1)))
+        );
+    }
+
+    #[test]
+    fn maybe_relocatable_from_py_maybe_relocatable_ref() {
+        let py_maybe_relocatable_int = PyMaybeRelocatable::Int(bigint!(1));
+        let py_relocatable = PyRelocatable::new((1, 1));
+        let py_maybe_relocatable_relocatable = PyMaybeRelocatable::RelocatableValue(py_relocatable);
+
+        assert_eq!(
+            MaybeRelocatable::from(&py_maybe_relocatable_int),
+            MaybeRelocatable::Int(bigint!(1))
+        );
+        assert_eq!(
+            MaybeRelocatable::from(&py_maybe_relocatable_relocatable),
+            MaybeRelocatable::RelocatableValue(Relocatable::from((1, 1)))
+        );
+    }
+
+    #[test]
+    fn py_maybe_relocatable_from_maybe_relocatable() {
+        let maybe_relocatable_int = MaybeRelocatable::Int(bigint!(1));
+        let maybe_relocatable_reloc = MaybeRelocatable::RelocatableValue(Relocatable {
+            segment_index: 1,
+            offset: 1,
+        });
+
+        assert_eq!(
+            PyMaybeRelocatable::from(maybe_relocatable_int),
+            PyMaybeRelocatable::Int(bigint!(1))
+        );
+
+        assert_eq!(
+            PyMaybeRelocatable::from(maybe_relocatable_reloc),
+            PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                segment_index: 1,
+                offset: 1
+            })
+        );
+    }
+
+    #[test]
+    fn py_maybe_relocatable_from_maybe_relocatable_ref() {
+        let maybe_relocatable_int = MaybeRelocatable::Int(bigint!(1));
+        let maybe_relocatable_reloc = MaybeRelocatable::RelocatableValue(Relocatable {
+            segment_index: 1,
+            offset: 1,
+        });
+
+        assert_eq!(
+            PyMaybeRelocatable::from(&maybe_relocatable_int),
+            PyMaybeRelocatable::Int(bigint!(1))
+        );
+
+        assert_eq!(
+            PyMaybeRelocatable::from(&maybe_relocatable_reloc),
+            PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                segment_index: 1,
+                offset: 1
+            })
+        );
+    }
+
+    #[test]
+    fn py_relocatable_from_relocatable() {
+        let relocatable = Relocatable {
+            segment_index: 32,
+            offset: 12,
+        };
+
+        assert_eq!(
+            PyRelocatable::from(relocatable),
+            PyRelocatable {
+                segment_index: 32,
+                offset: 12,
+            }
+        );
+    }
+
+    #[test]
+    fn relocatable_from_py_relocatable() {
+        let relocatable = PyRelocatable {
+            segment_index: 32,
+            offset: 12,
+        };
+
+        assert_eq!(
+            Relocatable::from(&relocatable),
+            Relocatable {
+                segment_index: 32,
+                offset: 12,
+            }
+        );
+    }
+
+    #[test]
+    fn py_relocatable_from_tuple() {
+        let values: (isize, usize) = (123, 456);
+
+        assert_eq!(
+            PyRelocatable::from(values),
+            PyRelocatable {
+                segment_index: 123,
+                offset: 456,
+            }
+        );
+    }
+
+    #[test]
+    fn py_maybe_relocatable_from_relocatable() {
+        let relocatable = Relocatable {
+            segment_index: 32,
+            offset: 12,
+        };
+
+        assert_eq!(
+            PyMaybeRelocatable::from(relocatable),
+            PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                segment_index: 32,
+                offset: 12,
+            })
+        );
+    }
+
+    #[test]
+    fn py_maybe_relocatable_from_py_relocatable() {
+        let relocatable = PyRelocatable {
+            segment_index: 32,
+            offset: 12,
+        };
+
+        assert_eq!(
+            PyMaybeRelocatable::from(relocatable),
+            PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                segment_index: 32,
+                offset: 12,
+            })
+        );
+    }
+
+    #[test]
+    fn py_maybe_relocatable_from_bigint() {
+        let value = bigint!(7654321);
+
+        assert_eq!(
+            PyMaybeRelocatable::from(value.clone()),
+            PyMaybeRelocatable::Int(value)
+        );
+    }
+
+    #[test]
+    fn py_maybe_relocatable_from_bigint_ref() {
+        let value = bigint!(7654321);
+
+        assert_eq!(
+            PyMaybeRelocatable::from(&value),
+            PyMaybeRelocatable::Int(value)
+        );
+    }
+
+    #[test]
+    fn py_maybe_relocatable_to_object() {
+        let py_maybe_relocatable_int = PyMaybeRelocatable::Int(bigint!(6543));
+        let py_maybe_relocatable_reloc = PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+            segment_index: 43,
+            offset: 123,
+        });
+
+        Python::with_gil(|py| {
+            let py_object_int = py_maybe_relocatable_int
+                .to_object(py)
+                .extract::<PyMaybeRelocatable>(py)
+                .unwrap();
+
+            assert_eq!(py_object_int, PyMaybeRelocatable::Int(bigint!(6543)));
+
+            let py_object_reloc = py_maybe_relocatable_reloc
+                .to_object(py)
+                .extract::<PyMaybeRelocatable>(py)
+                .unwrap();
+
+            assert_eq!(
+                py_object_reloc,
+                PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+                    segment_index: 43,
+                    offset: 123,
+                })
+            );
+        })
     }
 }
