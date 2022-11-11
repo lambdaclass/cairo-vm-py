@@ -285,6 +285,7 @@ impl PyCairoRunner {
         &mut self,
         entrypoint: &PyAny,
         args: Vec<&PyAny>,
+        hint_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
@@ -301,6 +302,10 @@ impl PyCairoRunner {
                     Self::VecMaybeRelocatable(x) => x as &dyn Any,
                 }
             }
+        }
+
+        if let Some(locals) = hint_locals {
+            self.hint_locals = locals
         }
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
@@ -770,11 +775,53 @@ mod test {
                 .run_from_entrypoint(
                     py.eval("0", None, None).unwrap(),
                     vec![],
+                    None,
                     Some(false),
                     None,
                     None,
                 )
                 .unwrap();
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_without_args_set_hint_locals() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            "main".to_string(),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py.eval("0", None, None).unwrap(),
+                    vec![],
+                    Some(HashMap::from([(
+                        String::from("syscall_handler"),
+                        1.to_object(py),
+                    )])),
+                    Some(false),
+                    None,
+                    None,
+                )
+                .unwrap();
+            assert!(!runner.hint_locals.is_empty());
+            assert_eq!(
+                runner
+                    .hint_locals
+                    .get("syscall_handler")
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap(),
+                1
+            )
         });
     }
 
