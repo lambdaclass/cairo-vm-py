@@ -214,6 +214,23 @@ impl PyCairoRunner {
             .to_object(py)
     }
 
+    pub fn get_builtins_initial_stack(&self, py: Python) -> PyObject {
+        self.pyvm
+            .vm
+            .borrow_mut()
+            .get_builtin_runners()
+            .iter()
+            .map(|(_builtin_name, builtin_runner)| {
+                builtin_runner
+                    .initial_stack()
+                    .into_iter()
+                    .map(Into::<PyMaybeRelocatable>::into)
+                    .collect::<Vec<PyMaybeRelocatable>>()
+            })
+            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
+            .to_object(py)
+    }
+
     pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable) -> PyResult<PyRelocatable> {
         let mut stack_ptr = Relocatable::from(&stack_ptr);
         let mut stop_ptrs = Vec::new();
@@ -764,14 +781,49 @@ mod test {
 
         runner.initialize_function_runner().unwrap();
 
+        let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 2,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 3,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 4,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 5,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 6,
+                offset: 0,
+            })],
+        ];
+
+        Python::with_gil(|py| {
+            assert_eq!(runner.get_builtin_initial_stacks(py), expected_output);
+        });
+    }
+
+    #[test]
+    fn program_builtins_initial_stack_are_empty_when_no_program_builtins() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
+                .unwrap();
+
+        runner.initialize_function_runner().unwrap();
+
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
 
         Python::with_gil(|py| {
             assert_eq!(
-                runner
-                    .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
-                    .unwrap(),
+                runner.get_program_builtins_initial_stack(py),
                 expected_output
             );
         });
