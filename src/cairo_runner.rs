@@ -244,7 +244,11 @@ impl PyCairoRunner {
         let mut stop_ptrs = Vec::new();
         let mut stop_ptr;
 
-        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners() {
+        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners().iter().filter(
+            |(builtin_name, _builtin_runner)| {
+                self.inner.get_program_builtins().contains(builtin_name)
+            },
+        ) {
             (stack_ptr, stop_ptr) = runner
                 .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
                 .map_err(to_py_error)?;
