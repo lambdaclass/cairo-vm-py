@@ -2,9 +2,12 @@ use cairo_rs::{
     bigint,
     hint_processor::hint_processor_utils::bigint_to_usize,
     types::relocatable::{MaybeRelocatable, Relocatable},
+    vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
 use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
+
+use crate::utils::to_py_error;
 
 const PYRELOCATABLE_COMPARE_ERROR: &str = "Cannot compare Relocatables of different segments";
 
@@ -50,13 +53,10 @@ impl PyRelocatable {
                 .to_object(py))
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
-                if self.segment_index == address.segment_index && self.offset >= address.offset {
-                    return Ok(
-                        PyMaybeRelocatable::Int(bigint!(self.offset - address.offset))
-                            .to_object(py),
-                    );
+                if self.segment_index != address.segment_index {
+                    return Err(VirtualMachineError::DiffIndexSub).map_err(to_py_error)?;
                 }
-                todo!()
+                Ok(PyMaybeRelocatable::Int(bigint!(self.offset - address.offset)).to_object(py))
             }
         }
     }
