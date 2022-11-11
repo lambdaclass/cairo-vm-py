@@ -32,6 +32,8 @@ jobs:
       run: make build
     - name: Run tests
       run: make full-test
+    - name: Compare-Trace-Memory
+      run : make run-comparer-tracer
     - name: Run clippy
       run: make clippy
     - name: Clean
