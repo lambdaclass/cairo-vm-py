@@ -251,10 +251,10 @@ pub(crate) fn update_scope_hint_locals(
 ) {
     let static_local_names = static_locals
         .map(|locals| locals.keys().collect::<Vec<&String>>())
-        .unwrap_or(Vec::new());
+        .unwrap_or_default();
     for (name, elem) in globals {
         let name = name.to_string();
-        if !GLOBAL_NAMES.contains(&name.as_str()) || static_local_names.contains(&&name) {
+        if !GLOBAL_NAMES.contains(&name.as_str()) && !static_local_names.contains(&&name) {
             if hint_locals.keys().cloned().any(|x| x == name) {
                 hint_locals.insert(name, elem.to_object(py));
             } else {
@@ -1016,7 +1016,7 @@ lista_b = [lista_a[k] for k in range(2)]";
     }
 
     #[test]
-    fn run_test_with_static_locals() {
+    fn run_hint_with_static_locals() {
         let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
@@ -1048,5 +1048,67 @@ lista_b = [lista_a[k] for k in range(2)]";
                 .unwrap()
         });
         assert_eq!(number, 90)
+    }
+
+    #[test]
+    fn run_hint_with_static_locals_shouldnt_change_its_value() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        vm.static_locals = Some(HashMap::from([(
+            "__number_max".to_string(),
+            Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
+        )]));
+        let code = "__number_max = 15";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let mut exec_scopes = ExecutionScopes::new();
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        let number = Python::with_gil(|py| -> usize {
+            vm.static_locals
+                .unwrap()
+                .get("__number_max")
+                .unwrap()
+                .extract::<usize>(py)
+                .unwrap()
+        });
+        assert_eq!(number, 90)
+    }
+
+    #[test]
+    fn run_hint_with_static_locals_shouldnt_affect_scope_or_hint_locals() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        vm.static_locals = Some(HashMap::from([(
+            "__number_max".to_string(),
+            Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
+        )]));
+        let code = "assert(__number_max == 90)";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let mut exec_scopes = ExecutionScopes::new();
+        let mut hint_locals = HashMap::new();
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut hint_locals,
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        assert!(exec_scopes.data[0].is_empty());
+        assert!(hint_locals.is_empty())
     }
 }
