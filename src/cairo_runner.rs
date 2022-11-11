@@ -50,7 +50,8 @@ impl PyCairoRunner {
         layout: Option<String>,
         proof_mode: bool,
     ) -> PyResult<Self> {
-        let program = Program::from_reader(program.as_bytes(), &entrypoint).map_err(to_py_error)?;
+        let program =
+            Program::from_reader(program.as_bytes(), Some(&entrypoint)).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(
             &program,
             &layout.unwrap_or_else(|| "plain".to_string()),
@@ -379,7 +380,12 @@ impl PyCairoRunner {
         self.run_until_pc(&PyRelocatable::from(end))?;
 
         self.inner
-            .end_run(true, false, &mut self.pyvm.vm.borrow_mut())
+            .end_run(
+                true,
+                false,
+                &mut self.pyvm.vm.borrow_mut(),
+                &self.hint_processor,
+            )
             .map_err(to_py_error)?;
 
         if verify_secure.unwrap_or(true) {
