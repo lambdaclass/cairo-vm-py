@@ -976,7 +976,13 @@ mod test {
         ];
 
         Python::with_gil(|py| {
-            assert_eq!(runner.get_builtin_initial_stacks(py), expected_output);
+            assert_eq!(
+                runner
+                    .get_builtins_initial_stack(py)
+                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .unwrap(),
+                expected_output
+            );
         });
     }
 
@@ -994,7 +1000,10 @@ mod test {
 
         Python::with_gil(|py| {
             assert_eq!(
-                runner.get_program_builtins_initial_stack(py),
+                runner
+                    .get_program_builtins_initial_stack(py)
+                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .unwrap(),
                 expected_output
             );
         });
