@@ -1114,4 +1114,46 @@ mod test {
                 .is_none());
         });
     }
+
+    #[test]
+    fn run_find_element_with_max_size() {
+        let path = "cairo_programs/find_element.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
+                .unwrap();
+        assert!(runner
+            .cairo_run_py(
+                false,
+                None,
+                None,
+                None,
+                Some(HashMap::from([(
+                    "__find_element_max_size".to_string(),
+                    Python::with_gil(|py| -> PyObject { 100.to_object(py) }),
+                )]))
+            )
+            .is_ok());
+    }
+
+    #[test]
+    fn run_find_element_with_max_size_low_size() {
+        let path = "cairo_programs/find_element.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
+                .unwrap();
+        assert!(runner
+            .cairo_run_py(
+                false,
+                None,
+                None,
+                None,
+                Some(HashMap::from([(
+                    "__find_element_max_size".to_string(),
+                    Python::with_gil(|py| -> PyObject { 1.to_object(py) }),
+                )]))
+            )
+            .is_err());
+    }
 }
