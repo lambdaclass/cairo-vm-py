@@ -14,14 +14,17 @@ use cairo_rs::{
     vm::{
         errors::{
             cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
+            vm_errors::VirtualMachineError,
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
+        security::verify_secure_runner,
     },
 };
 use num_bigint::{BigInt, Sign};
 use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError},
     prelude::*,
+    types::PyIterator,
 };
 use std::iter::zip;
 use std::{any::Any, collections::HashMap, path::PathBuf, rc::Rc};
@@ -48,7 +51,8 @@ impl PyCairoRunner {
         layout: Option<String>,
         proof_mode: bool,
     ) -> PyResult<Self> {
-        let program = Program::from_reader(program.as_bytes(), &entrypoint).map_err(to_py_error)?;
+        let program =
+            Program::from_reader(program.as_bytes(), Some(&entrypoint)).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(
             &program,
             &layout.unwrap_or_else(|| "plain".to_string()),
@@ -301,6 +305,7 @@ impl PyCairoRunner {
         &mut self,
         entrypoint: &PyAny,
         args: Vec<&PyAny>,
+        hint_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
@@ -317,6 +322,10 @@ impl PyCairoRunner {
                     Self::VecMaybeRelocatable(x) => x as &dyn Any,
                 }
             }
+        }
+
+        if let Some(locals) = hint_locals {
+            self.hint_locals = locals
         }
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
@@ -339,22 +348,75 @@ impl PyCairoRunner {
 
             processed_args.push(arg_box);
         }
+        let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
 
-        let vm = self.pyvm.get_vm();
+        let stack = if typed_args.unwrap_or(false) {
+            if processed_args.len() != 1 {
+                return Err(VirtualMachineError::InvalidArgCount(
+                    1,
+                    processed_args.len(),
+                ))
+                .map_err(to_py_error);
+            }
 
-        let mut vm = vm.borrow_mut();
+            self.pyvm
+                .vm
+                .borrow()
+                .gen_typed_args(processed_args)
+                .map_err(to_py_error)?
+        } else {
+            let mut stack = Vec::new();
+            for arg in processed_args {
+                let prime = match apply_modulo_to_args.unwrap_or(true) {
+                    true => Some(self.pyvm.vm.borrow().get_prime().clone()),
+                    false => None,
+                };
+
+                stack.push(
+                    self.pyvm
+                        .vm
+                        .borrow_mut()
+                        .gen_arg(arg, prime.as_ref())
+                        .map_err(to_py_error)?,
+                );
+            }
+
+            stack
+        };
+
+        let return_fp = self.pyvm.vm.borrow_mut().add_memory_segment();
+
+        let end = self
+            .inner
+            .initialize_function_entrypoint(
+                &mut self.pyvm.vm.borrow_mut(),
+                entrypoint,
+                stack,
+                return_fp.into(),
+            )
+            .map_err(to_py_error)?;
 
         self.inner
-            .run_from_entrypoint(
-                entrypoint,
-                processed_args.iter().map(|x| x.as_any()).collect(),
-                typed_args.unwrap_or(false),
-                verify_secure.unwrap_or(true),
-                apply_modulo_to_args.unwrap_or(true),
-                &mut vm,
+            .initialize_vm(&mut self.pyvm.vm.borrow_mut())
+            .map_err(to_py_error)?;
+
+        self.run_until_pc(&PyRelocatable::from(end))?;
+
+        self.inner
+            .end_run(
+                true,
+                false,
+                &mut self.pyvm.vm.borrow_mut(),
                 &self.hint_processor,
             )
-            .map_err(to_py_error)
+            .map_err(to_py_error)?;
+
+        if verify_secure.unwrap_or(true) {
+            verify_secure_runner(&self.inner, false, &mut self.pyvm.vm.borrow_mut())
+                .map_err(to_py_error)?;
+        }
+
+        Ok(())
     }
 
     /// Inserts a value into a memory address given by a Relocatable value.
@@ -370,6 +432,68 @@ impl PyCairoRunner {
     pub fn initialize_function_runner(&mut self) -> PyResult<()> {
         self.inner
             .initialize_function_runner(&mut self.pyvm.vm.borrow_mut())
+            .map_err(to_py_error)
+    }
+
+    pub fn gen_arg(
+        &self,
+        py: Python,
+        arg: Py<PyAny>,
+        apply_modulo_to_args: bool,
+    ) -> PyResult<PyObject> {
+        Ok(
+            PyMaybeRelocatable::from(match PyIterator::from_object(py, &arg) {
+                Ok(iterator) => {
+                    let segment_ptr = MaybeRelocatable::RelocatableValue(
+                        self.pyvm.vm.borrow_mut().add_memory_segment(),
+                    );
+                    self.write_arg(
+                        py,
+                        segment_ptr.clone().into(),
+                        iterator.to_object(py),
+                        apply_modulo_to_args,
+                    )?;
+                    segment_ptr
+                }
+                _ => {
+                    let mut value: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>(py)?.into();
+                    if apply_modulo_to_args {
+                        value = value
+                            .mod_floor(self.pyvm.vm.borrow().get_prime())
+                            .map_err(to_py_error)?;
+                    }
+                    value
+                }
+            })
+            .to_object(py),
+        )
+    }
+
+    #[args(apply_modulo_to_args = true)]
+    pub fn write_arg(
+        &self,
+        py: Python<'_>,
+        ptr: PyMaybeRelocatable,
+        arg: Py<PyAny>,
+        apply_modulo_to_args: bool,
+    ) -> PyResult<PyObject> {
+        let ptr: MaybeRelocatable = ptr.into();
+
+        let arg_iter = PyIterator::from_object(py, &arg)?;
+        let mut data = Vec::new();
+        for value in arg_iter {
+            data.push(
+                self.gen_arg(py, value?.to_object(py), apply_modulo_to_args)?
+                    .extract::<PyMaybeRelocatable>(py)?
+                    .into(),
+            );
+        }
+
+        self.pyvm
+            .vm
+            .borrow_mut()
+            .load_data(&ptr, data)
+            .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
 }
@@ -399,6 +523,7 @@ impl PyExecutionResources {
 mod test {
     use cairo_rs::bigint;
     use std::fs;
+    use std::ops::Add;
 
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
@@ -670,11 +795,53 @@ mod test {
                 .run_from_entrypoint(
                     py.eval("0", None, None).unwrap(),
                     vec![],
+                    None,
                     Some(false),
                     None,
                     None,
                 )
                 .unwrap();
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_without_args_set_hint_locals() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            "main".to_string(),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py.eval("0", None, None).unwrap(),
+                    vec![],
+                    Some(HashMap::from([(
+                        String::from("syscall_handler"),
+                        1.to_object(py),
+                    )])),
+                    Some(false),
+                    None,
+                    None,
+                )
+                .unwrap();
+            assert!(!runner.hint_locals.is_empty());
+            assert_eq!(
+                runner
+                    .hint_locals
+                    .get("syscall_handler")
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap(),
+                1
+            )
         });
     }
 
@@ -826,6 +993,112 @@ mod test {
                 runner.get_program_builtins_initial_stack(py),
                 expected_output
             );
+        });
+    }
+
+    #[test]
+    fn write_arg_test() {
+        Python::with_gil(|py| {
+            let path = "cairo_programs/fibonacci.json".to_string();
+            let program = fs::read_to_string(path).unwrap();
+            let runner =
+                PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
+                    .unwrap();
+
+            let ptr = runner.add_segment();
+            runner
+                .write_arg(
+                    py,
+                    PyMaybeRelocatable::RelocatableValue(ptr),
+                    py.eval("[1, 2, [3, 4], [5, 6]]", None, None)
+                        .unwrap()
+                        .to_object(py),
+                    true,
+                )
+                .unwrap();
+
+            let vm_ref = runner.pyvm.get_vm();
+            let vm_ref = vm_ref.borrow();
+
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&Relocatable::from((0, 0)))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(1),
+            );
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&Relocatable::from((0, 1)))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(2),
+            );
+
+            let relocatable = vm_ref
+                .get_maybe(&Relocatable::from((0, 2)))
+                .unwrap()
+                .unwrap()
+                .get_relocatable()
+                .unwrap()
+                .clone();
+
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable)
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(3),
+            );
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(4),
+            );
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+
+            let relocatable = vm_ref
+                .get_maybe(&Relocatable::from((0, 3)))
+                .unwrap()
+                .unwrap()
+                .get_relocatable()
+                .unwrap()
+                .clone();
+
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable)
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(5),
+            );
+            assert_eq!(
+                vm_ref
+                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .unwrap()
+                    .unwrap()
+                    .get_int_ref()
+                    .unwrap(),
+                &bigint!(6),
+            );
+            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+
+            assert!(vm_ref
+                .get_maybe(&Relocatable::from((0, 4)))
+                .unwrap()
+                .is_none());
         });
     }
 }
