@@ -437,7 +437,7 @@ impl PyCairoRunner {
     pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
         (*self.pyvm.vm)
             .borrow_mut()
-            .insert_value(&key.into(), value)
+            .insert_value(key, value)
             .map_err(to_py_error)
     }
 
@@ -518,6 +518,20 @@ impl PyCairoRunner {
             .map_err(to_py_error)
             .map(|x| x.map(|x| PyMaybeRelocatable::from(x).to_object(py)))
     }
+
+    /// Return a list of values from memory given an initial address and a length.
+    pub fn get_range(&self, py: Python, key: &PyRelocatable, size: usize) -> PyResult<PyObject> {
+        Ok(self
+            .pyvm
+            .vm
+            .borrow()
+            .get_continuous_range(key, size)
+            .map_err(to_py_error)?
+            .into_iter()
+            .map(PyMaybeRelocatable::from)
+            .collect::<Vec<_>>()
+            .to_object(py))
+    }
 }
 
 #[pyclass]
@@ -544,7 +558,7 @@ impl PyExecutionResources {
 #[cfg(test)]
 mod test {
     use cairo_rs::bigint;
-    use std::{fs, ops::Add};
+    use std::fs;
 
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
@@ -1050,7 +1064,7 @@ mod test {
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range(&(0, 0).into(), 3),
+                .get_continuous_range((0, 0), 3),
             Ok(vec![
                 bigint!(3).into(),
                 bigint!(4).into(),
@@ -1079,7 +1093,7 @@ mod test {
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range(&(0, 0).into(), 2),
+                .get_continuous_range((0, 0), 2),
             Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
         );
     }
@@ -1209,7 +1223,7 @@ mod test {
 
             assert_eq!(
                 vm_ref
-                    .get_maybe(&Relocatable::from((0, 0)))
+                    .get_maybe((0, 0))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -1218,7 +1232,7 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&Relocatable::from((0, 1)))
+                    .get_maybe((0, 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -1227,7 +1241,7 @@ mod test {
             );
 
             let relocatable = vm_ref
-                .get_maybe(&Relocatable::from((0, 2)))
+                .get_maybe((0, 2))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -1245,17 +1259,17 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .get_maybe(&relocatable + 1)
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
 
             let relocatable = vm_ref
-                .get_maybe(&Relocatable::from((0, 3)))
+                .get_maybe((0, 3))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -1273,19 +1287,16 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .get_maybe(&relocatable + 1)
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
 
-            assert!(vm_ref
-                .get_maybe(&Relocatable::from((0, 4)))
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe((0, 4)).unwrap().is_none());
         });
     }
 
@@ -1378,7 +1389,58 @@ mod test {
                     .unwrap()
                     .map(|x| MaybeRelocatable::from(x.extract::<PyMaybeRelocatable>(py).unwrap())),
                 Some(MaybeRelocatable::Int(bigint!(144))),
+            );
+        });
+    }
+
+    /// Test that `PyCairoRunner::get_range()` works as intended.
+    #[test]
+    fn get_range() {
+        Python::with_gil(|py| {
+            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+            let runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("small".to_string()),
+                false,
             )
+            .unwrap();
+
+            let ptr = {
+                let mut vm = (*runner.pyvm.vm).borrow_mut();
+                let ptr = vm.add_memory_segment();
+                vm.load_data(
+                    &ptr,
+                    [
+                        bigint!(1).into(),
+                        bigint!(2).into(),
+                        bigint!(3).into(),
+                        bigint!(4).into(),
+                        bigint!(5).into(),
+                    ],
+                )
+                .unwrap();
+
+                ptr
+            };
+
+            assert_eq!(
+                runner
+                    .get_range(py, &ptr.into(), 5)
+                    .unwrap()
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap()
+                    .into_iter()
+                    .map(MaybeRelocatable::from)
+                    .collect::<Vec<_>>(),
+                vec![
+                    bigint!(1).into(),
+                    bigint!(2).into(),
+                    bigint!(3).into(),
+                    bigint!(4).into(),
+                    bigint!(5).into(),
+                ],
+            );
         });
     }
 }
