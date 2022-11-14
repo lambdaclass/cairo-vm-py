@@ -213,7 +213,6 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .rev()
             .filter(|(builtin_name, _builtin_runner)| {
                 self.inner.get_program_builtins().contains(builtin_name)
             })
@@ -686,11 +685,11 @@ mod test {
 
         let expected_output: Vec<PyMaybeRelocatable> = vec![
             RelocatableValue(PyRelocatable {
-                segment_index: 3,
+                segment_index: 2,
                 offset: 0,
             }),
             RelocatableValue(PyRelocatable {
-                segment_index: 2,
+                segment_index: 3,
                 offset: 0,
             }),
         ];
