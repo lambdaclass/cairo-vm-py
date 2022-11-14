@@ -708,7 +708,7 @@ mod test {
         )
         .unwrap();
         runner
-            .cairo_run_py(false, None, None, None, Some("main"))
+            .cairo_run_py(false, None, None, None, None, Some("main"))
             .unwrap();
         // Make a copy of the builtin in order to insert a second "fake" one
         // BuiltinRunner api is private, so we can create a new one for this test
@@ -774,7 +774,9 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
 
         // Make a copy of the builtin in order to insert a second "fake" one
         // BuiltinRunner api is private, so we can create a new one for this test
