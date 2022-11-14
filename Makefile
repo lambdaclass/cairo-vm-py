@@ -47,6 +47,7 @@ deps-default-version:
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
 	pip install cairo_lang==0.9.1 && \
+	cargo install cargo-tarpaulin && \
 	deactivate
 
 build:
@@ -59,9 +60,9 @@ check:
 	cargo check
 
 coverage:
-	. cairo-rs-py-env/bin/activate && \
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	maturin develop && \
-	docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin && \
+	cargo tarpaulin && \
 	deactivate
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
