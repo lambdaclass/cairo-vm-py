@@ -634,9 +634,11 @@ mod test {
         )
         .unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+        });
         let new_segment = runner.add_segment();
         assert_eq!(
             new_segment,
@@ -667,9 +669,11 @@ mod test {
         )
         .unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+        });
 
         let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
             segment_index: 2,
@@ -699,9 +703,11 @@ mod test {
         )
         .unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+        });
 
         let expected_output = PyRelocatable::from((1, 8));
 
@@ -723,9 +729,11 @@ mod test {
             false,
         )
         .unwrap();
-        runner
-            .cairo_run_py(false, None, None, None, None, Some("main"))
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, Some("main"))
+                .unwrap();
+        });
         // Make a copy of the builtin in order to insert a second "fake" one
         // BuiltinRunner api is private, so we can create a new one for this test
         let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
@@ -766,9 +774,11 @@ mod test {
         )
         .unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+        });
 
         let expected_output = PyRelocatable::from((1, 0));
 
@@ -790,9 +800,11 @@ mod test {
         )
         .unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+        });
 
         // Make a copy of the builtin in order to insert a second "fake" one
         // BuiltinRunner api is private, so we can create a new one for this test
@@ -828,9 +840,11 @@ mod test {
         )
         .unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+        });
 
         // Insert os_context in the VM's stack:
         //  * range_check segment base in (1, 41)
@@ -864,10 +878,10 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
         Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
             assert_eq!(
                 24,
                 runner
@@ -885,10 +899,10 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
         Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
             assert_eq!(
                 0,
                 runner
@@ -1101,9 +1115,11 @@ mod test {
             false,
         )
         .unwrap();
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+        });
         assert_eq! {
             PyRelocatable::from((1,2)),
             runner.get_initial_fp().unwrap()
@@ -1306,19 +1322,22 @@ mod test {
             false,
         )
         .unwrap();
-        assert!(runner
-            .cairo_run_py(
-                false,
-                None,
-                None,
-                None,
-                Some(HashMap::from([(
-                    "__find_element_max_size".to_string(),
-                    Python::with_gil(|py| -> PyObject { 100.to_object(py) }),
-                )])),
-                None,
-            )
-            .is_ok());
+        Python::with_gil(|py| {
+            assert!(runner
+                .cairo_run_py(
+                    false,
+                    None,
+                    None,
+                    None,
+                    py,
+                    Some(HashMap::from([(
+                        "__find_element_max_size".to_string(),
+                        100.to_object(py)
+                    ),])),
+                    None
+                )
+                .is_ok());
+        });
     }
 
     #[test]
@@ -1332,19 +1351,22 @@ mod test {
             false,
         )
         .unwrap();
-        assert!(runner
-            .cairo_run_py(
-                false,
-                None,
-                None,
-                None,
-                Some(HashMap::from([(
-                    "__find_element_max_size".to_string(),
-                    Python::with_gil(|py| -> PyObject { 1.to_object(py) }),
-                )])),
-                None
-            )
-            .is_err());
+        Python::with_gil(|py| {
+            assert!(runner
+                .cairo_run_py(
+                    false,
+                    None,
+                    None,
+                    None,
+                    py,
+                    Some(HashMap::from([(
+                        "__find_element_max_size".to_string(),
+                        1.to_object(py)
+                    ),])),
+                    None
+                )
+                .is_err());
+        });
     }
 
     #[test]
@@ -1354,9 +1376,11 @@ mod test {
         let mut runner =
             PyCairoRunner::new(program, None, Some("small".to_string()), false).unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, Some("main"))
-            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+        Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, Some("main"))
+                .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+        });
     }
 
     /// Test that `PyCairoRunner::get()` works as intended.
@@ -1373,7 +1397,7 @@ mod test {
             .unwrap();
 
             runner
-                .cairo_run_py(false, None, None, None, None, None)
+                .cairo_run_py(false, None, None, None, py, None, None)
                 .expect("Call to PyCairoRunner::cairo_run_py");
 
             let mut ap = runner.get_ap().unwrap();
