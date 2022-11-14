@@ -536,7 +536,7 @@ impl PyExecutionResources {
     }
 
     #[getter]
-    fn a(&self) -> Vec<(String, usize)> {
+    fn builtin_instance_counter(&self) -> HashMap<String, usize> {
         self.0.builtin_instance_counter.clone()
     }
 }
