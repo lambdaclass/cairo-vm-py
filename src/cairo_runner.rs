@@ -87,6 +87,7 @@ impl PyCairoRunner {
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
+        static_locals: Option<HashMap<String, PyObject>>,
         entrypoint: Option<&str>,
     ) -> PyResult<()> {
         if let Some(entrypoint) = entrypoint {
@@ -100,6 +101,9 @@ impl PyCairoRunner {
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
+
+        self.pyvm.static_locals = static_locals;
+
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
         }
@@ -212,14 +216,14 @@ impl PyCairoRunner {
             .filter(|(builtin_name, _builtin_runner)| {
                 self.inner.get_program_builtins().contains(builtin_name)
             })
-            .map(|(_builtin_name, builtin_runner)| {
+            .flat_map(|(_builtin_name, builtin_runner)| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
                     .map(Into::<PyMaybeRelocatable>::into)
                     .collect::<Vec<PyMaybeRelocatable>>()
             })
-            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
+            .collect::<Vec<PyMaybeRelocatable>>()
             .to_object(py)
     }
 
@@ -310,6 +314,7 @@ impl PyCairoRunner {
         entrypoint: &PyAny,
         args: Vec<&PyAny>,
         hint_locals: Option<HashMap<String, PyObject>>,
+        static_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
         apply_modulo_to_args: Option<bool>,
@@ -331,6 +336,8 @@ impl PyCairoRunner {
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
+
+        self.pyvm.static_locals = static_locals;
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
             x
@@ -617,7 +624,9 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
         let new_segment = runner.add_segment();
         assert_eq!(
             new_segment,
@@ -648,19 +657,20 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
 
-        let expected_output: Vec<Vec<PyMaybeRelocatable>> =
-            vec![vec![RelocatableValue(PyRelocatable {
-                segment_index: 2,
-                offset: 0,
-            })]];
+        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        })];
 
         Python::with_gil(|py| {
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
                     .unwrap(),
                 expected_output
             );
@@ -679,7 +689,9 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
 
         let expected_output = PyRelocatable::from((1, 8));
 
@@ -702,7 +714,9 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
 
         let expected_output = PyRelocatable::from((1, 0));
 
@@ -725,7 +739,9 @@ mod test {
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
 
         // Insert os_context in the VM's stack:
         //  * range_check segment base in (1, 41)
@@ -759,7 +775,9 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 24,
@@ -778,7 +796,9 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 0,
@@ -814,6 +834,7 @@ mod test {
                     py.eval("0", None, None).unwrap(),
                     vec![],
                     None,
+                    None,
                     Some(false),
                     None,
                     None,
@@ -845,6 +866,7 @@ mod test {
                         String::from("syscall_handler"),
                         1.to_object(py),
                     )])),
+                    None,
                     Some(false),
                     None,
                     None,
@@ -859,6 +881,51 @@ mod test {
                     .extract::<usize>(py)
                     .unwrap(),
                 1
+            )
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_without_args_set_static_locals() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py.eval("0", None, None).unwrap(),
+                    vec![],
+                    None,
+                    Some(HashMap::from([(
+                        String::from("__keccak_max_size"),
+                        100.to_object(py),
+                    )])),
+                    Some(false),
+                    None,
+                    None,
+                )
+                .unwrap();
+            assert!(!runner.pyvm.static_locals.as_ref().unwrap().is_empty());
+            assert_eq!(
+                runner
+                    .pyvm
+                    .static_locals
+                    .as_ref()
+                    .unwrap()
+                    .get("__keccak_max_size")
+                    .unwrap()
+                    .extract::<usize>(py)
+                    .unwrap(),
+                100
             )
         });
     }
@@ -949,7 +1016,9 @@ mod test {
             false,
         )
         .unwrap();
-        runner.cairo_run_py(false, None, None, None, None).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
         assert_eq! {
             PyRelocatable::from((1,2)),
             runner.get_initial_fp().unwrap()
@@ -1142,6 +1211,58 @@ mod test {
     }
 
     #[test]
+    fn run_find_element_with_max_size() {
+        let path = "cairo_programs/find_element.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+        assert!(runner
+            .cairo_run_py(
+                false,
+                None,
+                None,
+                None,
+                Some(HashMap::from([(
+                    "__find_element_max_size".to_string(),
+                    Python::with_gil(|py| -> PyObject { 100.to_object(py) }),
+                )])),
+                None,
+            )
+            .is_ok());
+    }
+
+    #[test]
+    fn run_find_element_with_max_size_low_size() {
+        let path = "cairo_programs/find_element.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+        assert!(runner
+            .cairo_run_py(
+                false,
+                None,
+                None,
+                None,
+                Some(HashMap::from([(
+                    "__find_element_max_size".to_string(),
+                    Python::with_gil(|py| -> PyObject { 1.to_object(py) }),
+                )])),
+                None
+            )
+            .is_err());
+    }
+
+    #[test]
     fn set_entrypoint() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -1149,7 +1270,7 @@ mod test {
             PyCairoRunner::new(program, None, Some("small".to_string()), false).unwrap();
 
         runner
-            .cairo_run_py(false, None, None, None, Some("main"))
+            .cairo_run_py(false, None, None, None, None, Some("main"))
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
     }
 
