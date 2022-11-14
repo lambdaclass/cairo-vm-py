@@ -213,6 +213,7 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
+            .rev()
             .filter(|(builtin_name, _builtin_runner)| {
                 self.inner.get_program_builtins().contains(builtin_name)
             })
@@ -232,7 +233,6 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .rev()
             .map(|(_builtin_name, builtin_runner)| {
                 builtin_runner
                     .initial_stack()
@@ -669,6 +669,44 @@ mod test {
     }
 
     #[test]
+    fn get_builtins_initial_stack_two_builtins() {
+        let path = "cairo_programs/keccak_copy_inputs.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
+
+        let expected_output: Vec<PyMaybeRelocatable> = vec![
+            RelocatableValue(PyRelocatable {
+                segment_index: 3,
+                offset: 0,
+            }),
+            RelocatableValue(PyRelocatable {
+                segment_index: 2,
+                offset: 0,
+            }),
+        ];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_program_builtins_initial_stack(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap(),
+                expected_output
+            );
+        });
+    }
+
+    #[test]
     fn get_builtins_final_stack() {
         let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -1032,15 +1070,7 @@ mod test {
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
             vec![RelocatableValue(PyRelocatable {
-                segment_index: 6,
-                offset: 0,
-            })],
-            vec![RelocatableValue(PyRelocatable {
-                segment_index: 5,
-                offset: 0,
-            })],
-            vec![RelocatableValue(PyRelocatable {
-                segment_index: 4,
+                segment_index: 2,
                 offset: 0,
             })],
             vec![RelocatableValue(PyRelocatable {
@@ -1048,7 +1078,15 @@ mod test {
                 offset: 0,
             })],
             vec![RelocatableValue(PyRelocatable {
-                segment_index: 2,
+                segment_index: 4,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 5,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 6,
                 offset: 0,
             })],
         ];
