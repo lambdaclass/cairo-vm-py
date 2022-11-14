@@ -1032,15 +1032,7 @@ mod test {
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
             vec![RelocatableValue(PyRelocatable {
-                segment_index: 2,
-                offset: 0,
-            })],
-            vec![RelocatableValue(PyRelocatable {
-                segment_index: 3,
-                offset: 0,
-            })],
-            vec![RelocatableValue(PyRelocatable {
-                segment_index: 4,
+                segment_index: 6,
                 offset: 0,
             })],
             vec![RelocatableValue(PyRelocatable {
@@ -1048,7 +1040,15 @@ mod test {
                 offset: 0,
             })],
             vec![RelocatableValue(PyRelocatable {
-                segment_index: 6,
+                segment_index: 4,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 3,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 2,
                 offset: 0,
             })],
         ];
