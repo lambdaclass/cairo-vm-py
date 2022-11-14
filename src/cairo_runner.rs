@@ -248,7 +248,17 @@ impl PyCairoRunner {
         let mut stop_ptrs = Vec::new();
         let mut stop_ptr;
 
-        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners().iter().rev() {
+        for (_, runner) in self
+            .pyvm
+            .vm
+            .borrow()
+            .get_builtin_runners()
+            .iter()
+            .rev()
+            .filter(|(builtin_name, _builtin_runner)| {
+                self.inner.get_program_builtins().contains(builtin_name)
+            })
+        {
             (stack_ptr, stop_ptr) = runner
                 .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
                 .map_err(to_py_error)?;
@@ -504,6 +514,16 @@ impl PyCairoRunner {
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
+
+    /// Return a value from memory given its address.
+    pub fn get(&self, py: Python, key: &PyRelocatable) -> PyResult<Option<PyObject>> {
+        self.pyvm
+            .vm
+            .borrow()
+            .get_maybe(key)
+            .map_err(to_py_error)
+            .map(|x| x.map(|x| PyMaybeRelocatable::from(x).to_object(py)))
+    }
 }
 
 #[pyclass]
@@ -731,6 +751,48 @@ mod test {
     }
 
     #[test]
+    fn get_builtins_initial_stack_filters_non_program_builtins() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, Some("main"))
+            .unwrap();
+        // Make a copy of the builtin in order to insert a second "fake" one
+        // BuiltinRunner api is private, so we can create a new one for this test
+        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
+            .1
+            .clone();
+        // Insert our fake builtin into our vm
+        (*runner.pyvm.vm)
+            .borrow_mut()
+            .get_builtin_runners_as_mut()
+            .push((String::from("fake"), fake_builtin));
+        // The fake builtin we added should be filtered out when getting the initial stacks,
+        // so we should only get the range_check builtin's initial stack
+        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        })];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_program_builtins_initial_stack(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap(),
+                expected_output
+            );
+        });
+    }
+
+    #[test]
     fn final_stack_when_not_using_builtins() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -749,6 +811,43 @@ mod test {
         let expected_output = PyRelocatable::from((1, 0));
 
         let final_stack = PyRelocatable::from((1, 0));
+        assert_eq!(
+            runner.get_builtins_final_stack(final_stack).unwrap(),
+            expected_output
+        );
+    }
+    #[test]
+    fn get_builtins_final_stack_filters_non_program_builtins() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
+
+        // Make a copy of the builtin in order to insert a second "fake" one
+        // BuiltinRunner api is private, so we can create a new one for this test
+        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
+            .1
+            .clone();
+        // Insert our fake builtin into our vm
+        (*runner.pyvm.vm)
+            .borrow_mut()
+            .get_builtin_runners_as_mut()
+            .push((String::from("fake"), fake_builtin));
+        // The fake builtin we added should be filtered out when getting the final stacks,
+        // so we should only get the range_check builtin's final stack
+
+        let expected_output = PyRelocatable::from((1, 8));
+
+        let final_stack = PyRelocatable::from((1, 9));
         assert_eq!(
             runner.get_builtins_final_stack(final_stack).unwrap(),
             expected_output
@@ -998,9 +1097,7 @@ mod test {
             .insert(&(0, 2).into(), PyMaybeRelocatable::Int(bigint!(5)))
             .unwrap();
         assert_eq!(
-            runner
-                .pyvm
-                .get_vm()
+            (*runner.pyvm.get_vm())
                 .borrow()
                 .get_continuous_range(&(0, 0).into(), 3),
             Ok(vec![
@@ -1029,9 +1126,7 @@ mod test {
             .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(5)))
             .expect_err("insertion succeeded when it should've failed");
         assert_eq!(
-            runner
-                .pyvm
-                .get_vm()
+            (*runner.pyvm.get_vm())
                 .borrow()
                 .get_continuous_range(&(0, 0).into(), 2),
             Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
@@ -1159,7 +1254,7 @@ mod test {
                 .unwrap();
 
             let vm_ref = runner.pyvm.get_vm();
-            let vm_ref = vm_ref.borrow();
+            let vm_ref = (*vm_ref).borrow();
 
             assert_eq!(
                 vm_ref
@@ -1305,5 +1400,34 @@ mod test {
         runner
             .cairo_run_py(false, None, None, None, None, Some("main"))
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+    }
+
+    /// Test that `PyCairoRunner::get()` works as intended.
+    #[test]
+    fn get() {
+        Python::with_gil(|py| {
+            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+            let mut runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("small".to_string()),
+                false,
+            )
+            .unwrap();
+
+            runner
+                .cairo_run_py(false, None, None, None, None, None)
+                .expect("Call to PyCairoRunner::cairo_run_py");
+
+            let mut ap = runner.get_ap().unwrap();
+            ap.offset -= 1;
+            assert_eq!(
+                runner
+                    .get(py, &ap)
+                    .unwrap()
+                    .map(|x| MaybeRelocatable::from(x.extract::<PyMaybeRelocatable>(py).unwrap())),
+                Some(MaybeRelocatable::Int(bigint!(144))),
+            )
+        });
     }
 }
