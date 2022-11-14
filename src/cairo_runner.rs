@@ -747,6 +747,41 @@ mod test {
             expected_output
         );
     }
+    #[test]
+    fn get_builtins_final_stack_filters_non_program_builtins() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
+
+        // Make a copy of the builtin in order to insert a second "fake" one
+        // BuiltinRunner api is private, so we can create a new one for this test
+        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
+            .1
+            .clone();
+        // Insert our fake builtin into our vm
+        (*runner.pyvm.vm)
+            .borrow_mut()
+            .get_builtin_runners_as_mut()
+            .push((String::from("fake"), fake_builtin));
+        // The fake builtin we added should be filtered out when getting the final stacks,
+        // so we should only get the range_check builtin's final stack
+
+        let expected_output = PyRelocatable::from((1, 8));
+
+        let final_stack = PyRelocatable::from((1, 9));
+        assert_eq!(
+            runner.get_builtins_final_stack(final_stack).unwrap(),
+            expected_output
+        );
+    }
 
     #[test]
     fn final_stack_when_using_two_builtins() {
