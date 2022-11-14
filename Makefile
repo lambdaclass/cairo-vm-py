@@ -59,7 +59,10 @@ check:
 	cargo check
 
 coverage:
-	docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+	. cairo-rs-py-env/bin/activate && \
+	maturin develop && \
+	docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin && \
+	deactivate
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 	cargo test
