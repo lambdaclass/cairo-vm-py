@@ -248,7 +248,7 @@ impl PyCairoRunner {
         let mut stop_ptrs = Vec::new();
         let mut stop_ptr;
 
-        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners() {
+        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners().iter().rev() {
             (stack_ptr, stop_ptr) = runner
                 .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
                 .map_err(to_py_error)?;
@@ -771,25 +771,30 @@ mod test {
             .cairo_run_py(false, None, None, None, None, None)
             .unwrap();
 
-        // Insert os_context in the VM's stack:
-        //  * range_check segment base in (1, 41)
-        //  * bitwise segment base in (1, 41)
-        runner
-            .insert(
-                &(1, 41).into(),
-                PyMaybeRelocatable::RelocatableValue(PyRelocatable::new((2, 0))),
-            )
-            .unwrap();
+        assert_eq!(runner.pyvm.vm.borrow().get_ap(), Relocatable::from((1, 41)));
+        assert_eq!(
+            runner
+                .pyvm
+                .vm
+                .borrow()
+                .get_maybe(&Relocatable::from((1, 40)))
+                .unwrap()
+                .unwrap(),
+            MaybeRelocatable::from((3, 20))
+        );
+        assert_eq!(
+            runner
+                .pyvm
+                .vm
+                .borrow()
+                .get_maybe(&Relocatable::from((1, 39)))
+                .unwrap()
+                .unwrap(),
+            MaybeRelocatable::from((2, 0))
+        );
 
-        runner
-            .insert(
-                &(1, 42).into(),
-                PyMaybeRelocatable::RelocatableValue(PyRelocatable::new((3, 0))),
-            )
-            .unwrap();
-
-        let expected_output = PyRelocatable::from((1, 40));
-        let final_stack = PyRelocatable::from((1, 42));
+        let expected_output = PyRelocatable::from((1, 39));
+        let final_stack = PyRelocatable::from((1, 41));
 
         assert_eq!(
             runner.get_builtins_final_stack(final_stack).unwrap(),
