@@ -527,7 +527,7 @@ impl PyExecutionResources {
 #[cfg(test)]
 mod test {
     use cairo_rs::bigint;
-    use std::{fs, ops::Add};
+    use std::{borrow::Borrow, fs};
 
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
@@ -682,6 +682,46 @@ mod test {
             runner.get_builtins_final_stack(final_stack).unwrap(),
             expected_output
         );
+    }
+
+    #[test]
+    fn get_builtins_initial_stack_filters_non_program_builtins() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, Some("main"))
+            .unwrap();
+        // Make a copy of the builtin in order to insert a second "fake" one
+        // BuiltinRunner api is private, so we can create a new one for this test
+        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0].1;
+        // Insert our fake builtin into our vm
+        (*runner.pyvm.vm)
+            .borrow_mut()
+            .get_builtin_runners_as_mut()
+            .push((String::from("fake"), fake_builtin));
+        // The fake builtin we added should be filtered out when getting the initial stacks,
+        // so we should only get the range_check builtin's initial stack
+        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        })];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_program_builtins_initial_stack(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap(),
+                expected_output
+            );
+        });
     }
 
     #[test]
