@@ -518,6 +518,20 @@ impl PyCairoRunner {
             .map_err(to_py_error)
             .map(|x| x.map(|x| PyMaybeRelocatable::from(x).to_object(py)))
     }
+
+    /// Return a list of values from memory given an initial address and a length.
+    pub fn get_range(&self, py: Python, key: &PyRelocatable, size: usize) -> PyResult<PyObject> {
+        Ok(self
+            .pyvm
+            .vm
+            .borrow()
+            .get_continuous_range(key, size)
+            .map_err(to_py_error)?
+            .into_iter()
+            .map(PyMaybeRelocatable::from)
+            .collect::<Vec<_>>()
+            .to_object(py))
+    }
 }
 
 #[pyclass]
@@ -1375,7 +1389,58 @@ mod test {
                     .unwrap()
                     .map(|x| MaybeRelocatable::from(x.extract::<PyMaybeRelocatable>(py).unwrap())),
                 Some(MaybeRelocatable::Int(bigint!(144))),
+            );
+        });
+    }
+
+    /// Test that `PyCairoRunner::get_range()` works as intended.
+    #[test]
+    fn get_range() {
+        Python::with_gil(|py| {
+            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+            let runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("small".to_string()),
+                false,
             )
+            .unwrap();
+
+            let ptr = {
+                let mut vm = (*runner.pyvm.vm).borrow_mut();
+                let ptr = vm.add_memory_segment();
+                vm.load_data(
+                    &ptr,
+                    [
+                        bigint!(1).into(),
+                        bigint!(2).into(),
+                        bigint!(3).into(),
+                        bigint!(4).into(),
+                        bigint!(5).into(),
+                    ],
+                )
+                .unwrap();
+
+                ptr
+            };
+
+            assert_eq!(
+                runner
+                    .get_range(py, &ptr.into(), 5)
+                    .unwrap()
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap()
+                    .into_iter()
+                    .map(MaybeRelocatable::from)
+                    .collect::<Vec<_>>(),
+                vec![
+                    bigint!(1).into(),
+                    bigint!(2).into(),
+                    bigint!(3).into(),
+                    bigint!(4).into(),
+                    bigint!(5).into(),
+                ],
+            );
         });
     }
 }
