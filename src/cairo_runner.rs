@@ -504,6 +504,16 @@ impl PyCairoRunner {
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
+
+    /// Return a value from memory given its address.
+    pub fn get(&self, py: Python, key: &PyRelocatable) -> PyResult<Option<PyObject>> {
+        self.pyvm
+            .vm
+            .borrow()
+            .get_maybe(key)
+            .map_err(to_py_error)
+            .map(|x| x.map(|x| PyMaybeRelocatable::from(x).to_object(py)))
+    }
 }
 
 #[pyclass]
@@ -1262,5 +1272,34 @@ mod test {
         runner
             .cairo_run_py(false, None, None, None, None, Some("main"))
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+    }
+
+    /// Test that `PyCairoRunner::get()` works as intended.
+    #[test]
+    fn get() {
+        Python::with_gil(|py| {
+            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+            let mut runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("small".to_string()),
+                false,
+            )
+            .unwrap();
+
+            runner
+                .cairo_run_py(false, None, None, None, None, None)
+                .expect("Call to PyCairoRunner::cairo_run_py");
+
+            let mut ap = runner.get_ap().unwrap();
+            ap.offset -= 1;
+            assert_eq!(
+                runner
+                    .get(py, &ap)
+                    .unwrap()
+                    .map(|x| MaybeRelocatable::from(x.extract::<PyMaybeRelocatable>(py).unwrap())),
+                Some(MaybeRelocatable::Int(bigint!(144))),
+            )
+        });
     }
 }
