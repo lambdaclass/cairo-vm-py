@@ -1,4 +1,5 @@
 [cairo-rs-py]
+exclude-files = []
 
 [report]
 output-dir = "target/tarpaulin"

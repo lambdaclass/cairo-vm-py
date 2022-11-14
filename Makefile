@@ -61,8 +61,7 @@ check:
 
 coverage:
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	maturin develop && \
-	cargo tarpaulin && \
+	cargo tarpaulin --out Html && \
 	deactivate
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
