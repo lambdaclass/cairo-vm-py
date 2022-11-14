@@ -1,4 +1,5 @@
 use crate::{
+    dict_manager::PyDictManager,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
@@ -84,11 +85,16 @@ impl PyCairoRunner {
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
+        py: Python,
     ) -> PyResult<()> {
         let end = self.initialize()?;
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
+        self.hint_locals.insert(
+            "__dict_manager".to_string(),
+            PyDictManager::new().into_py(py),
+        );
         if trace_file.is_none() {
             self.pyvm.vm.borrow_mut().disable_trace();
         }
