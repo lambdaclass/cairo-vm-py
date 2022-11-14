@@ -2,9 +2,12 @@ use cairo_rs::{
     bigint,
     hint_processor::hint_processor_utils::bigint_to_usize,
     types::relocatable::{MaybeRelocatable, Relocatable},
+    vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
 use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
+
+use crate::utils::to_py_error;
 
 const PYRELOCATABLE_COMPARE_ERROR: &str = "Cannot compare Relocatables of different segments";
 
@@ -50,13 +53,10 @@ impl PyRelocatable {
                 .to_object(py))
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
-                if self.segment_index == address.segment_index && self.offset >= address.offset {
-                    return Ok(
-                        PyMaybeRelocatable::Int(bigint!(self.offset - address.offset))
-                            .to_object(py),
-                    );
+                if self.segment_index != address.segment_index {
+                    return Err(VirtualMachineError::DiffIndexSub).map_err(to_py_error)?;
                 }
-                todo!()
+                Ok(PyMaybeRelocatable::Int(bigint!(self.offset - address.offset)).to_object(py))
             }
         }
     }
@@ -290,6 +290,20 @@ mod test {
                 .unwrap();
 
             assert_eq!(substraction, PyMaybeRelocatable::Int(bigint!(1)));
+        });
+    }
+
+    #[test]
+    fn py_relocatable_sub_with_relocatable_value_err() {
+        Python::with_gil(|py| {
+            let values1 = (12, 5);
+            let values2 = (2, 4);
+
+            let py_relocatable1 = PyRelocatable::new(values1);
+            let py_relocatable2 = PyRelocatable::new(values2);
+
+            let py_maybe_relocatable = PyMaybeRelocatable::RelocatableValue(py_relocatable2);
+            assert!(py_relocatable1.__sub__(py_maybe_relocatable, py).is_err());
         });
     }
 
