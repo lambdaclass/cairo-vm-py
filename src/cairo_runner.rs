@@ -527,7 +527,7 @@ impl PyExecutionResources {
 #[cfg(test)]
 mod test {
     use cairo_rs::bigint;
-    use std::{borrow::Borrow, fs};
+    use std::{fs, ops::Add};
 
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
@@ -700,7 +700,9 @@ mod test {
             .unwrap();
         // Make a copy of the builtin in order to insert a second "fake" one
         // BuiltinRunner api is private, so we can create a new one for this test
-        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0].1;
+        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
+            .1
+            .clone();
         // Insert our fake builtin into our vm
         (*runner.pyvm.vm)
             .borrow_mut()
@@ -932,9 +934,7 @@ mod test {
             .insert(&(0, 2).into(), PyMaybeRelocatable::Int(bigint!(5)))
             .unwrap();
         assert_eq!(
-            runner
-                .pyvm
-                .get_vm()
+            (*runner.pyvm.get_vm())
                 .borrow()
                 .get_continuous_range(&(0, 0).into(), 3),
             Ok(vec![
@@ -963,9 +963,7 @@ mod test {
             .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(5)))
             .expect_err("insertion succeeded when it should've failed");
         assert_eq!(
-            runner
-                .pyvm
-                .get_vm()
+            (*runner.pyvm.get_vm())
                 .borrow()
                 .get_continuous_range(&(0, 0).into(), 2),
             Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
@@ -1091,7 +1089,7 @@ mod test {
                 .unwrap();
 
             let vm_ref = runner.pyvm.get_vm();
-            let vm_ref = vm_ref.borrow();
+            let vm_ref = (*vm_ref).borrow();
 
             assert_eq!(
                 vm_ref
