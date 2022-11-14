@@ -1288,7 +1288,7 @@ mod test {
             .unwrap();
 
             runner
-                .cairo_run_py(false, None, None, None, None)
+                .cairo_run_py(false, None, None, None, None, None)
                 .expect("Call to PyCairoRunner::cairo_run_py");
 
             let mut ap = runner.get_ap().unwrap();
