@@ -1,3 +1,4 @@
+use crate::ecdsa::PySignature;
 use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
@@ -23,7 +24,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
-const GLOBAL_NAMES: [&str; 17] = [
+const GLOBAL_NAMES: [&str; 18] = [
     "memory",
     "segments",
     "ap",
@@ -33,6 +34,7 @@ const GLOBAL_NAMES: [&str; 17] = [
     "vm_exit_scope",
     "to_felt_or_relocatable",
     "range_check_builtin",
+    "ecdsa_builtin",
     "PRIME",
     "__doc__",
     "__annotations__",
@@ -87,6 +89,7 @@ impl PyVM {
             let exit_scope = pycell!(py, PyExitScope::new());
             let range_check_builtin =
                 PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
+            let ecdsa_builtin = PySignature::new();
             let prime = self.vm.borrow().get_prime().clone();
             let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
@@ -124,6 +127,9 @@ impl PyVM {
             globals
                 .set_item("range_check_builtin", range_check_builtin)
                 .map_err(to_vm_error)?;
+            globals
+                .set_item("ecdsa_builtin", ecdsa_builtin.clone())
+                .map_err(to_vm_error)?;
             globals.set_item("PRIME", prime).map_err(to_vm_error)?;
             globals
                 .set_item(
@@ -140,6 +146,9 @@ impl PyVM {
 
             update_scope_hint_locals(exec_scopes, hint_locals, globals, py);
 
+            if self.vm.borrow_mut().get_signature_builtin().is_ok() {
+                ecdsa_builtin.update_signature(self.vm.borrow_mut().get_signature_builtin()?)?;
+            }
             enter_scope.borrow().update_scopes(exec_scopes)?;
             exit_scope.borrow().update_scopes(exec_scopes)
         })?;
