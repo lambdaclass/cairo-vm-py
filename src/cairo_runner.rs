@@ -709,21 +709,20 @@ mod test {
             .push((String::from("fake"), fake_builtin));
         // The fake builtin we added should be filtered out when getting the initial stacks,
         // so we should only get the range_check builtin's initial stack
-        let expected_output: Vec<Vec<PyMaybeRelocatable>> =
-            vec![vec![RelocatableValue(PyRelocatable {
-                segment_index: 2,
-                offset: 0,
-            })]];
+        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        })];
 
         Python::with_gil(|py| {
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
                     .unwrap(),
                 expected_output
-            )
-        })
+            );
+        });
     }
 
     #[test]
