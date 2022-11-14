@@ -47,7 +47,7 @@ deps-default-version:
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
 	pip install cairo_lang==0.9.1 && \
-	cargo binstall cargo-tarpaulin && \
+	cargo install cargo-tarpaulin && \
 	deactivate
 
 build:
