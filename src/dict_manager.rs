@@ -1,4 +1,5 @@
 use crate::{
+    ids::PyTypedId,
     memory_segments::PySegmentManager,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
@@ -62,15 +63,16 @@ impl PyDictManager {
         .to_object(py))
     }
 
-    pub fn get_tracker(&mut self, dict_ptr: &PyRelocatable) -> PyResult<PyDictManager> {
+    pub fn get_tracker(&mut self, dict_ptr: &PyTypedId) -> PyResult<PyDictManager> {
+        let ptr_addr = dict_ptr.hint_value.clone();
         self.manager
             .borrow_mut()
             .trackers
-            .get_mut(&dict_ptr.segment_index)
+            .get_mut(&ptr_addr.segment_index)
             .unwrap()
             .current_ptr
-            .offset = dict_ptr.offset;
-        self.last_tracker = Relocatable::from((dict_ptr.segment_index, dict_ptr.offset));
+            .offset = ptr_addr.offset;
+        self.last_tracker = Relocatable::from((ptr_addr.segment_index, ptr_addr.offset));
         Ok(PyDictManager {
             manager: self.manager.to_owned(),
             last_tracker: self.last_tracker.to_owned(),
