@@ -33,7 +33,7 @@ if __name__ == "__main__":
     test_program("memset")
     test_program("dict_new")
     test_program("dict_read")
-    # test_program("dict_write") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
+    test_program("dict_write") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     test_program("dict_update")
     test_program("default_dict_new")
     # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
