@@ -59,7 +59,7 @@ check:
 	cargo check
 
 coverage:
-	docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin sh -c "apt-get install libpython3.9-dev"
+	docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 	cargo test
