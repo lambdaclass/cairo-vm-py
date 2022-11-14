@@ -26,8 +26,7 @@ use pyo3::{
     prelude::*,
     types::PyIterator,
 };
-use std::iter::zip;
-use std::{any::Any, collections::HashMap, path::PathBuf, rc::Rc};
+use std::{any::Any, borrow::BorrowMut, collections::HashMap, iter::zip, path::PathBuf, rc::Rc};
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
@@ -47,12 +46,12 @@ impl PyCairoRunner {
     #[new]
     pub fn new(
         program: String,
-        entrypoint: String,
+        entrypoint: Option<String>,
         layout: Option<String>,
         proof_mode: bool,
     ) -> PyResult<Self> {
         let program =
-            Program::from_reader(program.as_bytes(), Some(&entrypoint)).map_err(to_py_error)?;
+            Program::from_reader(program.as_bytes(), entrypoint.as_deref()).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(
             &program,
             &layout.unwrap_or_else(|| "plain".to_string()),
@@ -88,18 +87,25 @@ impl PyCairoRunner {
         trace_file: Option<&str>,
         memory_file: Option<&str>,
         hint_locals: Option<HashMap<String, PyObject>>,
+        entrypoint: Option<&str>,
     ) -> PyResult<()> {
+        if let Some(entrypoint) = entrypoint {
+            self.inner
+                .borrow_mut()
+                .set_entrypoint(Some(entrypoint))
+                .map_err(to_py_error)?;
+        }
+
         let end = self.initialize()?;
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
         if trace_file.is_none() {
-            self.pyvm.vm.borrow_mut().disable_trace();
+            (*self.pyvm.vm).borrow_mut().disable_trace();
         }
         self.run_until_pc(&end)?;
 
-        self.pyvm
-            .vm
+        (*self.pyvm.vm)
             .borrow_mut()
             .verify_auto_deductions()
             .map_err(to_py_error)?;
@@ -138,14 +144,14 @@ impl PyCairoRunner {
 
     pub fn initialize(&mut self) -> PyResult<PyRelocatable> {
         self.inner
-            .initialize(&mut self.pyvm.vm.borrow_mut())
+            .initialize(&mut (*self.pyvm.vm).borrow_mut())
             .map(PyRelocatable::from)
             .map_err(to_py_error)
     }
 
     pub fn initialize_segments(&mut self) {
         self.inner
-            .initialize_segments(&mut self.pyvm.vm.borrow_mut(), None)
+            .initialize_segments(&mut (*self.pyvm.vm).borrow_mut(), None)
     }
 
     pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
@@ -180,47 +186,45 @@ impl PyCairoRunner {
 
     pub fn relocate(&mut self) -> PyResult<()> {
         self.inner
-            .relocate(&mut self.pyvm.vm.borrow_mut())
+            .relocate(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)
     }
 
     pub fn get_output(&mut self) -> PyResult<String> {
         self.inner
-            .get_output(&mut self.pyvm.vm.borrow_mut())
+            .get_output(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)
     }
 
     pub fn write_output(&mut self) -> PyResult<()> {
-        write_output(&mut self.inner, &mut self.pyvm.vm.borrow_mut()).map_err(to_py_error)
+        write_output(&mut self.inner, &mut (*self.pyvm.vm).borrow_mut()).map_err(to_py_error)
     }
 
     pub fn add_segment(&self) -> PyRelocatable {
-        self.pyvm.vm.borrow_mut().add_memory_segment().into()
+        (*self.pyvm.vm).borrow_mut().add_memory_segment().into()
     }
 
     pub fn get_program_builtins_initial_stack(&self, py: Python) -> PyObject {
-        self.pyvm
-            .vm
+        (*self.pyvm.vm)
             .borrow_mut()
             .get_builtin_runners()
             .iter()
             .filter(|(builtin_name, _builtin_runner)| {
                 self.inner.get_program_builtins().contains(builtin_name)
             })
-            .map(|(_builtin_name, builtin_runner)| {
+            .flat_map(|(_builtin_name, builtin_runner)| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
                     .map(Into::<PyMaybeRelocatable>::into)
                     .collect::<Vec<PyMaybeRelocatable>>()
             })
-            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
+            .collect::<Vec<PyMaybeRelocatable>>()
             .to_object(py)
     }
 
     pub fn get_builtins_initial_stack(&self, py: Python) -> PyObject {
-        self.pyvm
-            .vm
+        (*self.pyvm.vm)
             .borrow_mut()
             .get_builtin_runners()
             .iter()
@@ -248,7 +252,7 @@ impl PyCairoRunner {
         }
 
         for ((_, runner), stop_ptr) in zip(
-            self.pyvm.vm.borrow_mut().get_builtin_runners_as_mut(),
+            (*self.pyvm.vm).borrow_mut().get_builtin_runners_as_mut(),
             stop_ptrs,
         ) {
             runner.set_stop_ptr(stop_ptr);
@@ -373,8 +377,7 @@ impl PyCairoRunner {
                 };
 
                 stack.push(
-                    self.pyvm
-                        .vm
+                    (*self.pyvm.vm)
                         .borrow_mut()
                         .gen_arg(arg, prime.as_ref())
                         .map_err(to_py_error)?,
@@ -384,12 +387,12 @@ impl PyCairoRunner {
             stack
         };
 
-        let return_fp = self.pyvm.vm.borrow_mut().add_memory_segment();
+        let return_fp = (*self.pyvm.vm).borrow_mut().add_memory_segment();
 
         let end = self
             .inner
             .initialize_function_entrypoint(
-                &mut self.pyvm.vm.borrow_mut(),
+                &mut (*self.pyvm.vm).borrow_mut(),
                 entrypoint,
                 stack,
                 return_fp.into(),
@@ -397,7 +400,7 @@ impl PyCairoRunner {
             .map_err(to_py_error)?;
 
         self.inner
-            .initialize_vm(&mut self.pyvm.vm.borrow_mut())
+            .initialize_vm(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
         self.run_until_pc(&PyRelocatable::from(end))?;
@@ -406,13 +409,13 @@ impl PyCairoRunner {
             .end_run(
                 true,
                 false,
-                &mut self.pyvm.vm.borrow_mut(),
+                &mut (*self.pyvm.vm).borrow_mut(),
                 &self.hint_processor,
             )
             .map_err(to_py_error)?;
 
         if verify_secure.unwrap_or(true) {
-            verify_secure_runner(&self.inner, false, &mut self.pyvm.vm.borrow_mut())
+            verify_secure_runner(&self.inner, false, &mut (*self.pyvm.vm).borrow_mut())
                 .map_err(to_py_error)?;
         }
 
@@ -421,8 +424,7 @@ impl PyCairoRunner {
 
     /// Inserts a value into a memory address given by a Relocatable value.
     pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
-        self.pyvm
-            .get_vm()
+        (*self.pyvm.vm)
             .borrow_mut()
             .insert_value(&key.into(), value)
             .map_err(to_py_error)
@@ -431,7 +433,7 @@ impl PyCairoRunner {
     // Initialize all the builtins and segments.
     pub fn initialize_function_runner(&mut self) -> PyResult<()> {
         self.inner
-            .initialize_function_runner(&mut self.pyvm.vm.borrow_mut())
+            .initialize_function_runner(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)
     }
 
@@ -445,7 +447,7 @@ impl PyCairoRunner {
             PyMaybeRelocatable::from(match PyIterator::from_object(py, &arg) {
                 Ok(iterator) => {
                     let segment_ptr = MaybeRelocatable::RelocatableValue(
-                        self.pyvm.vm.borrow_mut().add_memory_segment(),
+                        (*self.pyvm.vm).borrow_mut().add_memory_segment(),
                     );
                     self.write_arg(
                         py,
@@ -489,8 +491,7 @@ impl PyCairoRunner {
             );
         }
 
-        self.pyvm
-            .vm
+        (*self.pyvm.vm)
             .borrow_mut()
             .load_data(&ptr, data)
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
@@ -522,8 +523,7 @@ impl PyExecutionResources {
 #[cfg(test)]
 mod test {
     use cairo_rs::bigint;
-    use std::fs;
-    use std::ops::Add;
+    use std::{fs, ops::Add};
 
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
@@ -532,14 +532,15 @@ mod test {
     fn create_cairo_runner() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
+        PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
     }
 
     #[test]
     fn initialize_runner() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
         runner.initialize().unwrap();
     }
 
@@ -547,7 +548,8 @@ mod test {
     fn runner_relocate() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
         runner.relocate().unwrap();
     }
 
@@ -557,7 +559,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("small".to_string()),
             false,
         )
@@ -571,7 +573,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("small".to_string()),
             false,
         )
@@ -585,7 +587,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("small".to_string()),
             false,
         )
@@ -599,13 +601,13 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("small".to_string()),
             false,
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         let new_segment = runner.add_segment();
         assert_eq!(
             new_segment,
@@ -630,25 +632,24 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("small".to_string()),
             false,
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
-        let expected_output: Vec<Vec<PyMaybeRelocatable>> =
-            vec![vec![RelocatableValue(PyRelocatable {
-                segment_index: 2,
-                offset: 0,
-            })]];
+        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        })];
 
         Python::with_gil(|py| {
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<Vec<PyMaybeRelocatable>>>(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
                     .unwrap(),
                 expected_output
             );
@@ -661,13 +662,13 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("small".to_string()),
             false,
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output = PyRelocatable::from((1, 8));
 
@@ -684,13 +685,13 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("small".to_string()),
             false,
         )
         .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         let expected_output = PyRelocatable::from((1, 0));
 
@@ -705,11 +706,15 @@ mod test {
     fn final_stack_when_using_two_builtins() {
         let path = "cairo_programs/final_stack.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner =
-            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
-                .unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
 
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
 
         // Insert os_context in the VM's stack:
         //  * range_check segment base in (1, 41)
@@ -741,8 +746,9 @@ mod test {
     fn get_segment_used_size_of_segment_0() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 24,
@@ -759,8 +765,9 @@ mod test {
     fn get_segment_used_size_of_segment_2() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(program, "main".to_string(), None, false).unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         Python::with_gil(|py| {
             assert_eq!(
                 0,
@@ -779,7 +786,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("plain".to_string()),
             false,
         )
@@ -810,7 +817,7 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some("plain".to_string()),
             false,
         )
@@ -867,7 +874,7 @@ mod test {
     fn insert() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let runner = PyCairoRunner::new(program, "main".to_string(), None, true).unwrap();
+        let runner = PyCairoRunner::new(program, Some("main".to_string()), None, true).unwrap();
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
@@ -898,7 +905,7 @@ mod test {
     fn insert_duplicate() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let runner = PyCairoRunner::new(program, "main".to_string(), None, true).unwrap();
+        let runner = PyCairoRunner::new(program, Some("main".to_string()), None, true).unwrap();
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
@@ -926,12 +933,12 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner = PyCairoRunner::new(
             program,
-            "main".to_string(),
+            Some("main".to_string()),
             Some(String::from("all")),
             false,
         )
         .unwrap();
-        runner.cairo_run_py(false, None, None, None).unwrap();
+        runner.cairo_run_py(false, None, None, None, None).unwrap();
         assert_eq! {
             PyRelocatable::from((1,2)),
             runner.get_initial_fp().unwrap()
@@ -942,9 +949,13 @@ mod test {
     fn initialize_function_runner() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner =
-            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
-                .unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
 
         runner.initialize_function_runner().unwrap();
 
@@ -986,9 +997,13 @@ mod test {
     fn program_builtins_initial_stack_are_empty_when_no_program_builtins() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let mut runner =
-            PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
-                .unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
 
         runner.initialize_function_runner().unwrap();
 
@@ -1010,9 +1025,13 @@ mod test {
         Python::with_gil(|py| {
             let path = "cairo_programs/fibonacci.json".to_string();
             let program = fs::read_to_string(path).unwrap();
-            let runner =
-                PyCairoRunner::new(program, "main".to_string(), Some("all".to_string()), false)
-                    .unwrap();
+            let runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("all".to_string()),
+                false,
+            )
+            .unwrap();
 
             let ptr = runner.add_segment();
             runner
@@ -1109,5 +1128,17 @@ mod test {
                 .unwrap()
                 .is_none());
         });
+    }
+
+    #[test]
+    fn set_entrypoint() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, None, Some("small".to_string()), false).unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, Some("main"))
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
     }
 }
