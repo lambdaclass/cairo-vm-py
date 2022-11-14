@@ -232,6 +232,7 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
+            .rev()
             .map(|(_builtin_name, builtin_runner)| {
                 builtin_runner
                     .initial_stack()
