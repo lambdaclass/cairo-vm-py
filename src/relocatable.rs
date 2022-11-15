@@ -256,7 +256,7 @@ mod test {
 
             let py_relocatable = PyRelocatable::new(values);
             let bigint_value = bigint!(1);
-            let py_maybe_relocatable_int_variant = PyMaybeRelocatable::Int(bigint_value.clone());
+            let py_maybe_relocatable_int_variant = PyMaybeRelocatable::Int(bigint_value);
             let substraction = py_relocatable
                 .__sub__(py_maybe_relocatable_int_variant, py)
                 .unwrap()

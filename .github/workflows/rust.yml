@@ -36,5 +36,11 @@ jobs:
       run : make run-comparer-tracer
     - name: Run clippy
       run: make clippy
-    - name: Clean
+    - name: Coverage
+      run: make coverage
+    - name: Upload coverage to codecov.io
+      uses: codecov/codecov-action@v3
+      with:
+        fail_ci_if_error:     true
+    - name: Cleanup tests
       run: make clean
