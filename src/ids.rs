@@ -411,6 +411,46 @@ memory[fp+2] = ids.CONST
     }
 
     #[test]
+    fn ids_failed_get_test() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &HashMap::new(),
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r"memory[fp] = ids.b";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert!(py_result.map_err(to_vm_error).is_err());
+        });
+    }
+
+    #[test]
     fn ids_set_test() {
         Python::with_gil(|py| {
             let vm = PyVM::new(
