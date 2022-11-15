@@ -1,4 +1,4 @@
-name: rust
+name: coverage
 
 on:
   push:
@@ -10,7 +10,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  coverage:
+    name: cairo-rs-py
     runs-on: ubuntu-20.04
     steps:
     - name: Install Rust 1.61.0
@@ -18,7 +19,6 @@ jobs:
       with:
           toolchain: 1.61.0
           override: true
-          components: rustfmt, clippy
     - uses: actions/checkout@v3
     - name: Setup Pyenv
       uses: "gabrielfalcao/pyenv-action@v9"
@@ -26,15 +26,11 @@ jobs:
         default: 3.9
     - name: Install test dependencies
       run: make deps-default-version
-    - name: Format
-      run: cargo fmt --all -- --check
-    - name: Build
-      run: make build
-    - name: Run tests
-      run: make full-test
-    - name: Compare-Trace-Memory
-      run : make run-comparer-tracer
-    - name: Run clippy
-      run: make clippy
+    - name: Run cargo-tarpaulin
+      uses: actions-rs/tarpaulin@v0.1
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v3
+      with:
+          fail_ci_if_error:     true
     - name: Cleanup tests
       run: make clean
