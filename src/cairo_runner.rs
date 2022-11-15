@@ -244,7 +244,17 @@ impl PyCairoRunner {
         let mut stop_ptrs = Vec::new();
         let mut stop_ptr;
 
-        for (_, runner) in self.pyvm.vm.borrow().get_builtin_runners() {
+        for (_, runner) in self
+            .pyvm
+            .vm
+            .borrow()
+            .get_builtin_runners()
+            .iter()
+            .rev()
+            .filter(|(builtin_name, _builtin_runner)| {
+                self.inner.get_program_builtins().contains(builtin_name)
+            })
+        {
             (stack_ptr, stop_ptr) = runner
                 .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
                 .map_err(to_py_error)?;
@@ -429,7 +439,7 @@ impl PyCairoRunner {
     pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
         (*self.pyvm.vm)
             .borrow_mut()
-            .insert_value(&key.into(), value)
+            .insert_value(key, value)
             .map_err(to_py_error)
     }
 
@@ -500,6 +510,30 @@ impl PyCairoRunner {
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
+
+    /// Return a value from memory given its address.
+    pub fn get(&self, py: Python, key: &PyRelocatable) -> PyResult<Option<PyObject>> {
+        self.pyvm
+            .vm
+            .borrow()
+            .get_maybe(key)
+            .map_err(to_py_error)
+            .map(|x| x.map(|x| PyMaybeRelocatable::from(x).to_object(py)))
+    }
+
+    /// Return a list of values from memory given an initial address and a length.
+    pub fn get_range(&self, py: Python, key: &PyRelocatable, size: usize) -> PyResult<PyObject> {
+        Ok(self
+            .pyvm
+            .vm
+            .borrow()
+            .get_continuous_range(key, size)
+            .map_err(to_py_error)?
+            .into_iter()
+            .map(PyMaybeRelocatable::from)
+            .collect::<Vec<_>>()
+            .to_object(py))
+    }
 }
 
 #[pyclass]
@@ -518,7 +552,7 @@ impl PyExecutionResources {
     }
 
     #[getter]
-    fn a(&self) -> Vec<(String, usize)> {
+    fn builtin_instance_counter(&self) -> HashMap<String, usize> {
         self.0.builtin_instance_counter.clone()
     }
 }
@@ -529,7 +563,7 @@ mod test {
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use cairo_rs::bigint;
     use num_bigint::BigInt;
-    use std::{fs, ops::Add};
+    use std::fs;
 
     #[test]
     fn create_cairo_runner() {
@@ -664,6 +698,44 @@ mod test {
     }
 
     #[test]
+    fn get_builtins_initial_stack_two_builtins() {
+        let path = "cairo_programs/keccak_copy_inputs.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
+
+        let expected_output: Vec<PyMaybeRelocatable> = vec![
+            RelocatableValue(PyRelocatable {
+                segment_index: 2,
+                offset: 0,
+            }),
+            RelocatableValue(PyRelocatable {
+                segment_index: 3,
+                offset: 0,
+            }),
+        ];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_program_builtins_initial_stack(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap(),
+                expected_output
+            );
+        });
+    }
+
+    #[test]
     fn get_builtins_final_stack() {
         let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -686,6 +758,48 @@ mod test {
             runner.get_builtins_final_stack(final_stack).unwrap(),
             expected_output
         );
+    }
+
+    #[test]
+    fn get_builtins_initial_stack_filters_non_program_builtins() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, Some("main"))
+            .unwrap();
+        // Make a copy of the builtin in order to insert a second "fake" one
+        // BuiltinRunner api is private, so we can create a new one for this test
+        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
+            .1
+            .clone();
+        // Insert our fake builtin into our vm
+        (*runner.pyvm.vm)
+            .borrow_mut()
+            .get_builtin_runners_as_mut()
+            .push((String::from("fake"), fake_builtin));
+        // The fake builtin we added should be filtered out when getting the initial stacks,
+        // so we should only get the range_check builtin's initial stack
+        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        })];
+
+        Python::with_gil(|py| {
+            assert_eq!(
+                runner
+                    .get_program_builtins_initial_stack(py)
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap(),
+                expected_output
+            );
+        });
     }
 
     #[test]
@@ -712,6 +826,43 @@ mod test {
             expected_output
         );
     }
+    #[test]
+    fn get_builtins_final_stack_filters_non_program_builtins() {
+        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
+
+        // Make a copy of the builtin in order to insert a second "fake" one
+        // BuiltinRunner api is private, so we can create a new one for this test
+        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
+            .1
+            .clone();
+        // Insert our fake builtin into our vm
+        (*runner.pyvm.vm)
+            .borrow_mut()
+            .get_builtin_runners_as_mut()
+            .push((String::from("fake"), fake_builtin));
+        // The fake builtin we added should be filtered out when getting the final stacks,
+        // so we should only get the range_check builtin's final stack
+
+        let expected_output = PyRelocatable::from((1, 8));
+
+        let final_stack = PyRelocatable::from((1, 9));
+        assert_eq!(
+            runner.get_builtins_final_stack(final_stack).unwrap(),
+            expected_output
+        );
+    }
 
     #[test]
     fn final_stack_when_using_two_builtins() {
@@ -729,25 +880,30 @@ mod test {
             .cairo_run_py(false, None, None, None, None, None)
             .unwrap();
 
-        // Insert os_context in the VM's stack:
-        //  * range_check segment base in (1, 41)
-        //  * bitwise segment base in (1, 41)
-        runner
-            .insert(
-                &(1, 41).into(),
-                PyMaybeRelocatable::RelocatableValue(PyRelocatable::new((2, 0))),
-            )
-            .unwrap();
+        assert_eq!(runner.pyvm.vm.borrow().get_ap(), Relocatable::from((1, 41)));
+        assert_eq!(
+            runner
+                .pyvm
+                .vm
+                .borrow()
+                .get_maybe(&Relocatable::from((1, 40)))
+                .unwrap()
+                .unwrap(),
+            MaybeRelocatable::from((3, 20))
+        );
+        assert_eq!(
+            runner
+                .pyvm
+                .vm
+                .borrow()
+                .get_maybe(&Relocatable::from((1, 39)))
+                .unwrap()
+                .unwrap(),
+            MaybeRelocatable::from((2, 0))
+        );
 
-        runner
-            .insert(
-                &(1, 42).into(),
-                PyMaybeRelocatable::RelocatableValue(PyRelocatable::new((3, 0))),
-            )
-            .unwrap();
-
-        let expected_output = PyRelocatable::from((1, 40));
-        let final_stack = PyRelocatable::from((1, 42));
+        let expected_output = PyRelocatable::from((1, 39));
+        let final_stack = PyRelocatable::from((1, 41));
 
         assert_eq!(
             runner.get_builtins_final_stack(final_stack).unwrap(),
@@ -951,11 +1107,9 @@ mod test {
             .insert(&(0, 2).into(), PyMaybeRelocatable::Int(bigint!(5)))
             .unwrap();
         assert_eq!(
-            runner
-                .pyvm
-                .get_vm()
+            (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range(&(0, 0).into(), 3),
+                .get_continuous_range((0, 0), 3),
             Ok(vec![
                 bigint!(3).into(),
                 bigint!(4).into(),
@@ -982,11 +1136,9 @@ mod test {
             .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(5)))
             .expect_err("insertion succeeded when it should've failed");
         assert_eq!(
-            runner
-                .pyvm
-                .get_vm()
+            (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range(&(0, 0).into(), 2),
+                .get_continuous_range((0, 0), 2),
             Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
         );
     }
@@ -1112,11 +1264,11 @@ mod test {
                 .unwrap();
 
             let vm_ref = runner.pyvm.get_vm();
-            let vm_ref = vm_ref.borrow();
+            let vm_ref = (*vm_ref).borrow();
 
             assert_eq!(
                 vm_ref
-                    .get_maybe(&Relocatable::from((0, 0)))
+                    .get_maybe((0, 0))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -1125,7 +1277,7 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&Relocatable::from((0, 1)))
+                    .get_maybe((0, 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -1134,7 +1286,7 @@ mod test {
             );
 
             let relocatable = vm_ref
-                .get_maybe(&Relocatable::from((0, 2)))
+                .get_maybe((0, 2))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -1152,17 +1304,17 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .get_maybe(&relocatable + 1)
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
 
             let relocatable = vm_ref
-                .get_maybe(&Relocatable::from((0, 3)))
+                .get_maybe((0, 3))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -1180,19 +1332,16 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .get_maybe(&relocatable + 1)
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
 
-            assert!(vm_ref
-                .get_maybe(&Relocatable::from((0, 4)))
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe((0, 4)).unwrap().is_none());
         });
     }
 
@@ -1258,5 +1407,85 @@ mod test {
         runner
             .cairo_run_py(false, None, None, None, None, Some("main"))
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+    }
+
+    /// Test that `PyCairoRunner::get()` works as intended.
+    #[test]
+    fn get() {
+        Python::with_gil(|py| {
+            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+            let mut runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("small".to_string()),
+                false,
+            )
+            .unwrap();
+
+            runner
+                .cairo_run_py(false, None, None, None, None, None)
+                .expect("Call to PyCairoRunner::cairo_run_py");
+
+            let mut ap = runner.get_ap().unwrap();
+            ap.offset -= 1;
+            assert_eq!(
+                runner
+                    .get(py, &ap)
+                    .unwrap()
+                    .map(|x| MaybeRelocatable::from(x.extract::<PyMaybeRelocatable>(py).unwrap())),
+                Some(MaybeRelocatable::Int(bigint!(144))),
+            );
+        });
+    }
+
+    /// Test that `PyCairoRunner::get_range()` works as intended.
+    #[test]
+    fn get_range() {
+        Python::with_gil(|py| {
+            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+            let runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("small".to_string()),
+                false,
+            )
+            .unwrap();
+
+            let ptr = {
+                let mut vm = (*runner.pyvm.vm).borrow_mut();
+                let ptr = vm.add_memory_segment();
+                vm.load_data(
+                    &ptr,
+                    [
+                        bigint!(1).into(),
+                        bigint!(2).into(),
+                        bigint!(3).into(),
+                        bigint!(4).into(),
+                        bigint!(5).into(),
+                    ],
+                )
+                .unwrap();
+
+                ptr
+            };
+
+            assert_eq!(
+                runner
+                    .get_range(py, &ptr.into(), 5)
+                    .unwrap()
+                    .extract::<Vec<PyMaybeRelocatable>>(py)
+                    .unwrap()
+                    .into_iter()
+                    .map(MaybeRelocatable::from)
+                    .collect::<Vec<_>>(),
+                vec![
+                    bigint!(1).into(),
+                    bigint!(2).into(),
+                    bigint!(3).into(),
+                    bigint!(4).into(),
+                    bigint!(5).into(),
+                ],
+            );
+        });
     }
 }
