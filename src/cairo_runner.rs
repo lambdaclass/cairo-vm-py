@@ -78,6 +78,7 @@ impl PyCairoRunner {
     }
 
     #[pyo3(name = "cairo_run")]
+    #[allow(clippy::too_many_arguments)]
     pub fn cairo_run_py(
         &mut self,
         print_output: bool,
@@ -719,22 +720,22 @@ mod test {
         )
         .unwrap();
 
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
-
-        let expected_output: Vec<PyMaybeRelocatable> = vec![
-            RelocatableValue(PyRelocatable {
-                segment_index: 2,
-                offset: 0,
-            }),
-            RelocatableValue(PyRelocatable {
-                segment_index: 3,
-                offset: 0,
-            }),
-        ];
-
         Python::with_gil(|py| {
+            runner
+                .cairo_run_py(false, None, None, None, py, None, None)
+                .unwrap();
+
+            let expected_output: Vec<PyMaybeRelocatable> = vec![
+                RelocatableValue(PyRelocatable {
+                    segment_index: 2,
+                    offset: 0,
+                }),
+                RelocatableValue(PyRelocatable {
+                    segment_index: 3,
+                    offset: 0,
+                }),
+            ];
+
             assert_eq!(
                 runner
                     .get_program_builtins_initial_stack(py)
