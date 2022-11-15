@@ -439,7 +439,7 @@ impl PyCairoRunner {
     pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
         (*self.pyvm.vm)
             .borrow_mut()
-            .insert_value(key, value)
+            .insert_value(&key.into(), value)
             .map_err(to_py_error)
     }
 
@@ -527,7 +527,7 @@ impl PyCairoRunner {
             .pyvm
             .vm
             .borrow()
-            .get_continuous_range(key, size)
+            .get_continuous_range(&MaybeRelocatable::RelocatableValue(key.into()), size)
             .map_err(to_py_error)?
             .into_iter()
             .map(PyMaybeRelocatable::from)
@@ -1109,7 +1109,7 @@ mod test {
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range((0, 0), 3),
+                .get_continuous_range(&(0, 0).into(), 3),
             Ok(vec![
                 bigint!(3).into(),
                 bigint!(4).into(),
@@ -1138,7 +1138,7 @@ mod test {
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range((0, 0), 2),
+                .get_continuous_range(&(0, 0).into(), 2),
             Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
         );
     }
@@ -1268,7 +1268,7 @@ mod test {
 
             assert_eq!(
                 vm_ref
-                    .get_maybe((0, 0))
+                    .get_maybe(&Relocatable::from((0, 0)))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -1277,7 +1277,7 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe((0, 1))
+                    .get_maybe(&Relocatable::from((0, 1)))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -1286,7 +1286,7 @@ mod test {
             );
 
             let relocatable = vm_ref
-                .get_maybe((0, 2))
+                .get_maybe(&Relocatable::from((0, 2)))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -1304,17 +1304,17 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable + 1)
+                    .get_maybe(&(&relocatable + 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
             let relocatable = vm_ref
-                .get_maybe((0, 3))
+                .get_maybe(&Relocatable::from((0, 3)))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -1332,16 +1332,19 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable + 1)
+                    .get_maybe(&(&relocatable + 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
-            assert!(vm_ref.get_maybe((0, 4)).unwrap().is_none());
+            assert!(vm_ref
+                .get_maybe(&Relocatable::from((0, 4)))
+                .unwrap()
+                .is_none());
         });
     }
 
@@ -1455,8 +1458,8 @@ mod test {
                 let mut vm = (*runner.pyvm.vm).borrow_mut();
                 let ptr = vm.add_memory_segment();
                 vm.load_data(
-                    &ptr,
-                    [
+                    &(&ptr).into(),
+                    vec![
                         bigint!(1).into(),
                         bigint!(2).into(),
                         bigint!(3).into(),

@@ -167,7 +167,7 @@ impl PyTypedId {
                 let vm = self.vm.borrow();
                 Ok(match member.cairo_type.as_str() {
                     "felt" | "felt*" => vm
-                        .get_maybe(&self.hint_value + member.offset)
+                        .get_maybe(&(&self.hint_value + member.offset))
                         .map_err(to_py_error)?
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
@@ -375,11 +375,11 @@ memory[fp+2] = ids.CONST
             assert_eq!(py_result.map_err(to_vm_error), Ok(()));
             //Check ids.a is now at memory[fp]
             assert_eq!(
-                vm.vm.borrow().get_maybe((1, 0)),
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2_i32))))
             );
             assert_eq!(
-                vm.vm.borrow().get_maybe((1, 2)),
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(3))))
             );
         });
@@ -439,7 +439,7 @@ memory[fp+2] = ids.CONST
             assert_eq!(py_result.map_err(to_vm_error), Ok(()));
             //Check ids.a now contains memory[fp]
             assert_eq!(
-                vm.vm.borrow().get_maybe((1, 1)),
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
                 Ok(Some(MaybeRelocatable::from(bigint!(2))))
             );
         });
