@@ -20,7 +20,6 @@ use cairo_rs::{
         security::verify_secure_runner,
     },
 };
-use num_bigint::{BigInt, Sign};
 use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError},
     prelude::*,
@@ -70,10 +69,7 @@ impl PyCairoRunner {
 
         Ok(PyCairoRunner {
             inner: cairo_runner,
-            pyvm: PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                true,
-            ),
+            pyvm: PyVM::new(program.prime, true),
             hint_processor: BuiltinHintProcessor::new_empty(),
             hint_locals: HashMap::new(),
             struct_types: Rc::new(struct_types),
@@ -563,11 +559,11 @@ impl PyExecutionResources {
 
 #[cfg(test)]
 mod test {
-    use cairo_rs::bigint;
-    use std::fs;
-
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
+    use cairo_rs::bigint;
+    use num_bigint::BigInt;
+    use std::fs;
 
     #[test]
     fn create_cairo_runner() {
