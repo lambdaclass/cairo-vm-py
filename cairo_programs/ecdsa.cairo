@@ -16,15 +16,12 @@ func main{output_ptr : felt*, pedersen_ptr : HashBuiltin*, ecdsa_ptr : Signature
     let signature_s = 1819432147005223164874083361865404672584671743718628757598322238853218813979
     let msg = 0000000000000000000000000000000000000000000000000000000000000002
 
-    let (x) = hash2{hash_ptr=pedersen_ptr}('Vamos Argentina',0)
-    %{print("ENTER verify_ecdsa_signature")%}
     verify_ecdsa_signature(
         msg,
         874739451078007766457464989774322083649278607533249481151382481072868806602,
         signature_r,
         signature_s,
     )
-    %{print("OUT verify_ecdsa_signature")%}
 
 
     assert [output_ptr] = your_eth_addr
