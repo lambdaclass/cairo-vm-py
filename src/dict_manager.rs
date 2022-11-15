@@ -15,13 +15,13 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[pyclass(unsendable)]
 pub struct PyDictManager {
-    pub manager: Rc<RefCell<DictManager>>,
+    manager: Rc<RefCell<DictManager>>,
 }
 
 #[pyclass(unsendable)]
 pub struct PyDictTracker {
-    pub manager: Rc<RefCell<DictManager>>,
-    pub key: Relocatable,
+    manager: Rc<RefCell<DictManager>>,
+    key: Relocatable,
 }
 
 #[pymethods]
