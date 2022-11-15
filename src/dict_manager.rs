@@ -137,8 +137,9 @@ impl PyDictTracker {
         &mut self,
         key: PyMaybeRelocatable,
         val: PyMaybeRelocatable,
+        py: Python,
     ) -> PyResult<()> {
-        match (key, val) {
+        match (&key, val) {
             (PyMaybeRelocatable::Int(key), PyMaybeRelocatable::Int(val)) => {
                 self.manager
                     .borrow_mut()
@@ -148,7 +149,7 @@ impl PyDictTracker {
 
                 Ok(())
             }
-            _ => todo!(),
+            _ => Err(PyKeyError::new_err(key.to_object(py))),
         }
     }
 }
