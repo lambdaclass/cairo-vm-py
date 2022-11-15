@@ -47,6 +47,7 @@ deps-default-version:
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
 	pip install cairo_lang==0.9.1 && \
+	cargo install cargo-tarpaulin && \
 	deactivate
 
 build:
@@ -57,6 +58,11 @@ run:
 
 check:
 	cargo check
+
+coverage:
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
+	cargo tarpaulin --out Xml && \
+	deactivate
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 	cargo test
