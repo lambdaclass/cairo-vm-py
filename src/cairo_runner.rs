@@ -404,7 +404,7 @@ impl PyCairoRunner {
             stack
         };
 
-        let return_fp = (*self.pyvm.vm).borrow_mut().add_memory_segment();
+        let return_fp = MaybeRelocatable::from(Into::<BigInt>::into(0));
 
         let end = self
             .inner
