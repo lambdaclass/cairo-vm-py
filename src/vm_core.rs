@@ -146,11 +146,19 @@ impl PyVM {
 
             update_scope_hint_locals(exec_scopes, hint_locals, globals, py);
 
+            let ecdsa_builtin = globals
+                .get_item("ecdsa_builtin")
+                .unwrap()
+                .extract::<PySignature>()
+                .unwrap();
+
             if self.vm.borrow_mut().get_signature_builtin().is_ok() {
                 ecdsa_builtin.update_signature(self.vm.borrow_mut().get_signature_builtin()?)?;
             }
             enter_scope.borrow().update_scopes(exec_scopes)?;
-            exit_scope.borrow().update_scopes(exec_scopes)
+            exit_scope.borrow().update_scopes(exec_scopes)?;
+
+            Ok(())
         })?;
 
         Ok(())
@@ -173,6 +181,7 @@ impl PyVM {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
+                    println!("RUNNING HINT: {}", hint_data.code);
 
                     self.execute_hint(
                         hint_data,
