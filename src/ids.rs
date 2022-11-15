@@ -42,6 +42,7 @@ pub struct PyIds {
 impl PyIds {
     #[getter]
     pub fn __getattr__(&self, name: &str, py: Python) -> PyResult<PyObject> {
+        println!("name: {:?}", name);
         if let Some(constant) = self.constants.get(name) {
             return Ok(constant.to_object(py));
         }
@@ -78,12 +79,25 @@ impl PyIds {
             }
         }
 
+        // println!("self.references: {:?}", self.references);
         let hint_ref = self
             .references
             .get(name)
             .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
 
         if let Some(cairo_type) = hint_ref.cairo_type.as_deref() {
+            println!("cairo_type: {:?}", cairo_type);
+
+            // println!("self.struct_types: {:?}", self.struct_types);
+
+            let chars = cairo_type.chars().rev();
+            let clear_ref = chars
+                .skip_while(|c| c == &'*')
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect::<String>();
+
             if self.struct_types.contains_key(cairo_type) {
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
@@ -92,6 +106,24 @@ impl PyIds {
                         &self.vm.borrow(),
                         &self.ap_tracking,
                     )?,
+                    cairo_type: cairo_type.to_string(),
+                    struct_types: Rc::clone(&self.struct_types),
+                }
+                .into_py(py));
+            } else if self.struct_types.contains_key(&clear_ref) {
+                let addr =
+                    compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
+
+                let hint_value = self
+                    .vm
+                    .borrow()
+                    .get_relocatable(&addr)
+                    .map_err(to_py_error)?
+                    .into_owned();
+
+                return Ok(PyTypedId {
+                    vm: self.vm.clone(),
+                    hint_value: hint_value,
                     cairo_type: cairo_type.to_string(),
                     struct_types: Rc::clone(&self.struct_types),
                 }
@@ -156,11 +188,12 @@ struct PyTypedId {
 impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
-        let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
+        println!("name: {:?}", name);
 
         if name == "address_" {
             return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
         }
+        let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
 
         match struct_type.get(name) {
             Some(member) => {
