@@ -11,17 +11,20 @@ from starkware.cairo.common.signature import verify_ecdsa_signature
 func main{output_ptr : felt*, pedersen_ptr : HashBuiltin*, ecdsa_ptr : SignatureBuiltin*}():
     alloc_locals
 
-    let your_eth_addr = 123
-    let signature_r = 123
-    let signature_s = 12332
+    let signature_r = 1839793652349538280924927302501143912227271479439798783640887258675143576352
+    let signature_s = 1819432147005223164874083361865404672584671743718628757598322238853218813979
+    let msg = 0000000000000000000000000000000000000000000000000000000000000002
 
-    let (x) = hash2{hash_ptr=pedersen_ptr}(your_eth_addr, your_eth_addr)
+    let (x) = hash2{hash_ptr=pedersen_ptr}('Vamos Argentina',0)
+    %{print("ENTER verify_ecdsa_signature")%}
     verify_ecdsa_signature(
-        x,
-        124221662027375191599785306371100866827147974414679244246692561282978781776,
+        msg,
+        874739451078007766457464989774322083649278607533249481151382481072868806602,
         signature_r,
         signature_s,
     )
+    %{print("OUT verify_ecdsa_signature")%}
+
 
     assert [output_ptr] = your_eth_addr
     let output_ptr = output_ptr + 1
