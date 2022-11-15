@@ -42,7 +42,6 @@ pub struct PyIds {
 impl PyIds {
     #[getter]
     pub fn __getattr__(&self, name: &str, py: Python) -> PyResult<PyObject> {
-        println!("name: {:?}", name);
         if let Some(constant) = self.constants.get(name) {
             return Ok(constant.to_object(py));
         }
@@ -79,17 +78,12 @@ impl PyIds {
             }
         }
 
-        // println!("self.references: {:?}", self.references);
         let hint_ref = self
             .references
             .get(name)
             .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
 
         if let Some(cairo_type) = hint_ref.cairo_type.as_deref() {
-            println!("cairo_type: {:?}", cairo_type);
-
-            // println!("self.struct_types: {:?}", self.struct_types);
-
             let chars = cairo_type.chars().rev();
             let clear_ref = chars
                 .skip_while(|c| c == &'*')
@@ -188,8 +182,6 @@ struct PyTypedId {
 impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
-        println!("name: {:?}", name);
-
         if name == "address_" {
             return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
         }

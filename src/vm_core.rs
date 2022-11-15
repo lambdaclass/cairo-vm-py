@@ -181,7 +181,6 @@ impl PyVM {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
-                    println!("RUNNING HINT: {}", hint_data.code);
 
                     self.execute_hint(
                         hint_data,
