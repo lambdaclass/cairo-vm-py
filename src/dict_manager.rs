@@ -9,16 +9,19 @@ use cairo_rs::{
     types::relocatable::Relocatable,
 };
 use num_bigint::BigInt;
-use pyo3::{
-    exceptions::{PyAttributeError, PyKeyError},
-    prelude::*,
-};
+use pyo3::{exceptions::PyKeyError, prelude::*};
+
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[pyclass(unsendable)]
 pub struct PyDictManager {
     pub manager: Rc<RefCell<DictManager>>,
-    pub last_tracker: Relocatable,
+}
+
+#[pyclass(unsendable)]
+pub struct PyDictTracker {
+    pub manager: Rc<RefCell<DictManager>>,
+    pub key: Relocatable,
 }
 
 #[pymethods]
@@ -27,24 +30,22 @@ impl PyDictManager {
     pub fn new() -> Self {
         PyDictManager {
             manager: Rc::new(RefCell::new(DictManager::new())),
-            last_tracker: Relocatable::from((0, 0)),
         }
     }
 
     pub fn new_dict(
-        &mut self,
+        &self,
         segments: &mut PySegmentManager,
         initial_dict: HashMap<BigInt, BigInt>,
         py: Python,
     ) -> PyResult<PyObject> {
-        let res = Ok(PyMaybeRelocatable::from(
+        Ok(PyMaybeRelocatable::from(
             self.manager
                 .borrow_mut()
                 .new_dict(&mut segments.vm.borrow_mut(), initial_dict)
                 .map_err(to_py_error)?,
         )
-        .to_object(py));
-        res
+        .to_object(py))
     }
 
     pub fn new_default_dict(
@@ -63,59 +64,56 @@ impl PyDictManager {
         .to_object(py))
     }
 
-    pub fn get_tracker(&mut self, dict_ptr: &PyTypedId) -> PyResult<PyDictManager> {
+    pub fn get_tracker(&mut self, dict_ptr: &PyTypedId) -> PyResult<PyDictTracker> {
         let ptr_addr = dict_ptr.hint_value.clone();
         self.manager
-            .borrow_mut()
-            .trackers
-            .get_mut(&ptr_addr.segment_index)
-            .unwrap()
-            .current_ptr
-            .offset = ptr_addr.offset;
-        self.last_tracker = Relocatable::from((ptr_addr.segment_index, ptr_addr.offset));
-        Ok(PyDictManager {
-            manager: self.manager.to_owned(),
-            last_tracker: self.last_tracker.to_owned(),
+            .borrow()
+            .get_tracker(&ptr_addr)
+            .map_err(to_py_error)?;
+        Ok(PyDictTracker {
+            manager: self.manager.clone(),
+            key: ptr_addr,
         })
     }
+}
 
-    pub fn __getattr__(&self, name: &str, py: Python) -> PyResult<PyObject> {
-        if name == "current_ptr" {
-            return Ok(PyRelocatable::from(
-                self.manager
-                    .borrow_mut()
-                    .trackers
-                    .get_mut(&self.last_tracker.segment_index)
-                    .unwrap()
-                    .current_ptr
-                    .to_owned(),
-            )
-            .into_py(py));
-        }
-
-        if name == "data" {
-            return Ok(PyDictManager {
-                manager: self.manager.to_owned(),
-                last_tracker: self.last_tracker.to_owned(),
-            }
-            .into_py(py));
-        }
-
-        Err(PyAttributeError::new_err(name.to_string()))
-    }
-
-    pub fn __setattr__(&mut self, name: &str, val: PyRelocatable) -> PyResult<()> {
-        if name == "current_ptr" {
+#[pymethods]
+impl PyDictTracker {
+    #[getter]
+    pub fn get_current_ptr(&self, py: Python) -> PyResult<PyObject> {
+        Ok(PyRelocatable::from(
             self.manager
                 .borrow_mut()
-                .trackers
-                .get_mut(&val.segment_index)
-                .unwrap()
+                .get_tracker_mut(&self.key)
+                .map_err(to_py_error)?
                 .current_ptr
-                .offset = val.offset;
-            return Ok(());
+                .clone(),
+        )
+        .into_py(py))
+    }
+
+    #[getter]
+    pub fn get_data(&self, py: Python) -> PyObject {
+        PyDictTracker {
+            manager: self.manager.clone(),
+            key: self.key.clone(),
         }
-        Err(PyAttributeError::new_err(name.to_string()))
+        .into_py(py)
+    }
+
+    #[setter]
+    pub fn set_current_ptr(&mut self, val: PyRelocatable) -> PyResult<()> {
+        self.manager
+            .borrow_mut()
+            .get_tracker_mut(&self.key)
+            .map_err(to_py_error)?
+            .current_ptr
+            .offset = val.offset;
+        self.key = Relocatable {
+            segment_index: val.segment_index,
+            offset: val.offset,
+        };
+        Ok(())
     }
 
     #[getter]
@@ -124,9 +122,8 @@ impl PyDictManager {
             PyMaybeRelocatable::Int(key) => Ok(PyMaybeRelocatable::from(
                 self.manager
                     .borrow_mut()
-                    .trackers
-                    .get_mut(&self.last_tracker.segment_index)
-                    .unwrap()
+                    .get_tracker_mut(&self.key)
+                    .map_err(to_py_error)?
                     .get_value(&key)
                     .map_err(to_py_error)?,
             )
@@ -145,9 +142,8 @@ impl PyDictManager {
             (PyMaybeRelocatable::Int(key), PyMaybeRelocatable::Int(val)) => {
                 self.manager
                     .borrow_mut()
-                    .trackers
-                    .get_mut(&self.last_tracker.segment_index)
-                    .unwrap()
+                    .get_tracker_mut(&self.key)
+                    .map_err(to_py_error)?
                     .insert_value(&key, &val);
 
                 Ok(())
