@@ -22,7 +22,7 @@ for file in $(ls $tests_path | grep .cairo$ | sed -E 's/\.cairo$//'); do
     path_file="$tests_path/$file"
 
     echo "$file"
-    if ! ([ "$file" = "blake2s_felt" ] || [ "$file" = "blake2s_finalize" ] || [ "$file" = "blake2s_integration_tests" ] || [ "$file" = "blake2s_hello_world_hash" ] || [ "$file" = "dict_squash" ] || [ "$file" = "squash_dict" ] || [ "$file" = "dict_write" ]); then
+    if ! ([ "$file" = "blake2s_felt" ] || [ "$file" = "blake2s_finalize" ] || [ "$file" = "blake2s_integration_tests" ] || [ "$file" = "blake2s_hello_world_hash" ] || [ "$file" = "dict_squash" ] || [ "$file" = "squash_dict" ] || [ "$file" = "dict_write" ] || [ "$file" = "dict_write" ] || [ "$file" = "dict_update" ] || [ "$file" = "dict_read" ]); then
         if $trace; then
             if ! diff -q $path_file.trace $path_file.rs.trace; then
                 echo "Traces for $file differ"
