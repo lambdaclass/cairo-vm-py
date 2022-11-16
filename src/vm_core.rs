@@ -78,8 +78,8 @@ impl PyVM {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(self);
             let segments = PySegmentManager::new(self, memory.clone());
-            let ap = PyRelocatable::from(self.vm.borrow().get_ap());
-            let fp = PyRelocatable::from(self.vm.borrow().get_fp());
+            let ap = PyRelocatable::from((*self.vm).borrow().get_ap());
+            let fp = PyRelocatable::from((*self.vm).borrow().get_fp());
             let ids = PyIds::new(
                 self,
                 &hint_data.ids_data,
@@ -90,9 +90,9 @@ impl PyVM {
             let enter_scope = pycell!(py, PyEnterScope::new());
             let exit_scope = pycell!(py, PyExitScope::new());
             let range_check_builtin =
-                PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
-            let ecdsa_builtin = PySignature::new();
-            let prime = self.vm.borrow().get_prime().clone();
+                PyRangeCheck::from((*self.vm).borrow().get_range_check_builtin());
+            let ecdsa_builtin = pycell!(py, PySignature::new());
+            let prime = (*self.vm).borrow().get_prime().clone();
             let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
@@ -162,13 +162,9 @@ impl PyVM {
             );
 
             if self.vm.borrow_mut().get_signature_builtin().is_ok() {
-                let ecdsa_builtin = globals
-                    .get_item("ecdsa_builtin")
-                    .ok_or(VirtualMachineError::NoSignatureBuiltin)?
-                    .extract::<PySignature>()
-                    .map_err(to_vm_error)?;
-
-                ecdsa_builtin.update_signature(self.vm.borrow_mut().get_signature_builtin()?)?;
+                ecdsa_builtin
+                    .borrow()
+                    .update_signature(self.vm.borrow_mut().get_signature_builtin()?)?;
             }
             enter_scope.borrow().update_scopes(exec_scopes)?;
             exit_scope.borrow().update_scopes(exec_scopes)
@@ -186,7 +182,7 @@ impl PyVM {
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
-        let pc_offset = self.vm.borrow().get_pc().offset;
+        let pc_offset = (*self.vm).borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
