@@ -1537,7 +1537,9 @@ mod test {
             .unwrap();
 
             assert!(runner
-                .add_additional_hash_builtin(Some(py.eval("", None, None).unwrap().to_object(py)))
+                .add_additional_hash_builtin(Some(
+                    py.eval("lambda: None", None, None).unwrap().to_object(py)
+                ))
                 .is_err());
         });
     }
