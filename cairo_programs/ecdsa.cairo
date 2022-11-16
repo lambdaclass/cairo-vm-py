@@ -1,7 +1,3 @@
-# This puzzle was part of The Cairo Games Vol. 1 which have already ended.
-
-# Program hash: 0x02bb25e03624218e0211798da4064586ea37958590167006bff1be82e0d99858.
-
 %builtins output pedersen ecdsa
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
