@@ -72,7 +72,7 @@ mod test {
     #[test]
     fn py_range_check_repr() {
         let value = bigint!(12);
-        let new_py_range_check = PyRangeCheck::new(value.clone());
+        let new_py_range_check = PyRangeCheck::new(value);
 
         assert_eq!(new_py_range_check.__repr__(), String::from("Bound: 12"));
     }

@@ -105,7 +105,6 @@ mod test {
     use cairo_rs::{bigint, types::relocatable::Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::{Python, ToPyObject};
-    use std::ops::Add;
 
     #[test]
     fn add_segment_test() {
@@ -179,14 +178,14 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .get_maybe(&(&relocatable + 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 3)))
@@ -207,14 +206,14 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable.clone().add(1_i32))
+                    .get_maybe(&(&relocatable + 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref.get_maybe(&relocatable.add(2_i32)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
             assert!(vm_ref
                 .get_maybe(&Relocatable::from((0, 4)))
@@ -225,12 +224,12 @@ mod test {
 
     #[test]
     fn add_temporary_segment_test() {
-        let mut vm = PyVM::new(
+        let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
         let memory = PyMemory::new(&vm);
-        let mut segments = PySegmentManager::new(&mut vm, memory);
+        let mut segments = PySegmentManager::new(&vm, memory);
         assert!(segments.add_temporary_segment().is_ok());
     }
 }
