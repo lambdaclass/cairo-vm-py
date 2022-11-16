@@ -130,7 +130,7 @@ impl PyVM {
                 .set_item("range_check_builtin", range_check_builtin)
                 .map_err(to_vm_error)?;
             globals
-                .set_item("ecdsa_builtin", ecdsa_builtin.clone())
+                .set_item("ecdsa_builtin", ecdsa_builtin)
                 .map_err(to_vm_error)?;
             globals.set_item("PRIME", prime).map_err(to_vm_error)?;
             globals
@@ -164,7 +164,7 @@ impl PyVM {
             if self.vm.borrow_mut().get_signature_builtin().is_ok() {
                 let ecdsa_builtin = globals
                     .get_item("ecdsa_builtin")
-                    .unwrap()
+                    .ok_or(VirtualMachineError::NoSignatureBuiltin)?
                     .extract::<PySignature>()
                     .map_err(to_vm_error)?;
 
