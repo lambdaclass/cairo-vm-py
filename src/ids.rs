@@ -100,7 +100,7 @@ impl PyIds {
 
             if self
                 .struct_types
-                .contains_key(cairo_type.trim_end_matches("*"))
+                .contains_key(cairo_type.trim_end_matches('*'))
             {
                 let addr =
                     compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
@@ -115,7 +115,7 @@ impl PyIds {
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
                     hint_value: dereferenced_addr,
-                    cairo_type: cairo_type.trim_end_matches("*").to_string(),
+                    cairo_type: cairo_type.trim_end_matches('*').to_string(),
                     struct_types: Rc::clone(&self.struct_types),
                 }
                 .into_py(py));

@@ -24,6 +24,12 @@ pub struct PyDictTracker {
     key: Relocatable,
 }
 
+impl Default for PyDictManager {
+    fn default() -> Self {
+        PyDictManager::new()
+    }
+}
+
 #[pymethods]
 impl PyDictManager {
     #[new]
@@ -139,13 +145,13 @@ impl PyDictTracker {
         val: PyMaybeRelocatable,
         py: Python,
     ) -> PyResult<()> {
-        match (&key, val) {
+        match (&key, &val) {
             (PyMaybeRelocatable::Int(key), PyMaybeRelocatable::Int(val)) => {
                 self.manager
                     .borrow_mut()
                     .get_tracker_mut(&self.key)
                     .map_err(to_py_error)?
-                    .insert_value(&key, &val);
+                    .insert_value(key, val);
 
                 Ok(())
             }
