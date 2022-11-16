@@ -36,7 +36,9 @@ impl PySignature {
         signature_builtin: &mut SignatureBuiltinRunner,
     ) -> Result<(), VirtualMachineError> {
         for (address, pair) in self.signatures.iter() {
-            signature_builtin.add_signature(Relocatable::from(address), pair)
+            signature_builtin
+                .add_signature(Relocatable::from(address), pair)
+                .map_err(VirtualMachineError::MemoryError)?
         }
         Ok(())
     }
