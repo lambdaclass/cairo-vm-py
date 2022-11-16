@@ -117,7 +117,7 @@ impl PyIds {
 
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
-                    hint_value: hint_value,
+                    hint_value,
                     cairo_type: cairo_type.to_string(),
                     struct_types: Rc::clone(&self.struct_types),
                 }
