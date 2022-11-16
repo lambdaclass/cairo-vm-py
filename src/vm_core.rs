@@ -161,19 +161,17 @@ impl PyVM {
                 py,
             );
 
-            let ecdsa_builtin = globals
-                .get_item("ecdsa_builtin")
-                .unwrap()
-                .extract::<PySignature>()
-                .unwrap();
-
             if self.vm.borrow_mut().get_signature_builtin().is_ok() {
+                let ecdsa_builtin = globals
+                    .get_item("ecdsa_builtin")
+                    .unwrap()
+                    .extract::<PySignature>()
+                    .map_err(to_vm_error)?;
+
                 ecdsa_builtin.update_signature(self.vm.borrow_mut().get_signature_builtin()?)?;
             }
             enter_scope.borrow().update_scopes(exec_scopes)?;
-            exit_scope.borrow().update_scopes(exec_scopes)?;
-
-            Ok(())
+            exit_scope.borrow().update_scopes(exec_scopes)
         })?;
 
         Ok(())
