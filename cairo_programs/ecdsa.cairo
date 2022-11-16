@@ -14,7 +14,7 @@ func main{output_ptr : felt*, pedersen_ptr : HashBuiltin*, ecdsa_ptr : Signature
 
     verify_ecdsa_signature(
         msg,
-        874739451078007766457464989774322083649278607533249481151382481072868806602,
+        your_eth_addr,
         signature_r,
         signature_s,
     )
