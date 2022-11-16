@@ -536,17 +536,9 @@ impl PyCairoRunner {
     }
 
     /// Add (or replace if already present) a custom hash builtin.
-    pub fn add_additional_hash_builtin(&self, _hash_func: Option<PyObject>) -> PyResult<()> {
-        if _hash_func.is_some() {
-            return Err(PyNotImplementedError::new_err(
-                "the hash_func argument is not yet supported",
-            ));
-        }
-
+    pub fn add_additional_hash_builtin(&self) {
         let mut vm = (*self.pyvm.vm).borrow_mut();
         self.inner.add_additional_hash_builtin(&mut vm);
-
-        Ok(())
     }
 }
 
@@ -1520,27 +1512,6 @@ mod test {
             .unwrap();
 
             assert!(runner.add_additional_hash_builtin(None).is_ok());
-        });
-    }
-
-    /// Test that add_additional_hash_builtin() fails when passed a hash_func.
-    #[test]
-    fn add_additional_hash_builtin_with_hash_func() {
-        Python::with_gil(|py| {
-            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
-            let runner = PyCairoRunner::new(
-                program,
-                Some("main".to_string()),
-                Some("small".to_string()),
-                false,
-            )
-            .unwrap();
-
-            assert!(runner
-                .add_additional_hash_builtin(Some(
-                    py.eval("lambda: None", None, None).unwrap().to_object(py)
-                ))
-                .is_err());
         });
     }
 }
