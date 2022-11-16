@@ -1497,21 +1497,4 @@ mod test {
             );
         });
     }
-
-    /// Test that add_additional_hash_builtin() returns successfully.
-    #[test]
-    fn add_additional_hash_builtin() {
-        Python::with_gil(|_| {
-            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
-            let runner = PyCairoRunner::new(
-                program,
-                Some("main".to_string()),
-                Some("small".to_string()),
-                false,
-            )
-            .unwrap();
-
-            assert!(runner.add_additional_hash_builtin(None).is_ok());
-        });
-    }
 }
