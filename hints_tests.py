@@ -36,7 +36,7 @@ if __name__ == "__main__":
     test_program("dict_write")
     test_program("dict_update")
     test_program("default_dict_new")
-    # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
+    test_program("squash_dict") 
     # test_program("dict_squash") # Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
     test_program("ids_size")
     test_program("split_felt")
