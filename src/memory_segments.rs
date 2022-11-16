@@ -5,7 +5,7 @@ use crate::{
     vm_core::PyVM,
 };
 use cairo_rs::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
-use pyo3::{prelude::*, types::PyIterator};
+use pyo3::{exceptions::PyValueError, prelude::*, types::PyIterator};
 use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(name = "MemorySegmentManager", unsendable)]
@@ -95,6 +95,37 @@ impl PySegmentManager {
         Ok(PyRelocatable::from(
             self.vm.borrow_mut().add_temporary_segment(),
         ))
+    }
+
+    pub fn gen_typed_args(&self, py: Python<'_>, args: Py<PyAny>) -> PyResult<PyObject> {
+        let args_iter = PyIterator::from_object(py, &args)?;
+        // let args_iter = args.as_ref(py).downcast::<PyTuple>().unwrap();
+        let annotations_values = args
+            .getattr(py, "__annotations__")
+            .unwrap()
+            .call_method0(py, "values")
+            .unwrap();
+
+        let annotation_values = PyIterator::from_object(py, &annotations_values);
+
+        let mut cairo_args = Vec::new();
+        for (value, field_type) in std::iter::zip(args_iter, annotation_values) {
+            let type_str = field_type
+                .getattr("__name__")
+                .unwrap()
+                .extract::<&str>()
+                .unwrap();
+
+            if type_str == "TypePointer" || type_str == "TypeFelt" {
+                cairo_args.push(self.gen_arg(py, value?.to_object(py), true).unwrap())
+            } else if type_str == "TypeStruct" {
+                cairo_args.extend(self.gen_typed_args(py, value?.to_object(py)));
+            } else {
+                return Err(PyValueError::new_err("NotImplementedError"));
+            }
+        }
+
+        Ok(cairo_args.to_object(py))
     }
 }
 
