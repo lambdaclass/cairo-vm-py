@@ -364,7 +364,6 @@ impl PyCairoRunner {
                     true => Some(self.pyvm.vm.borrow().get_prime().clone()),
                     false => None,
                 };
-
                 stack.push(
                     (*self.pyvm.vm)
                         .borrow_mut()
