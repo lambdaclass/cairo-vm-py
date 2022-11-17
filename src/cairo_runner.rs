@@ -345,6 +345,7 @@ impl PyCairoRunner {
         }
 
         self.pyvm.static_locals = static_locals;
+        let apply_modulo_to_args = apply_modulo_to_args.unwrap_or(true);
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
             x
@@ -360,16 +361,13 @@ impl PyCairoRunner {
                 .map_err(to_py_error)?;
             let mut stack = Vec::new();
             for arg in args.extract::<Vec<&PyAny>>(py).unwrap() {
-                let prime = match apply_modulo_to_args.unwrap_or(true) {
-                    true => Some(self.pyvm.vm.borrow().get_prime().clone()),
-                    false => None,
-                };
-                stack.push(
-                    (*self.pyvm.vm)
-                        .borrow_mut()
-                        .gen_arg(arg, prime.as_ref())
-                        .map_err(to_py_error)?,
-                );
+                let arg: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>().unwrap().into();
+                if apply_modulo_to_args {
+                    let arg = arg.mod_floor(self.pyvm.vm.borrow().get_prime()).unwrap();
+                    stack.push(arg)
+                } else {
+                    stack.push(arg)
+                }
             }
             stack
         } else {
@@ -388,7 +386,7 @@ impl PyCairoRunner {
             let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
             let mut stack = Vec::new();
             for arg in processed_args {
-                let prime = match apply_modulo_to_args.unwrap_or(true) {
+                let prime = match apply_modulo_to_args {
                     true => Some(self.pyvm.vm.borrow().get_prime().clone()),
                     false => None,
                 };
