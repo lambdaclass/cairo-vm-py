@@ -8,7 +8,7 @@ def main():
     cairo_mem = {}
     cairo_rs_mem = {}
     name = filename2.split("/")[-1]
-    if name in ["blake2s_felt", "blake2s_finalize", "blake2s_hello_world_hash", "blake2s_integration_tests", "dict_squash", "squash_dict", "dict_write"]:
+    if name in ["blake2s_felt", "blake2s_finalize", "blake2s_hello_world_hash", "blake2s_integration_tests", "dict_squash", "squash_dict", "dict_write", "dict_read", "dict_update"]:
         with open(filename1, 'rb') as f:
             cairo_raw = f.read()
             assert len(cairo_raw) % 40 == 0, f'{filename1}: malformed memory file from Cairo VM'
