@@ -5,7 +5,7 @@ use crate::{
     vm_core::PyVM,
 };
 use cairo_rs::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
-use pyo3::{exceptions::PyValueError, prelude::*, types::PyIterator};
+use pyo3::{prelude::*, types::PyIterator};
 use std::{cell::RefCell, rc::Rc};
 
 #[pyclass(name = "MemorySegmentManager", unsendable)]
