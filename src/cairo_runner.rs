@@ -561,7 +561,10 @@ impl PyCairoRunner {
             } else if type_str == "TypeStruct" {
                 cairo_args.extend(self.gen_typed_args(py, value?.to_object(py)));
             } else {
-                return Err(PyValueError::new_err("NotImplementedError"));
+                return Err(PyValueError::new_err(format!(
+                    "Failed to generate typed arguments: {:?} is not supported",
+                    type_str
+                )));
             }
         }
 
