@@ -536,9 +536,10 @@ impl PyCairoRunner {
     }
 
     /// Add (or replace if already present) a custom hash builtin.
-    pub fn add_additional_hash_builtin(&self) {
+    /// Returns a Relocatable with the new hash builtin base.
+    pub fn add_additional_hash_builtin(&self) -> PyRelocatable {
         let mut vm = (*self.pyvm.vm).borrow_mut();
-        self.inner.add_additional_hash_builtin(&mut vm);
+        self.inner.add_additional_hash_builtin(&mut vm).into()
     }
 }
 
@@ -1515,7 +1516,13 @@ mod test {
             )
             .unwrap();
 
-            runner.add_additional_hash_builtin();
+            let expected_relocatable = PyRelocatable {
+                segment_index: 0,
+                offset: 0,
+            };
+            let relocatable = runner.add_additional_hash_builtin();
+            assert_eq!(expected_relocatable, relocatable);
+
             assert_eq!(
                 (*runner.pyvm.vm)
                     .borrow()
