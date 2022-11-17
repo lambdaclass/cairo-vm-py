@@ -540,17 +540,21 @@ impl PyCairoRunner {
         let args_iter = PyIterator::from_object(py, &args)?;
         // let args_iter = args.as_ref(py).downcast::<PyTuple>().unwrap();
         let annotations_values = args
-            .getattr(py, "__annotations__")
-            .unwrap()
-            .call_method0(py, "values")
-            .unwrap();
+            .getattr(py, "__annotations__")?
+            .call_method0(py, "values")?;
 
         let annotation_values = PyIterator::from_object(py, &annotations_values);
 
         let mut cairo_args = Vec::new();
         for (value, field_type) in std::iter::zip(args_iter, annotation_values.unwrap()) {
-            let type_str = format!("{:?}", field_type.unwrap());
-            let type_str = type_str.rsplit('.').next().unwrap().trim_end_matches("'>");
+            let type_str = format!("{:?}", field_type?);
+            let type_str = type_str
+                .rsplit('.')
+                .next()
+                .ok_or(PyTypeError::new_err(
+                    "gen_typed_args: Failed to get arg type",
+                ))?
+                .trim_end_matches("'>");
 
             if type_str == "TypePointer" || type_str == "TypeFelt" {
                 cairo_args.push(self.gen_arg(py, value?.to_object(py), true).unwrap())
