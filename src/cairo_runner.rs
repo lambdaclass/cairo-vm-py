@@ -355,11 +355,6 @@ impl PyCairoRunner {
         };
 
         let stack = if typed_args.unwrap_or(false) {
-            if args.len() != 1 {
-                return Err(VirtualMachineError::InvalidArgCount(1, args.len()))
-                    .map_err(to_py_error);
-            }
-
             let args = self
                 .gen_typed_args(py, args.to_object(py))
                 .map_err(to_py_error)?;
