@@ -360,8 +360,24 @@ impl PyCairoRunner {
                     .map_err(to_py_error);
             }
 
-            self.gen_typed_args(py, args.to_object(py))
-                .map_err(to_py_error)?
+            let args = self
+                .gen_typed_args(py, args.to_object(py))
+                .map_err(to_py_error)?;
+            let mut stack = Vec::new();
+            for arg in args.extract::<Vec<&PyAny>>(py).unwrap() {
+                let prime = match apply_modulo_to_args.unwrap_or(true) {
+                    true => Some(self.pyvm.vm.borrow().get_prime().clone()),
+                    false => None,
+                };
+
+                stack.push(
+                    (*self.pyvm.vm)
+                        .borrow_mut()
+                        .gen_arg(arg, prime.as_ref())
+                        .map_err(to_py_error)?,
+                );
+            }
+            stack
         } else {
             let mut processed_args = Vec::new();
             for arg in args {
