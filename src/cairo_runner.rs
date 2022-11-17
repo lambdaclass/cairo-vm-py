@@ -1520,7 +1520,13 @@ mod test {
             )
             .unwrap();
 
-            runner.add_additional_hash_builtin();
+            expected_relocatable = Relocatable {
+                segment_index: 0,
+                offset: 0,
+            };
+            relocatable = runner.add_additional_hash_builtin();
+            assert_eq!(expected_relocatable, relocatable);
+
             assert_eq!(
                 (*runner.pyvm.vm)
                     .borrow()
