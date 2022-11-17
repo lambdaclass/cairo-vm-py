@@ -604,6 +604,7 @@ mod test {
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use cairo_rs::bigint;
     use num_bigint::BigInt;
+    use pyo3::PyIterProtocol;
     use std::fs;
 
     #[test]
@@ -1577,5 +1578,59 @@ mod test {
             )
             .expect("memory insert failed");
         });
+    }
+
+    #[pyclass(unsendable)]
+    struct Annotations(Vec<String>);
+
+    #[pymethods]
+    impl Annotations {
+        pub fn values(&self) -> PyResult<Vec<String>> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[pyclass(unsendable)]
+    struct MyIterator {
+        iter: Box<dyn Iterator<Item = PyObject>>,
+    }
+
+    #[pyproto]
+    impl PyIterProtocol for MyIterator {
+        fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+            slf
+        }
+        fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
+            slf.iter.next()
+        }
+    }
+
+    #[pymethods]
+    // This method is implemented exclusively to support arg.__annotations__
+    impl MyIterator {
+        fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
+            Ok(Annotations {
+                0: vec![String::from("algo.TypeFelt"), String::from("algo.TypeFelt")],
+            })
+        }
+    }
+
+    #[test]
+    fn gen_typed_args_test() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+        Python::with_gil(|py| {
+            let arg = MyIterator {
+                iter: Box::new(
+                    vec![
+                        PyMaybeRelocatable::from(bigint!(0)).to_object(py),
+                        PyMaybeRelocatable::from(bigint!(2)).to_object(py),
+                    ]
+                    .into_iter(),
+                ),
+            };
+            runner.gen_typed_args(py, arg.into_py(py))
+        })
+        .unwrap();
     }
 }
