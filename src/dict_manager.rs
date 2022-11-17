@@ -162,8 +162,13 @@ impl PyDictTracker {
 
 #[cfg(test)]
 mod tests {
-    use crate::{memory::PyMemory, utils::to_vm_error, vm_core::PyVM};
-    use cairo_rs::{types::relocatable::MaybeRelocatable, types::relocatable::Relocatable};
+    use crate::{ids::PyIds, memory::PyMemory, utils::to_vm_error, vm_core::PyVM};
+    use cairo_rs::{
+        hint_processor::hint_processor_definition::HintReference,
+        serde::deserialize_program::{ApTracking, Member},
+        types::relocatable::Relocatable,
+        types::{instruction::Register, relocatable::MaybeRelocatable},
+    };
     use num_bigint::{BigInt, Sign};
     use pyo3::{types::PyDict, PyCell};
 
@@ -215,6 +220,74 @@ memory[ap] = dict_manager.new_dict(segments, {})
                     (2, 0)
                 ))))
             );
+        });
+    }
+
+    #[test]
+    fn tracker_read() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+
+            let dict_manager = PyDictManager::default();
+
+            let segment_manager = PySegmentManager::new(&vm, PyMemory::new(&vm));
+
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("dict"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    dereference: true,
+                    cairo_type: Some(String::from("DictAccess*")),
+                },
+            );
+
+            let mut struct_types: HashMap<String, HashMap<String, Member>> = HashMap::new();
+            struct_types.insert(String::from("DictAccess"), HashMap::new());
+
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("dict_manager", PyCell::new(py, dict_manager).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+            globals
+                .set_item("segments", PyCell::new(py, segment_manager).unwrap())
+                .unwrap();
+
+            let code = r#"
+initial_dict = { 1: 2, 4: 8, 16: 32 }
+ids.dict = dict_manager.new_dict(segments, initial_dict)
+dict_tracker = dict_manager.get_tracker(ids.dict)
+assert dict_tracker.data[1] == 2
+assert dict_tracker.data[4] == 8
+assert dict_tracker.data[16] == 32
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
         });
     }
 }
