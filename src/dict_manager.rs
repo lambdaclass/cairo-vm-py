@@ -159,3 +159,62 @@ impl PyDictTracker {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{memory::PyMemory, utils::to_vm_error, vm_core::PyVM};
+    use cairo_rs::{types::relocatable::MaybeRelocatable, types::relocatable::Relocatable};
+    use num_bigint::{BigInt, Sign};
+    use pyo3::{types::PyDict, PyCell};
+
+    use super::*;
+
+    #[test]
+    fn new_dict() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+
+            let dict_manager = PyDictManager::default();
+
+            let memory = PyMemory::new(&vm);
+            let ap = PyRelocatable::from(vm.vm.borrow().get_ap());
+            let segment_manager = PySegmentManager::new(&vm, PyMemory::new(&vm));
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("ap", PyCell::new(py, ap).unwrap())
+                .unwrap();
+            globals
+                .set_item("dict_manager", PyCell::new(py, dict_manager).unwrap())
+                .unwrap();
+            globals
+                .set_item("segments", PyCell::new(py, segment_manager).unwrap())
+                .unwrap();
+
+            let code = r#"
+memory[ap] = dict_manager.new_dict(segments, {})
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+
+            let mb_relocatable = vm.vm.borrow().get_maybe(&Relocatable::from((1, 0)));
+            assert_eq!(
+                mb_relocatable,
+                Ok(Some(MaybeRelocatable::RelocatableValue(Relocatable::from(
+                    (2, 0)
+                ))))
+            );
+        });
+    }
+}
