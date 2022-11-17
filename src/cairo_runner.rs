@@ -319,7 +319,7 @@ impl PyCairoRunner {
         &mut self,
         py: Python,
         entrypoint: &PyAny,
-        args: Vec<&PyAny>,
+        args: Py<PyAny>,
         hint_locals: Option<HashMap<String, PyObject>>,
         static_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
@@ -375,7 +375,7 @@ impl PyCairoRunner {
             stack
         } else {
             let mut processed_args = Vec::new();
-            for arg in args {
+            for arg in args.extract::<Vec<&PyAny>>(py).unwrap() {
                 let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
                     Either::MaybeRelocatable(x.into())
                 } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
@@ -552,12 +552,9 @@ impl PyCairoRunner {
         let annotation_values = PyIterator::from_object(py, &annotations_values);
 
         let mut cairo_args = Vec::new();
-        for (value, field_type) in std::iter::zip(args_iter, annotation_values) {
-            let type_str = field_type
-                .getattr("__name__")
-                .unwrap()
-                .extract::<&str>()
-                .unwrap();
+        for (value, field_type) in std::iter::zip(args_iter, annotation_values.unwrap()) {
+            let type_str = format!("{:?}", field_type.unwrap());
+            let type_str = type_str.rsplit(".").next().unwrap().trim_end_matches("'>");
 
             if type_str == "TypePointer" || type_str == "TypeFelt" {
                 cairo_args.push(self.gen_arg(py, value?.to_object(py), true).unwrap())
@@ -1011,7 +1008,7 @@ mod test {
                 .run_from_entrypoint(
                     py,
                     py.eval("0", None, None).unwrap(),
-                    vec![],
+                    Vec::<&PyAny>::new().to_object(py),
                     None,
                     None,
                     Some(false),
@@ -1041,7 +1038,7 @@ mod test {
                 .run_from_entrypoint(
                     py,
                     py.eval("0", None, None).unwrap(),
-                    vec![],
+                    Vec::<&PyAny>::new().to_object(py),
                     Some(HashMap::from([(
                         String::from("syscall_handler"),
                         1.to_object(py),
@@ -1084,7 +1081,7 @@ mod test {
                 .run_from_entrypoint(
                     py,
                     py.eval("0", None, None).unwrap(),
-                    vec![],
+                    Vec::<&PyAny>::new().to_object(py),
                     None,
                     Some(HashMap::from([(
                         String::from("__keccak_max_size"),
