@@ -1520,7 +1520,7 @@ mod test {
             )
             .unwrap();
 
-            expected_relocatable = Relocatable {
+            expected_relocatable = PyRelocatable {
                 segment_index: 0,
                 offset: 0,
             };
