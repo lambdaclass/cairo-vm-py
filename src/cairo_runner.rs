@@ -14,7 +14,6 @@ use cairo_rs::{
     vm::{
         errors::{
             cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
-            vm_errors::VirtualMachineError,
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
         security::verify_secure_runner,
@@ -551,7 +550,7 @@ impl PyCairoRunner {
         let mut cairo_args = Vec::new();
         for (value, field_type) in std::iter::zip(args_iter, annotation_values.unwrap()) {
             let type_str = format!("{:?}", field_type.unwrap());
-            let type_str = type_str.rsplit(".").next().unwrap().trim_end_matches("'>");
+            let type_str = type_str.rsplit('.').next().unwrap().trim_end_matches("'>");
 
             if type_str == "TypePointer" || type_str == "TypeFelt" {
                 cairo_args.push(self.gen_arg(py, value?.to_object(py), true).unwrap())
