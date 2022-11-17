@@ -10,6 +10,9 @@ use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
 use crate::utils::to_py_error;
 
 const PYRELOCATABLE_COMPARE_ERROR: &str = "Cannot compare Relocatables of different segments";
+const PYRELOCATABLE_TO_BYTES_ERROR: &str = "Invalid number of bytes";
+const SEGMENT_BITS: u32 = 16;
+const OFFSET_BITS: u32 = 47;
 
 #[derive(FromPyObject, Debug, Clone, PartialEq, Eq)]
 pub enum PyMaybeRelocatable {
@@ -102,6 +105,19 @@ impl PyRelocatable {
 
     pub fn __repr__(&self) -> String {
         format!("({}, {})", self.segment_index, self.offset)
+    }
+
+    // Serializes RelocatableValue as:
+    // 1bit |   SEGMENT_BITS |   OFFSET_BITS
+    // 1    |     segment    |   offset
+    pub fn to_bytes(&self, n_bytes: u32, byte_order: &str) -> PyResult<Vec<u8>> {
+        if !(n_bytes * 8 > SEGMENT_BITS + OFFSET_BITS) {
+            return Err(PyArithmeticError::new_err(PYRELOCATABLE_TO_BYTES_ERROR));
+        }
+        let num: u32 = 2_u32.pow(8 * n_bytes - 1)
+            + (self.segment_index as u32) * 2_u32.pow(OFFSET_BITS)
+            + (self.offset as u32);
+        todo!()
     }
 }
 
