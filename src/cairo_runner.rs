@@ -1581,11 +1581,11 @@ mod test {
     }
 
     #[pyclass(unsendable)]
-    struct Annotations(Vec<String>);
+    struct Annotations(Vec<TypeFelt>);
 
     #[pymethods]
     impl Annotations {
-        pub fn values(&self) -> PyResult<Vec<String>> {
+        pub fn values(&self) -> PyResult<Vec<TypeFelt>> {
             Ok(self.0.clone())
         }
     }
@@ -1610,8 +1610,18 @@ mod test {
     impl MyIterator {
         fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
             Ok(Annotations {
-                0: vec![String::from("algo.TypeFelt"), String::from("algo.TypeFelt")],
+                0: vec![TypeFelt, TypeFelt],
             })
+        }
+    }
+
+    #[pyclass]
+    #[derive(Clone)]
+    struct TypeFelt;
+    #[pymethods]
+    impl TypeFelt {
+        fn __repr__(&self) -> String {
+            format!("TypeFelt")
         }
     }
 
