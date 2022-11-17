@@ -359,10 +359,12 @@ impl PyCairoRunner {
                 .gen_typed_args(py, args.to_object(py))
                 .map_err(to_py_error)?;
             let mut stack = Vec::new();
-            for arg in args.extract::<Vec<&PyAny>>(py).unwrap() {
-                let arg: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>().unwrap().into();
+            for arg in args.extract::<Vec<&PyAny>>(py)? {
+                let arg: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>()?.into();
                 if apply_modulo_to_args {
-                    let arg = arg.mod_floor(self.pyvm.vm.borrow().get_prime()).unwrap();
+                    let arg = arg
+                        .mod_floor(self.pyvm.vm.borrow().get_prime())
+                        .map_err(to_py_error)?;
                     stack.push(arg)
                 } else {
                     stack.push(arg)
@@ -371,7 +373,7 @@ impl PyCairoRunner {
             stack
         } else {
             let mut processed_args = Vec::new();
-            for arg in args.extract::<Vec<&PyAny>>(py).unwrap() {
+            for arg in args.extract::<Vec<&PyAny>>(py)? {
                 let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
                     Either::MaybeRelocatable(x.into())
                 } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
@@ -538,7 +540,6 @@ impl PyCairoRunner {
 
     fn gen_typed_args(&self, py: Python<'_>, args: Py<PyAny>) -> PyResult<PyObject> {
         let args_iter = PyIterator::from_object(py, &args)?;
-        // let args_iter = args.as_ref(py).downcast::<PyTuple>().unwrap();
         let annotations_values = args
             .getattr(py, "__annotations__")?
             .call_method0(py, "values")?;
@@ -546,7 +547,7 @@ impl PyCairoRunner {
         let annotation_values = PyIterator::from_object(py, &annotations_values);
 
         let mut cairo_args = Vec::new();
-        for (value, field_type) in std::iter::zip(args_iter, annotation_values.unwrap()) {
+        for (value, field_type) in std::iter::zip(args_iter, annotation_values?) {
             let type_str = format!("{:?}", field_type?);
             let type_str = type_str
                 .rsplit('.')
@@ -557,7 +558,7 @@ impl PyCairoRunner {
                 .trim_end_matches("'>");
 
             if type_str == "TypePointer" || type_str == "TypeFelt" {
-                cairo_args.push(self.gen_arg(py, value?.to_object(py), true).unwrap())
+                cairo_args.push(self.gen_arg(py, value?.to_object(py), true)?)
             } else if type_str == "TypeStruct" {
                 cairo_args.extend(self.gen_typed_args(py, value?.to_object(py)));
             } else {
