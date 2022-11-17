@@ -1516,11 +1516,11 @@ mod test {
             )
             .unwrap();
 
-            expected_relocatable = PyRelocatable {
+            let expected_relocatable = PyRelocatable {
                 segment_index: 0,
                 offset: 0,
             };
-            relocatable = runner.add_additional_hash_builtin();
+            let relocatable = runner.add_additional_hash_builtin();
             assert_eq!(expected_relocatable, relocatable);
 
             assert_eq!(
