@@ -1639,8 +1639,15 @@ mod test {
                     .into_iter(),
                 ),
             };
-            runner.gen_typed_args(py, arg.into_py(py))
+            let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
+            let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
+            assert_eq!(
+                stack,
+                vec![
+                    PyMaybeRelocatable::from(bigint!(0)),
+                    PyMaybeRelocatable::from(bigint!(2)),
+                ]
+            );
         })
-        .unwrap();
     }
 }
