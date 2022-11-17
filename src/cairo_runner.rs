@@ -21,7 +21,7 @@ use cairo_rs::{
     },
 };
 use pyo3::{
-    exceptions::{PyNotImplementedError, PyTypeError},
+    exceptions::{PyNotImplementedError, PyTypeError, PyValueError},
     prelude::*,
     types::PyIterator,
 };
@@ -317,6 +317,7 @@ impl PyCairoRunner {
     #[allow(clippy::too_many_arguments)]
     pub fn run_from_entrypoint(
         &mut self,
+        py: Python,
         entrypoint: &PyAny,
         args: Vec<&PyAny>,
         hint_locals: Option<HashMap<String, PyObject>>,
@@ -353,35 +354,28 @@ impl PyCairoRunner {
             return Err(PyTypeError::new_err("entrypoint must be int or str"));
         };
 
-        let mut processed_args = Vec::new();
-        for arg in args {
-            let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
-                Either::MaybeRelocatable(x.into())
-            } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
-                Either::VecMaybeRelocatable(x.into_iter().map(|x| x.into()).collect())
-            } else {
-                return Err(PyTypeError::new_err("Argument has unsupported type."));
-            };
-
-            processed_args.push(arg_box);
-        }
-        let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
-
         let stack = if typed_args.unwrap_or(false) {
-            if processed_args.len() != 1 {
-                return Err(VirtualMachineError::InvalidArgCount(
-                    1,
-                    processed_args.len(),
-                ))
-                .map_err(to_py_error);
+            if args.len() != 1 {
+                return Err(VirtualMachineError::InvalidArgCount(1, args.len()))
+                    .map_err(to_py_error);
             }
 
-            self.pyvm
-                .vm
-                .borrow()
-                .gen_typed_args(processed_args)
+            self.gen_typed_args(py, args.to_object(py))
                 .map_err(to_py_error)?
         } else {
+            let mut processed_args = Vec::new();
+            for arg in args {
+                let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
+                    Either::MaybeRelocatable(x.into())
+                } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
+                    Either::VecMaybeRelocatable(x.into_iter().map(|x| x.into()).collect())
+                } else {
+                    return Err(PyTypeError::new_err("Argument has unsupported type."));
+                };
+
+                processed_args.push(arg_box);
+            }
+            let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
             let mut stack = Vec::new();
             for arg in processed_args {
                 let prime = match apply_modulo_to_args.unwrap_or(true) {
@@ -533,6 +527,37 @@ impl PyCairoRunner {
             .map(PyMaybeRelocatable::from)
             .collect::<Vec<_>>()
             .to_object(py))
+    }
+
+    fn gen_typed_args(&self, py: Python<'_>, args: Py<PyAny>) -> PyResult<PyObject> {
+        let args_iter = PyIterator::from_object(py, &args)?;
+        // let args_iter = args.as_ref(py).downcast::<PyTuple>().unwrap();
+        let annotations_values = args
+            .getattr(py, "__annotations__")
+            .unwrap()
+            .call_method0(py, "values")
+            .unwrap();
+
+        let annotation_values = PyIterator::from_object(py, &annotations_values);
+
+        let mut cairo_args = Vec::new();
+        for (value, field_type) in std::iter::zip(args_iter, annotation_values) {
+            let type_str = field_type
+                .getattr("__name__")
+                .unwrap()
+                .extract::<&str>()
+                .unwrap();
+
+            if type_str == "TypePointer" || type_str == "TypeFelt" {
+                cairo_args.push(self.gen_arg(py, value?.to_object(py), true).unwrap())
+            } else if type_str == "TypeStruct" {
+                cairo_args.extend(self.gen_typed_args(py, value?.to_object(py)));
+            } else {
+                return Err(PyValueError::new_err("NotImplementedError"));
+            }
+        }
+
+        Ok(cairo_args.to_object(py))
     }
 }
 
@@ -973,6 +998,7 @@ mod test {
         Python::with_gil(|py| {
             runner
                 .run_from_entrypoint(
+                    py,
                     py.eval("0", None, None).unwrap(),
                     vec![],
                     None,
@@ -1002,6 +1028,7 @@ mod test {
         Python::with_gil(|py| {
             runner
                 .run_from_entrypoint(
+                    py,
                     py.eval("0", None, None).unwrap(),
                     vec![],
                     Some(HashMap::from([(
@@ -1044,6 +1071,7 @@ mod test {
         Python::with_gil(|py| {
             runner
                 .run_from_entrypoint(
+                    py,
                     py.eval("0", None, None).unwrap(),
                     vec![],
                     None,
