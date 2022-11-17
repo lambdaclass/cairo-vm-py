@@ -207,6 +207,7 @@ mod tests {
 
             let code = r#"
 memory[ap] = dict_manager.new_dict(segments, {})
+memory[ap + 1] = dict_manager.new_dict(segments, {})
 "#;
 
             let py_result = py.run(code, Some(globals), None);
@@ -218,6 +219,13 @@ memory[ap] = dict_manager.new_dict(segments, {})
                 mb_relocatable,
                 Ok(Some(MaybeRelocatable::RelocatableValue(Relocatable::from(
                     (2, 0)
+                ))))
+            );
+            let mb_relocatable = vm.vm.borrow().get_maybe(&Relocatable::from((1, 1)));
+            assert_eq!(
+                mb_relocatable,
+                Ok(Some(MaybeRelocatable::RelocatableValue(Relocatable::from(
+                    (3, 0)
                 ))))
             );
         });
@@ -417,8 +425,12 @@ assert dict_tracker.data[412] == 42
             let code = r#"
 ids.dict = dict_manager.new_dict(segments, {})
 dict_tracker = dict_manager.get_tracker(ids.dict)
+
 dict_tracker.data[1] = 5
 assert dict_tracker.data[1] == 5
+
+dict_tracker.data[1] = 22
+assert dict_tracker.data[1] == 22
 "#;
 
             let py_result = py.run(code, Some(globals), None);
