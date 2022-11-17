@@ -552,9 +552,7 @@ impl PyCairoRunner {
             let type_str = type_str
                 .rsplit('.')
                 .next()
-                .ok_or(PyTypeError::new_err(
-                    "gen_typed_args: Failed to get arg type",
-                ))?
+                .ok_or_else(|| PyTypeError::new_err("gen_typed_args: Failed to get arg type"))?
                 .trim_end_matches("'>");
 
             if type_str == "TypePointer" || type_str == "TypeFelt" {
