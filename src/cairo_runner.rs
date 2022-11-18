@@ -1580,23 +1580,23 @@ mod test {
         });
     }
 
-    #[pyclass(unsendable)]
-    struct MyIterator {
-        iter: Box<dyn Iterator<Item = PyObject>>,
-    }
-
-    #[pyproto]
-    impl PyIterProtocol for MyIterator {
-        fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-            slf
-        }
-        fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
-            slf.iter.next()
-        }
-    }
-
     #[test]
-    fn gen_typed_args_test() {
+    fn gen_typed_args_type_felt() {
+        #[pyclass(unsendable)]
+        struct MyIterator {
+            iter: Box<dyn Iterator<Item = PyObject>>,
+        }
+
+        #[pyproto]
+        impl PyIterProtocol for MyIterator {
+            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+                slf
+            }
+            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
+                slf.iter.next()
+            }
+        }
+
         #[pymethods]
         // This method is implemented exclusively to support arg.__annotations__
         impl MyIterator {
@@ -1645,6 +1645,77 @@ mod test {
                 vec![
                     PyMaybeRelocatable::from(bigint!(0)),
                     PyMaybeRelocatable::from(bigint!(2)),
+                ]
+            );
+        })
+    }
+
+    #[test]
+    fn gen_typed_args_type_pointer() {
+        #[pyclass(unsendable)]
+        struct MyIterator {
+            iter: Box<dyn Iterator<Item = PyObject>>,
+        }
+
+        #[pyproto]
+        impl PyIterProtocol for MyIterator {
+            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+                slf
+            }
+            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
+                slf.iter.next()
+            }
+        }
+        #[pymethods]
+        // This method is implemented exclusively to support arg.__annotations__
+        impl MyIterator {
+            fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
+                Ok(Annotations {
+                    0: vec![TypePointer, TypePointer],
+                })
+            }
+        }
+        #[pyclass(unsendable)]
+        struct Annotations(Vec<TypePointer>);
+
+        #[pymethods]
+        impl Annotations {
+            pub fn values(&self) -> PyResult<Vec<TypePointer>> {
+                Ok(self.0.clone())
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        struct TypePointer;
+        #[pymethods]
+        impl TypePointer {
+            fn __repr__(&self) -> String {
+                format!("TypePointer")
+            }
+        }
+
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+        Python::with_gil(|py| {
+            let arg = MyIterator {
+                iter: Box::new(
+                    vec![
+                        Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((0, 0)))
+                            .to_object(py),
+                        Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((0, 1)))
+                            .to_object(py),
+                    ]
+                    .into_iter(),
+                ),
+            };
+            let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
+            let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
+            assert_eq!(
+                stack,
+                vec![
+                    MaybeRelocatable::from((0, 0)).into(),
+                    MaybeRelocatable::from((0, 1)).into(),
                 ]
             );
         })
