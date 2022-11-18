@@ -538,7 +538,7 @@ impl PyCairoRunner {
             .to_object(py))
     }
 
-    /*  Coverts typed arguments to cairo friendly ones
+    /*  Converts typed arguments to cairo friendly ones
     The args received should be an iterable with an __annotations__ attribute with a values method
     which returns an iterable containing the types of each of the elements in args
     These types should de TypePointer, TypeFelt or TypeStruct
