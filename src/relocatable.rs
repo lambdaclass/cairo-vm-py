@@ -5,7 +5,7 @@ use cairo_rs::{
     vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
-use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
+use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp, types::PyBytes};
 
 use crate::utils::to_py_error;
 
@@ -110,14 +110,28 @@ impl PyRelocatable {
     // Serializes RelocatableValue as:
     // 1bit |   SEGMENT_BITS |   OFFSET_BITS
     // 1    |     segment    |   offset
-    pub fn to_bytes(&self, n_bytes: u32, byte_order: &str) -> PyResult<Vec<u8>> {
+    fn to_u8_vec(&self, n_bytes: u32, byte_order: &str, py: Python) -> PyResult<Vec<u8>> {
         if !(n_bytes * 8 > SEGMENT_BITS + OFFSET_BITS) {
             return Err(PyArithmeticError::new_err(PYRELOCATABLE_TO_BYTES_ERROR));
         }
         let num: u32 = 2_u32.pow(8 * n_bytes - 1)
             + (self.segment_index as u32) * 2_u32.pow(OFFSET_BITS)
             + (self.offset as u32);
-        todo!()
+
+        let mut num_bytes = num.to_le_bytes().to_vec();
+        num_bytes.resize(n_bytes as usize, 0);
+
+        if byte_order == "big" {
+            num_bytes.reverse();
+            let num_bytes = num_bytes.clone();
+            return Ok(num_bytes);
+        }
+        Ok(num_bytes)
+    }
+
+    pub fn to_bytes(&self, n_bytes: u32, byte_order: &str, py: Python) -> PyResult<&PyBytes> {
+        let mut u8_vec = self.to_u8_vec(n_bytes, byte_order, py)?;
+        Ok(PyBytes::new_with(py, n_bytes as usize, &u8_vec).unwrap())
     }
 }
 
