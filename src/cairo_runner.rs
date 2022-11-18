@@ -1581,16 +1581,6 @@ mod test {
     }
 
     #[pyclass(unsendable)]
-    struct Annotations(Vec<TypeFelt>);
-
-    #[pymethods]
-    impl Annotations {
-        pub fn values(&self) -> PyResult<Vec<TypeFelt>> {
-            Ok(self.0.clone())
-        }
-    }
-
-    #[pyclass(unsendable)]
     struct MyIterator {
         iter: Box<dyn Iterator<Item = PyObject>>,
     }
@@ -1605,28 +1595,37 @@ mod test {
         }
     }
 
-    #[pymethods]
-    // This method is implemented exclusively to support arg.__annotations__
-    impl MyIterator {
-        fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
-            Ok(Annotations {
-                0: vec![TypeFelt, TypeFelt],
-            })
-        }
-    }
-
-    #[pyclass]
-    #[derive(Clone)]
-    struct TypeFelt;
-    #[pymethods]
-    impl TypeFelt {
-        fn __repr__(&self) -> String {
-            format!("TypeFelt")
-        }
-    }
-
     #[test]
     fn gen_typed_args_test() {
+        #[pymethods]
+        // This method is implemented exclusively to support arg.__annotations__
+        impl MyIterator {
+            fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
+                Ok(Annotations {
+                    0: vec![TypeFelt, TypeFelt],
+                })
+            }
+        }
+        #[pyclass(unsendable)]
+        struct Annotations(Vec<TypeFelt>);
+
+        #[pymethods]
+        impl Annotations {
+            pub fn values(&self) -> PyResult<Vec<TypeFelt>> {
+                Ok(self.0.clone())
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        struct TypeFelt;
+        #[pymethods]
+        impl TypeFelt {
+            fn __repr__(&self) -> String {
+                format!("TypeFelt")
+            }
+        }
+
         let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
         let runner = PyCairoRunner::new(program, None, None, false).unwrap();
         Python::with_gil(|py| {
