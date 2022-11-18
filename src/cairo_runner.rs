@@ -541,6 +541,13 @@ impl PyCairoRunner {
             .collect::<Vec<_>>()
             .to_object(py))
     }
+
+    /// Add (or replace if already present) a custom hash builtin.
+    /// Returns a Relocatable with the new hash builtin base.
+    pub fn add_additional_hash_builtin(&self) -> PyRelocatable {
+        let mut vm = (*self.pyvm.vm).borrow_mut();
+        self.inner.add_additional_hash_builtin(&mut vm).into()
+    }
 }
 
 #[pyclass]
@@ -1221,6 +1228,10 @@ mod test {
                 segment_index: 6,
                 offset: 0,
             })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 7,
+                offset: 0,
+            })],
         ];
 
         Python::with_gil(|py| {
@@ -1520,6 +1531,45 @@ mod test {
                     bigint!(5).into(),
                 ],
             );
+        });
+    }
+
+    /// Test that add_additional_hash_builtin() returns successfully.
+    #[test]
+    fn add_additional_hash_builtin() {
+        Python::with_gil(|_| {
+            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+            let runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("small".to_string()),
+                false,
+            )
+            .unwrap();
+
+            let expected_relocatable = PyRelocatable {
+                segment_index: 0,
+                offset: 0,
+            };
+            let relocatable = runner.add_additional_hash_builtin();
+            assert_eq!(expected_relocatable, relocatable);
+
+            assert_eq!(
+                (*runner.pyvm.vm)
+                    .borrow()
+                    .get_builtin_runners()
+                    .last()
+                    .map(|(key, _)| key.as_str()),
+                Some("hash_builtin"),
+            );
+
+            let mut vm = (*runner.pyvm.vm).borrow_mut();
+            // Check that the segment exists by writing to it.
+            vm.insert_value(
+                &Relocatable::from((0, 0)),
+                MaybeRelocatable::Int(bigint!(42)),
+            )
+            .expect("memory insert failed");
         });
     }
 }

@@ -1,16 +1,18 @@
 use crate::{
     relocatable::{PyMaybeRelocatable, PyRelocatable},
+    utils::to_py_error,
     vm_core::PyVM,
 };
 use cairo_rs::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::vm_core::VirtualMachine,
 };
+use num_bigint::BigInt;
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
     prelude::*,
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, rc::Rc};
 
 const MEMORY_GET_ERROR_MSG: &str = "Failed to get value from Cairo memory";
 const MEMORY_SET_ERROR_MSG: &str = "Failed to set value to Cairo memory";
@@ -68,6 +70,18 @@ impl PyMemory {
             .map(Into::<PyMaybeRelocatable>::into)
             .collect::<Vec<PyMaybeRelocatable>>()
             .to_object(py))
+    }
+
+    /// Return a continuous section of memory as a vector of integers.
+    pub fn get_range_as_ints(&self, addr: PyRelocatable, size: usize) -> PyResult<Vec<BigInt>> {
+        Ok(self
+            .vm
+            .borrow()
+            .get_integer_range(&Relocatable::from(&addr), size)
+            .map_err(to_py_error)?
+            .into_iter()
+            .map(Cow::into_owned)
+            .collect())
     }
 }
 
@@ -281,5 +295,105 @@ assert memory[ap] == fp
             assert!(range.is_err());
             assert_eq!(range.unwrap_err(), expected_error);
         });
+    }
+
+    // Test that get_range_as_ints() works as intended.
+    #[test]
+    fn get_range_as_ints() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let memory = PyMemory::new(&vm);
+
+        let addr = {
+            let mut vm = vm.vm.borrow_mut();
+            let addr = vm.add_memory_segment();
+
+            vm.load_data(
+                &MaybeRelocatable::from(&addr),
+                vec![
+                    bigint!(1).into(),
+                    bigint!(2).into(),
+                    bigint!(3).into(),
+                    bigint!(4).into(),
+                ],
+            )
+            .expect("memory insertion failed");
+
+            addr
+        };
+
+        assert_eq!(
+            memory
+                .get_range_as_ints(addr.into(), 4)
+                .expect("get_range_as_ints() failed"),
+            vec![bigint!(1), bigint!(2), bigint!(3), bigint!(4)],
+        );
+    }
+
+    // Test that get_range_as_ints() fails when not all values are integers.
+    #[test]
+    fn get_range_as_ints_mixed() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let memory = PyMemory::new(&vm);
+
+        let addr = {
+            let mut vm = vm.vm.borrow_mut();
+            let addr = vm.add_memory_segment();
+
+            vm.load_data(
+                &MaybeRelocatable::from(&addr),
+                vec![
+                    bigint!(1).into(),
+                    bigint!(2).into(),
+                    MaybeRelocatable::RelocatableValue((1, 2).into()),
+                    bigint!(4).into(),
+                ],
+            )
+            .expect("memory insertion failed");
+
+            addr
+        };
+
+        memory
+            .get_range_as_ints(addr.into(), 4)
+            .expect_err("get_range_as_ints() succeeded (should have failed)");
+    }
+
+    // Test that get_range_as_ints() fails when the requested range is larger than the available
+    // segments.
+    #[test]
+    fn get_range_as_ints_incomplete() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        let memory = PyMemory::new(&vm);
+
+        let addr = {
+            let mut vm = vm.vm.borrow_mut();
+            let addr = vm.add_memory_segment();
+
+            vm.load_data(
+                &MaybeRelocatable::from(&addr),
+                vec![
+                    bigint!(1).into(),
+                    bigint!(2).into(),
+                    bigint!(3).into(),
+                    bigint!(4).into(),
+                ],
+            )
+            .expect("memory insertion failed");
+
+            addr
+        };
+
+        memory
+            .get_range_as_ints(addr.into(), 8)
+            .expect_err("get_range_as_ints() succeeded (should have failed)");
     }
 }
