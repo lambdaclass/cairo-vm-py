@@ -1253,6 +1253,10 @@ mod test {
                 segment_index: 7,
                 offset: 0,
             })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 8,
+                offset: 0,
+            })],
         ];
 
         Python::with_gil(|py| {
