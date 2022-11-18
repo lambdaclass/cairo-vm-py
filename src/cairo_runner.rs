@@ -538,6 +538,12 @@ impl PyCairoRunner {
             .to_object(py))
     }
 
+    /*  Coverts typed arguments to cairo friendly ones
+    The args received should be an iterable with an __annotations__ attribute with a values method
+    which returns an iterable containing the types of each of the elements in args
+    These types should de TypePointer, TypeFelt or TypeStruct
+    This method is meant to process starknet's current typed arguments structure and shouldnt be used in any other case
+    */
     fn gen_typed_args(&self, py: Python<'_>, args: Py<PyAny>) -> PyResult<PyObject> {
         let args_iter = PyIterator::from_object(py, &args)?;
         let annotations_values = args
@@ -1582,6 +1588,18 @@ mod test {
 
     #[test]
     fn gen_typed_args_type_felt() {
+        /* First we need to create a structure that behaves similarly to starknet's typed args
+        This means we need:
+        A: An iterable object
+        B: An object that has an __annotations__ attribute
+        C: The __annotations__  attribute should have a values method
+        D: Values must return an iterable object containing the arg's type for each of the elements in args
+        F: This iterable object must yield the following format string when format!("{:?") is applied to it:
+            **.Type or **.Type'>
+        Where Type can be either TypeFelt, TypePointer or TypeStruct
+        */
+
+        // We first create the iterable pyclass (A), implementing PyIterProtocol
         #[pyclass(unsendable)]
         struct MyIterator {
             iter: Box<dyn Iterator<Item = PyObject>>,
@@ -1597,6 +1615,9 @@ mod test {
             }
         }
 
+        // We then implement a __getattr__ that will allow us to call Object.__annotations__ (B)
+        // This method returns a second object, so that we can then implement the values() method
+
         #[pymethods]
         // This method is implemented exclusively to support arg.__annotations__
         impl MyIterator {
@@ -1609,6 +1630,7 @@ mod test {
         #[pyclass(unsendable)]
         struct Annotations(Vec<TypeFelt>);
 
+        // We implement the values method (C), which in turn returns another object so that we can override its representation
         #[pymethods]
         impl Annotations {
             pub fn values(&self) -> PyResult<Vec<TypeFelt>> {
@@ -1619,6 +1641,8 @@ mod test {
         #[pyclass]
         #[derive(Clone)]
         struct TypeFelt;
+
+        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
         #[pymethods]
         impl TypeFelt {
             fn __repr__(&self) -> String {
@@ -1629,6 +1653,7 @@ mod test {
         let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
         let runner = PyCairoRunner::new(program, None, None, false).unwrap();
         Python::with_gil(|py| {
+            // We create an iterable object containing elements which match the type we defined in (F), thus fullfilling (D)
             let arg = MyIterator {
                 iter: Box::new(
                     vec![
@@ -1640,6 +1665,8 @@ mod test {
             };
             let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
             let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
+
+            // We compare the output of gen_typed_args to our expected cairo-firendly arguments
             assert_eq!(
                 stack,
                 vec![
@@ -1652,6 +1679,7 @@ mod test {
 
     #[test]
     fn gen_typed_args_type_pointer() {
+        //For documentation on how this test works see gen_typed_args_type_pointer()
         #[pyclass(unsendable)]
         struct MyIterator {
             iter: Box<dyn Iterator<Item = PyObject>>,
