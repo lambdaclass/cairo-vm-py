@@ -5,12 +5,14 @@ use cairo_rs::{
     vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
+use num_traits::ToPrimitive;
 use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp, types::PyBytes};
 
 use crate::utils::to_py_error;
 
 const PYRELOCATABLE_COMPARE_ERROR: &str = "Cannot compare Relocatables of different segments";
 const PYRELOCATABLE_TO_BYTES_ERROR: &str = "Invalid number of bytes";
+const PYRELOCATABLE_U32_OVERFLOW: &str = "Cannot convert usize to u32";
 const SEGMENT_BITS: u32 = 16;
 const OFFSET_BITS: u32 = 47;
 
@@ -115,8 +117,15 @@ impl PyRelocatable {
             return Err(PyArithmeticError::new_err(PYRELOCATABLE_TO_BYTES_ERROR));
         }
         let num: u32 = 2_u32.pow(8 * n_bytes - 1)
-            + (self.segment_index as u32) * 2_u32.pow(OFFSET_BITS)
-            + (self.offset as u32);
+            + (self
+                .segment_index
+                .to_u32()
+                .ok_or(PyArithmeticError::new_err(PYRELOCATABLE_U32_OVERFLOW))?)
+                * 2_u32.pow(OFFSET_BITS)
+            + (self
+                .offset
+                .to_u32()
+                .ok_or(PyArithmeticError::new_err(PYRELOCATABLE_U32_OVERFLOW))?);
 
         let mut num_bytes = num.to_le_bytes().to_vec();
         num_bytes.resize(n_bytes as usize, 0);
