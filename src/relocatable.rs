@@ -129,9 +129,14 @@ impl PyRelocatable {
         Ok(num_bytes)
     }
 
-    pub fn to_bytes(&self, n_bytes: u32, byte_order: &str, py: Python) -> PyResult<&PyBytes> {
-        let mut u8_vec = self.to_u8_vec(n_bytes, byte_order, py)?;
-        Ok(PyBytes::new_with(py, n_bytes as usize, &u8_vec).unwrap())
+    pub fn to_bytes<'a>(
+        slf: PyRef<'a, Self>,
+        n_bytes: u32,
+        byte_order: &'a str,
+        py: Python<'a>,
+    ) -> PyResult<&'a PyBytes> {
+        let u8_vec = slf.to_u8_vec(n_bytes, byte_order, py)?;
+        Ok(PyBytes::new(py, &u8_vec))
     }
 }
 
