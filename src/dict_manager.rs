@@ -634,4 +634,105 @@ assert dict_tracker.current_ptr == ids.end_ptr
             assert_eq!(py_result.map_err(to_vm_error), Ok(()));
         });
     }
+
+    #[test]
+    fn manager_get_tracker_invalid_dict_ptr() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+
+            let dict_manager = PyDictManager::default();
+
+            let segment_manager = PySegmentManager::new(&vm, PyMemory::new(&vm));
+
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("dict"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    dereference: true,
+                    cairo_type: Some(String::from("DictAccess*")),
+                },
+            );
+            references.insert(
+                String::from("no_dict"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    dereference: true,
+                    cairo_type: Some(String::from("DictAccess")),
+                },
+            );
+
+            let mut struct_types: HashMap<String, HashMap<String, Member>> = HashMap::new();
+            struct_types.insert(String::from("DictAccess"), HashMap::new());
+
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("dict_manager", PyCell::new(py, dict_manager).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+            globals
+                .set_item("segments", PyCell::new(py, segment_manager).unwrap())
+                .unwrap();
+
+            let code = r#"
+ids.dict = dict_manager.new_dict(segments, {})
+dict_tracker = dict_manager.get_tracker(ids.no_dict)
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(
+                py_result.map_err(to_vm_error),
+                Err(to_vm_error(to_py_error(
+                    VirtualMachineError::NoDictTracker(vm.vm.borrow().get_fp().segment_index),
+                ))),
+            );
+
+            let code = r#"
+dict_tracker = dict_manager.get_tracker(ids.dict)
+dict_tracker.current_ptr = dict_tracker.current_ptr + 3
+
+dict_tracker = dict_manager.get_tracker(ids.dict)
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(
+                py_result.map_err(to_vm_error),
+                Err(to_vm_error(to_py_error(
+                    VirtualMachineError::MismatchedDictPtr(
+                        Relocatable::from((2, 3)),
+                        Relocatable::from((2, 0)),
+                    ),
+                ))),
+            );
+        });
+    }
 }
