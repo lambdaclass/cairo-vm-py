@@ -96,16 +96,14 @@ impl PyIds {
                     struct_types: Rc::clone(&self.struct_types),
                 }
                 .into_py(py));
-            }
-
-            if self
+            } else if self
                 .struct_types
                 .contains_key(cairo_type.trim_end_matches('*'))
             {
                 let addr =
                     compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
 
-                let dereferenced_addr = self
+                let hint_value = self
                     .vm
                     .borrow()
                     .get_relocatable(&addr)
@@ -114,7 +112,7 @@ impl PyIds {
 
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
-                    hint_value: dereferenced_addr,
+                    hint_value,
                     cairo_type: cairo_type.trim_end_matches('*').to_string(),
                     struct_types: Rc::clone(&self.struct_types),
                 }
@@ -179,11 +177,10 @@ pub struct PyTypedId {
 impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
-        let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
-
         if name == "address_" {
             return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
         }
+        let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
 
         match struct_type.get(name) {
             Some(member) => {
