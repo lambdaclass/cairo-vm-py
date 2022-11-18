@@ -110,7 +110,7 @@ impl PyRelocatable {
     // Serializes RelocatableValue as:
     // 1bit |   SEGMENT_BITS |   OFFSET_BITS
     // 1    |     segment    |   offset
-    fn to_u8_vec(&self, n_bytes: u32, byte_order: &str, py: Python) -> PyResult<Vec<u8>> {
+    fn to_u8_vec(&self, n_bytes: u32, byte_order: &str) -> PyResult<Vec<u8>> {
         if !(n_bytes * 8 > SEGMENT_BITS + OFFSET_BITS) {
             return Err(PyArithmeticError::new_err(PYRELOCATABLE_TO_BYTES_ERROR));
         }
@@ -135,7 +135,7 @@ impl PyRelocatable {
         byte_order: &'a str,
         py: Python<'a>,
     ) -> PyResult<&'a PyBytes> {
-        let u8_vec = slf.to_u8_vec(n_bytes, byte_order, py)?;
+        let u8_vec = slf.to_u8_vec(n_bytes, byte_order)?;
         Ok(PyBytes::new(py, &u8_vec))
     }
 }
