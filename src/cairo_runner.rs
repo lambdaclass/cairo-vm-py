@@ -538,12 +538,12 @@ impl PyCairoRunner {
             .to_object(py))
     }
 
-    /*  Coverts typed arguments to cairo friendly ones
+    /**  Converts typed arguments to cairo friendly ones
     The args received should be an iterable with an __annotations__ attribute with a values method
     which returns an iterable containing the types of each of the elements in args
     These types should de TypePointer, TypeFelt or TypeStruct
     This method is meant to process starknet's current typed arguments structure and shouldnt be used in any other case
-    */
+    **/
     fn gen_typed_args(&self, py: Python<'_>, args: Py<PyAny>) -> PyResult<PyObject> {
         let args_iter = PyIterator::from_object(py, &args)?;
         let annotations_values = args
