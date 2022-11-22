@@ -17,6 +17,7 @@ func main():
     # Create temporary_array in a temporary segment
     local temporary_array : felt*
     %{
+        # TEST
         ids.temporary_array = segments.add_temp_segment()
     %}
 
