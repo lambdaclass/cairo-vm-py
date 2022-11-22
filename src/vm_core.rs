@@ -1,3 +1,4 @@
+use crate::ecdsa::PySignature;
 use crate::ids::PyIds;
 use crate::pycell;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
@@ -23,7 +24,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
-const GLOBAL_NAMES: [&str; 17] = [
+const GLOBAL_NAMES: [&str; 18] = [
     "memory",
     "segments",
     "ap",
@@ -33,6 +34,7 @@ const GLOBAL_NAMES: [&str; 17] = [
     "vm_exit_scope",
     "to_felt_or_relocatable",
     "range_check_builtin",
+    "ecdsa_builtin",
     "PRIME",
     "__doc__",
     "__annotations__",
@@ -46,6 +48,7 @@ const GLOBAL_NAMES: [&str; 17] = [
 #[pyclass(unsendable)]
 pub struct PyVM {
     pub(crate) vm: Rc<RefCell<VirtualMachine>>,
+    pub(crate) static_locals: Option<HashMap<String, PyObject>>,
 }
 
 #[pymethods]
@@ -54,6 +57,7 @@ impl PyVM {
     pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
+            static_locals: None,
         }
     }
 }
@@ -74,8 +78,8 @@ impl PyVM {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(self);
             let segments = PySegmentManager::new(self, memory.clone());
-            let ap = PyRelocatable::from(self.vm.borrow().get_ap());
-            let fp = PyRelocatable::from(self.vm.borrow().get_fp());
+            let ap = PyRelocatable::from((*self.vm).borrow().get_ap());
+            let fp = PyRelocatable::from((*self.vm).borrow().get_fp());
             let ids = PyIds::new(
                 self,
                 &hint_data.ids_data,
@@ -86,8 +90,9 @@ impl PyVM {
             let enter_scope = pycell!(py, PyEnterScope::new());
             let exit_scope = pycell!(py, PyExitScope::new());
             let range_check_builtin =
-                PyRangeCheck::from(self.vm.borrow().get_range_check_builtin());
-            let prime = self.vm.borrow().get_prime().clone();
+                PyRangeCheck::from((*self.vm).borrow().get_range_check_builtin());
+            let ecdsa_builtin = pycell!(py, PySignature::new());
+            let prime = (*self.vm).borrow().get_prime().clone();
             let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
@@ -124,6 +129,9 @@ impl PyVM {
             globals
                 .set_item("range_check_builtin", range_check_builtin)
                 .map_err(to_vm_error)?;
+            globals
+                .set_item("ecdsa_builtin", ecdsa_builtin)
+                .map_err(to_vm_error)?;
             globals.set_item("PRIME", prime).map_err(to_vm_error)?;
             globals
                 .set_item(
@@ -135,11 +143,29 @@ impl PyVM {
             for (name, pyobj) in hint_locals.iter() {
                 globals.set_item(name, pyobj).map_err(to_vm_error)?;
             }
+
+            if let Some(ref static_locals) = self.static_locals {
+                for (name, pyobj) in static_locals.iter() {
+                    globals.set_item(name, pyobj).map_err(to_vm_error)?;
+                }
+            }
+
             py.run(&hint_data.code, Some(globals), None)
                 .map_err(to_vm_error)?;
 
-            update_scope_hint_locals(exec_scopes, hint_locals, globals, py);
+            update_scope_hint_locals(
+                exec_scopes,
+                hint_locals,
+                self.static_locals.as_ref(),
+                globals,
+                py,
+            );
 
+            if self.vm.borrow_mut().get_signature_builtin().is_ok() {
+                ecdsa_builtin
+                    .borrow()
+                    .update_signature(self.vm.borrow_mut().get_signature_builtin()?)?;
+            }
             enter_scope.borrow().update_scopes(exec_scopes)?;
             exit_scope.borrow().update_scopes(exec_scopes)
         })?;
@@ -156,7 +182,7 @@ impl PyVM {
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
     ) -> Result<(), VirtualMachineError> {
-        let pc_offset = self.vm.borrow().get_pc().offset;
+        let pc_offset = (*self.vm).borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
@@ -230,12 +256,16 @@ pub(crate) fn add_scope_locals(
 pub(crate) fn update_scope_hint_locals(
     exec_scopes: &mut ExecutionScopes,
     hint_locals: &mut HashMap<String, PyObject>,
+    static_locals: Option<&HashMap<String, PyObject>>,
     globals: &PyDict,
     py: Python,
 ) {
+    let static_local_names = static_locals
+        .map(|locals| locals.keys().collect::<Vec<&String>>())
+        .unwrap_or_default();
     for (name, elem) in globals {
         let name = name.to_string();
-        if !GLOBAL_NAMES.contains(&name.as_str()) {
+        if !GLOBAL_NAMES.contains(&name.as_str()) && !static_local_names.contains(&&name) {
             if hint_locals.keys().cloned().any(|x| x == name) {
                 hint_locals.insert(name, elem.to_object(py));
             } else {
@@ -994,5 +1024,102 @@ lista_b = [lista_a[k] for k in range(2)]";
             ),
             Ok(())
         )
+    }
+
+    #[test]
+    fn run_hint_with_static_locals() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        vm.static_locals = Some(HashMap::from([(
+            "__number_max".to_string(),
+            Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
+        )]));
+        let code = "number = __number_max";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let mut exec_scopes = ExecutionScopes::new();
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        let number = Python::with_gil(|py| -> usize {
+            exec_scopes.data[0]
+                .get("number")
+                .unwrap()
+                .downcast_ref::<PyObject>()
+                .unwrap()
+                .extract::<usize>(py)
+                .unwrap()
+        });
+        assert_eq!(number, 90)
+    }
+
+    #[test]
+    fn run_hint_with_static_locals_shouldnt_change_its_value() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        vm.static_locals = Some(HashMap::from([(
+            "__number_max".to_string(),
+            Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
+        )]));
+        let code = "__number_max = 15";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let mut exec_scopes = ExecutionScopes::new();
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut HashMap::new(),
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        let number = Python::with_gil(|py| -> usize {
+            vm.static_locals
+                .unwrap()
+                .get("__number_max")
+                .unwrap()
+                .extract::<usize>(py)
+                .unwrap()
+        });
+        assert_eq!(number, 90)
+    }
+
+    #[test]
+    fn run_hint_with_static_locals_shouldnt_affect_scope_or_hint_locals() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+        vm.static_locals = Some(HashMap::from([(
+            "__number_max".to_string(),
+            Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
+        )]));
+        let code = "assert(__number_max == 90)";
+        let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
+        let mut exec_scopes = ExecutionScopes::new();
+        let mut hint_locals = HashMap::new();
+        assert_eq!(
+            vm.execute_hint(
+                &hint_data,
+                &mut hint_locals,
+                &mut exec_scopes,
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            ),
+            Ok(())
+        );
+        assert!(exec_scopes.data[0].is_empty());
+        assert!(hint_locals.is_empty())
     }
 }
