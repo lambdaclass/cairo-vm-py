@@ -600,7 +600,17 @@ impl PyExecutionResources {
 
     #[getter]
     fn builtin_instance_counter(&self) -> HashMap<String, usize> {
-        self.0.builtin_instance_counter.clone()
+        let mut instance_counters = self.0.builtin_instance_counter.clone();
+        // replace the builtin name with "<name>_builtin" as expected in the Starknet code.
+        for builtin_name in self.0.builtin_instance_counter.keys() {
+            if let Some((key, counter)) = instance_counters.remove_entry(builtin_name) {
+                instance_counters
+                    .entry(format!("{}_builtin", key).to_string())
+                    .or_insert(counter);
+            }
+        }
+
+        instance_counters
     }
 }
 
