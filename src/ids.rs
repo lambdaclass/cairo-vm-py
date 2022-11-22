@@ -731,6 +731,16 @@ memory[fp + 1] = ids.ns.struct.address_
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
                 Ok(Some(MaybeRelocatable::from(bigint!(2))))
             );
+
+            //ids.b does not exist
+            let code = "ids.b = memory[fp]";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(
+                py_result.map_err(to_vm_error),
+                Err(to_vm_error(to_py_error(IDS_SET_ERROR_MSG))),
+            );
         });
     }
 }
