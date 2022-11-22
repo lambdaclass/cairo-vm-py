@@ -411,6 +411,119 @@ memory[fp+2] = ids.CONST
     }
 
     #[test]
+    fn ids_get_simple_struct() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("a"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    cairo_type: Some(String::from("SimpleStruct")),
+                },
+            );
+
+            //Create struct types
+            let mut struct_types = HashMap::new();
+
+            //Insert new type SimpleStruct { x: felt, y: felt }
+            struct_types.insert(
+                String::from("SimpleStruct"),
+                HashMap::from([
+                    (
+                        String::from("x"),
+                        Member {
+                            cairo_type: String::from("felt"),
+                            offset: 0,
+                        },
+                    ),
+                    (
+                        String::from("ptr"),
+                        Member {
+                            cairo_type: String::from("felt*"),
+                            offset: 1,
+                        },
+                    ),
+                ]),
+            );
+
+            //Insert ids.a.x into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(
+                    &Relocatable::from((1, 0)),
+                    &MaybeRelocatable::from(Into::<BigInt>::into(55)),
+                )
+                .unwrap();
+
+            //Insert ids.a.ptr into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
+                .unwrap();
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+memory[fp] = ids.a.x
+memory[fp + 1] = ids.a.ptr
+memory[fp + 2] = ids.SimpleStruct.SIZE
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            //Check ids.a.x is now at memory[fp]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(55))))
+            );
+            //Check ids.a.ptr is now at memory[fp + 1]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
+                Ok(Some(MaybeRelocatable::from((1, 0))))
+            );
+            //Check ids.SimpleStruct.SIZE is now at memory[fp + 2]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2))))
+            );
+        });
+    }
+
+    #[test]
     fn ids_failed_get_test() {
         Python::with_gil(|py| {
             let vm = PyVM::new(
