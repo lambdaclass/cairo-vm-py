@@ -557,7 +557,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Insert new type Struct {}
             struct_types.insert(String::from("Struct"), HashMap::new());
 
-            //Insert new type SimpleStruct { x: felt, y: felt }
+            //Insert new type NestedStruct { x: felt, y: felt }
             struct_types.insert(
                 String::from("NestedStruct"),
                 HashMap::from([
@@ -578,7 +578,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
                 ]),
             );
 
-            //Insert ids.a.x into memory
+            //Insert ids.ns.x into memory
             vm.vm
                 .borrow_mut()
                 .insert_value(
@@ -587,7 +587,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
                 )
                 .unwrap();
 
-            //Insert ids.a.ptr into memory
+            //Insert ids.ns.ptr into memory
             vm.vm
                 .borrow_mut()
                 .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
