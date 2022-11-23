@@ -824,4 +824,67 @@ ids.struct.ptr = ids.struct.address_
             assert!(py_result.map_err(to_vm_error).is_err());
         });
     }
+
+    #[test]
+    fn ids_ap_tracked_ref() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..3 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("a"),
+                HintReference {
+                    register: Some(Register::AP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: Some(ApTracking::default()),
+                    immediate: None,
+                    cairo_type: None,
+                },
+            );
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+ids.a = 5
+memory[fp] = ids.a
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            //Check ids.a is now at memory[fp]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(5))))
+            );
+        });
+    }
 }
