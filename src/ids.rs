@@ -637,6 +637,72 @@ memory[fp + 1] = ids.ns.struct.address_
     }
 
     #[test]
+    fn ids_get_pointer() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..3 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("ssp"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    cairo_type: Some(String::from("SimpleStruct*")),
+                },
+            );
+
+            //Insert ids.ssp into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from((2, 0)))
+                .unwrap();
+
+            let struct_types = HashMap::from([create_simple_struct_type()]);
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+ids.ssp.x = 5
+assert ids.ssp.x == 5
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+        });
+    }
+
+    #[test]
     fn ids_failed_get_test() {
         Python::with_gil(|py| {
             let vm = PyVM::new(
