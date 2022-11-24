@@ -738,7 +738,10 @@ assert ids.ssp.x == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result.map_err(to_vm_error).is_err());
+            assert_eq!(
+                py_result.map_err(to_vm_error),
+                Err(to_vm_error(to_py_error(IDS_GET_ERROR_MSG)))
+            );
         });
     }
 
