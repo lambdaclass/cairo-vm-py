@@ -388,7 +388,7 @@ mod tests {
                 .borrow_mut()
                 .insert_value(
                     &Relocatable::from((1, 1)),
-                    &MaybeRelocatable::from(Into::<BigInt>::into(2_i32)),
+                    &MaybeRelocatable::from(bigint!(2)),
                 )
                 .unwrap();
 
@@ -424,11 +424,11 @@ memory[fp+2] = ids.CONST
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2_i32))))
+                Ok(Some(MaybeRelocatable::from(bigint!(2))))
             );
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(3))))
+                Ok(Some(MaybeRelocatable::from(bigint!(3))))
             );
         });
     }
@@ -467,7 +467,7 @@ memory[fp+2] = ids.CONST
                 .borrow_mut()
                 .insert_value(
                     &Relocatable::from((1, 0)),
-                    &MaybeRelocatable::from(Into::<BigInt>::into(55)),
+                    &MaybeRelocatable::from(bigint!(55)),
                 )
                 .unwrap();
 
@@ -510,7 +510,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Check ids.a.x is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(55))))
+                Ok(Some(MaybeRelocatable::from(bigint!(55))))
             );
             //Check ids.a.ptr is now at memory[fp + 1]
             assert_eq!(
@@ -520,7 +520,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Check ids.SimpleStruct.SIZE is now at memory[fp + 2]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2))))
+                Ok(Some(MaybeRelocatable::from(bigint!(2))))
             );
 
             //ids.a.y does not exist
@@ -591,7 +591,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
                 .borrow_mut()
                 .insert_value(
                     &Relocatable::from((1, 0)),
-                    &MaybeRelocatable::from(Into::<BigInt>::into(55)),
+                    &MaybeRelocatable::from(bigint!(55)),
                 )
                 .unwrap();
 
@@ -990,7 +990,7 @@ memory[fp] = ids.ok_ref
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(5))))
+                Ok(Some(MaybeRelocatable::from(bigint!(5))))
             );
 
             let code = r"ids.bad_ref";
