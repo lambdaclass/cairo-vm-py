@@ -595,6 +595,11 @@ impl PyCairoRunner {
         let mut vm = (*self.pyvm.vm).borrow_mut();
         self.inner.add_additional_hash_builtin(&mut vm).into()
     }
+
+    #[getter]
+    pub fn vm(&self) -> PyVM {
+        self.pyvm.clone()
+    }
 }
 
 #[pyclass]
@@ -1770,5 +1775,14 @@ mod test {
                 ]
             );
         })
+    }
+
+    #[test]
+    fn vm() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+
+        let vm = runner.vm();
+        assert_eq!(vm.vm.as_ptr(), runner.pyvm.vm.as_ptr());
     }
 }
