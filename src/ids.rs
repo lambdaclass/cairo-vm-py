@@ -906,8 +906,9 @@ ids.struct.ptr = ids.struct.address_
             }
             //Create references
             let mut references = HashMap::new();
+            //Insert basic ap tracking reference
             references.insert(
-                String::from("a"),
+                String::from("ok_ref"),
                 HintReference {
                     register: Some(Register::AP),
                     offset1: 0,
@@ -915,6 +916,37 @@ ids.struct.ptr = ids.struct.address_
                     dereference: true,
                     inner_dereference: false,
                     ap_tracking_data: Some(ApTracking::default()),
+                    immediate: None,
+                    cairo_type: None,
+                },
+            );
+            //Insert ap tracking reference with non-matching group
+            references.insert(
+                String::from("bad_ref"),
+                HintReference {
+                    register: Some(Register::AP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: Some(ApTracking {
+                        group: 1,
+                        offset: 0,
+                    }),
+                    immediate: None,
+                    cairo_type: None,
+                },
+            );
+            //Insert ap tracking reference with no tracking
+            references.insert(
+                String::from("none_ref"),
+                HintReference {
+                    register: Some(Register::AP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
                     immediate: None,
                     cairo_type: None,
                 },
@@ -942,8 +974,8 @@ ids.struct.ptr = ids.struct.address_
                 .unwrap();
 
             let code = r#"
-ids.a = 5
-memory[fp] = ids.a
+ids.ok_ref = 5
+memory[fp] = ids.ok_ref
 "#;
 
             let py_result = py.run(code, Some(globals), None);
@@ -953,6 +985,28 @@ memory[fp] = ids.a
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(5))))
+            );
+
+            let code = r"ids.bad_ref";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(
+                py_result.map_err(to_vm_error),
+                Err(to_vm_error(to_py_error(
+                    VirtualMachineError::InvalidTrackingGroup(1, 0)
+                )))
+            );
+
+            let code = r"ids.none_ref";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(
+                py_result.map_err(to_vm_error),
+                Err(to_vm_error(to_py_error(
+                    VirtualMachineError::NoneApTrackingData
+                )))
             );
         });
     }
