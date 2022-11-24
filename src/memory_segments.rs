@@ -96,6 +96,10 @@ impl PySegmentManager {
             self.vm.borrow_mut().add_temporary_segment(),
         ))
     }
+
+    pub fn get_segment_used_size(&self, segment_index: usize) -> Option<usize> {
+        (*self.vm).borrow().get_segment_used_size(segment_index)
+    }
 }
 
 #[cfg(test)]
