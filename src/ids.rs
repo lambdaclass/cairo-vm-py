@@ -848,6 +848,20 @@ assert ids.ssp.x == 5
                     cairo_type: Some(String::from("SimpleStruct")),
                 },
             );
+            //Insert reference to fp's address
+            references.insert(
+                String::from("fp"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: false,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    cairo_type: None,
+                },
+            );
 
             let struct_types = HashMap::from([create_simple_struct_type()]);
 
@@ -875,7 +889,7 @@ assert ids.ssp.x == 5
             let code = r#"
 ids.struct.x = 5
 
-ids.struct.ptr = ids.struct.address_
+ids.struct.ptr = ids.fp
 "#;
 
             let py_result = py.run(code, Some(globals), None);
@@ -886,10 +900,10 @@ ids.struct.ptr = ids.struct.address_
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
                 Ok(Some(MaybeRelocatable::from(bigint!(5))))
             );
-            //Check ids.struct.x now contains ids.struct's address
+            //Check ids.struct.x now contains fp's address
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
-                Ok(Some(MaybeRelocatable::from((1, 0))))
+                Ok(Some(MaybeRelocatable::from(vm.get_vm().borrow().get_fp())))
             );
 
             //ids.struct.y does not exist
