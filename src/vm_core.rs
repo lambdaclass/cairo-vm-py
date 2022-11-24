@@ -59,6 +59,11 @@ impl PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
         }
     }
+
+    #[getter]
+    fn ap(&self) -> PyRelocatable {
+        self.vm.borrow().get_ap().into()
+    }
 }
 
 impl PyVM {
@@ -1152,5 +1157,15 @@ lista_b = [lista_a[k] for k in range(2)]";
         );
         assert!(exec_scopes.data[0].is_empty());
         assert!(hint_locals.is_empty())
+    }
+
+    #[test]
+    fn ap() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        assert_eq!(vm.ap(), (1, 0).into());
     }
 }
