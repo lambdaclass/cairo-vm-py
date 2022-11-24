@@ -37,6 +37,7 @@ pub struct PyCairoRunner {
     hint_processor: BuiltinHintProcessor,
     hint_locals: HashMap<String, PyObject>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+    static_locals: Option<HashMap<String, PyObject>>,
 }
 
 #[pymethods]
@@ -72,6 +73,7 @@ impl PyCairoRunner {
             hint_processor: BuiltinHintProcessor::new_empty(),
             hint_locals: HashMap::new(),
             struct_types: Rc::new(struct_types),
+            static_locals: None,
         })
     }
 
@@ -97,7 +99,7 @@ impl PyCairoRunner {
             self.hint_locals = locals
         }
 
-        self.pyvm.static_locals = static_locals;
+        self.static_locals = static_locals;
 
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
@@ -180,6 +182,7 @@ impl PyCairoRunner {
                     &hint_data_dictionary,
                     Rc::clone(&self.struct_types),
                     &constants,
+                    self.static_locals.as_ref(),
                 )
                 .map_err(to_py_error)?;
         }
@@ -352,7 +355,7 @@ impl PyCairoRunner {
             self.hint_locals = locals
         }
 
-        self.pyvm.static_locals = static_locals;
+        self.static_locals = static_locals;
         let apply_modulo_to_args = apply_modulo_to_args.unwrap_or(true);
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
@@ -584,6 +587,7 @@ impl PyCairoRunner {
 
         Ok(cairo_args.to_object(py))
     }
+
     /// Add (or replace if already present) a custom hash builtin.
     /// Returns a Relocatable with the new hash builtin base.
     pub fn add_additional_hash_builtin(&self) -> PyRelocatable {
@@ -1126,10 +1130,9 @@ mod test {
                     None,
                 )
                 .unwrap();
-            assert!(!runner.pyvm.static_locals.as_ref().unwrap().is_empty());
+            assert!(!runner.static_locals.as_ref().unwrap().is_empty());
             assert_eq!(
                 runner
-                    .pyvm
                     .static_locals
                     .as_ref()
                     .unwrap()
