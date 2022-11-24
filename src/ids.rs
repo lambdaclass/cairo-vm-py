@@ -645,7 +645,7 @@ memory[fp + 1] = ids.ns.struct.address_
     }
 
     #[test]
-    fn ids_get_pointer() {
+    fn ids_get_from_pointer() {
         Python::with_gil(|py| {
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
@@ -656,6 +656,7 @@ memory[fp + 1] = ids.ns.struct.address_
             }
             //Create references
             let mut references = HashMap::new();
+            //Insert SimpleStruct pointer
             references.insert(
                 String::from("ssp"),
                 HintReference {
@@ -668,6 +669,11 @@ memory[fp + 1] = ids.ns.struct.address_
                     immediate: None,
                     cairo_type: Some(String::from("SimpleStruct*")),
                 },
+            );
+            //Insert pointer with double dereference
+            references.insert(
+                String::from("ssp_x_ptr"),
+                HintReference::new(0, 0, true, true),
             );
 
             //Insert ids.ssp into memory
@@ -694,6 +700,7 @@ memory[fp + 1] = ids.ns.struct.address_
             let code = r#"
 ids.ssp.x = 5
 assert ids.ssp.x == 5
+assert ids.ssp_x_ptr == 5
 "#;
 
             let py_result = py.run(code, Some(globals), None);
