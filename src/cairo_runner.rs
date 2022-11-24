@@ -582,6 +582,12 @@ impl PyCairoRunner {
         self.inner.add_additional_hash_builtin(&mut vm).into()
     }
 }
+// pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
+
+// #[pyfunction]
+// pub fn test_exception() -> PyResult<()> {
+//     return Err(VmException::new_err((1, None::<u32>, 1)));
+// }
 
 #[pyclass]
 pub struct PyExecutionResources(ExecutionResources);
