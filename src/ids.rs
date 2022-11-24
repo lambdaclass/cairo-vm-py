@@ -522,6 +522,14 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2))))
             );
+
+            //ids.a.y does not exist
+            let code = "ids.a.y";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            //Err(CustomHint("AttributeError: 'PyTypeId' object has no attribute 'y'"))
+            assert!(py_result.map_err(to_vm_error).is_err());
         });
     }
 
