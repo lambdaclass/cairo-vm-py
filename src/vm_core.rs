@@ -1,6 +1,7 @@
 use crate::ecdsa::PySignature;
 use crate::ids::PyIds;
 use crate::pycell;
+use crate::run_context::PyRunContext;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::to_felt_or_relocatable::ToFeltOrRelocatableFunc;
 use crate::{
@@ -61,8 +62,13 @@ impl PyVM {
     }
 
     #[getter]
-    fn ap(&self) -> PyRelocatable {
-        self.vm.borrow().get_ap().into()
+    fn run_context(&self) -> PyRunContext {
+        let vm = self.vm.borrow();
+        PyRunContext {
+            pc: vm.get_pc().clone().into(),
+            ap: vm.get_ap().into(),
+            fp: vm.get_fp().into(),
+        }
     }
 }
 
@@ -1160,12 +1166,15 @@ lista_b = [lista_a[k] for k in range(2)]";
     }
 
     #[test]
-    fn ap() {
+    fn run_context() {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
 
-        assert_eq!(vm.ap(), (1, 0).into());
+        let run_context = vm.run_context();
+        assert_eq!(run_context.pc, (0, 0).into());
+        assert_eq!(run_context.ap, (1, 0).into());
+        assert_eq!(run_context.fp, (1, 0).into());
     }
 }
