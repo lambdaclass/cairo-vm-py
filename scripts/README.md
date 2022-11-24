@@ -14,3 +14,19 @@ The venvs will be created under said directory.
 ### Requirements
 
 The script assumes you have a Rust toolchain, Python 3.9 and the `venv` program installed.
+`cairo-lang` requires the `gmp` library to build.
+You can install it on Debian-based GNU/Linux distributions with:
+```shell
+sudo apt install -y libgmp3-dev
+```
+
+In Mac you can use HomeBrew:
+```shell
+brew install gmp
+```
+
+In Mac you'll also need to tell the script where to find it:
+```shell
+export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib
+sh build_envs.sh
+```
