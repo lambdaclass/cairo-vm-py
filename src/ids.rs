@@ -1103,4 +1103,94 @@ memory[fp] = ids.ok_ref
             );
         });
     }
+
+    #[test]
+    fn ids_reference_with_immediate() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+
+            let imm_offset = 5;
+            //Insert reference with inner_dereference and immediate value
+            references.insert(
+                String::from("inner_imm_ref"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: false,
+                    inner_dereference: true,
+                    ap_tracking_data: None,
+                    immediate: Some(bigint!(imm_offset)),
+                    cairo_type: None,
+                },
+            );
+            //Insert reference with dereference and immediate value
+            references.insert(
+                String::from("imm_ref"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: Some(bigint!(imm_offset)),
+                    cairo_type: None,
+                },
+            );
+
+            let relocatable = Relocatable::from((1, 3));
+            vm.vm
+                .borrow_mut()
+                .insert_value(
+                    &Relocatable::from((1, 0)),
+                    &MaybeRelocatable::from(&relocatable),
+                )
+                .unwrap();
+
+            let memory = PyMemory::new(&vm);
+
+            let fp = PyRelocatable::from((1, 5));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+assert ids.inner_imm_ref == ids.imm_ref
+memory[fp] = ids.inner_imm_ref
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            //Check ids.inner_imm_ref is now at memory[fp]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 5))),
+                Ok(Some(MaybeRelocatable::from(relocatable + imm_offset)))
+            );
+        });
+    }
 }
