@@ -678,8 +678,6 @@ memory[fp + 1] = ids.ns.struct.address_
 
             let struct_types = HashMap::from([create_simple_struct_type()]);
 
-            let memory = PyMemory::new(&vm);
-            let fp = PyRelocatable::from((1, 0));
             let ids = PyIds::new(
                 &vm,
                 &references,
@@ -689,12 +687,6 @@ memory[fp + 1] = ids.ns.struct.address_
             );
 
             let globals = PyDict::new(py);
-            globals
-                .set_item("memory", PyCell::new(py, memory).unwrap())
-                .unwrap();
-            globals
-                .set_item("fp", PyCell::new(py, fp).unwrap())
-                .unwrap();
             globals
                 .set_item("ids", PyCell::new(py, ids).unwrap())
                 .unwrap();
@@ -865,8 +857,6 @@ assert ids.ssp.x == 5
 
             let struct_types = HashMap::from([create_simple_struct_type()]);
 
-            let memory = PyMemory::new(&vm);
-            let fp = PyRelocatable::from((1, 0));
             let ids = PyIds::new(
                 &vm,
                 &references,
@@ -876,12 +866,6 @@ assert ids.ssp.x == 5
             );
 
             let globals = PyDict::new(py);
-            globals
-                .set_item("memory", PyCell::new(py, memory).unwrap())
-                .unwrap();
-            globals
-                .set_item("fp", PyCell::new(py, fp).unwrap())
-                .unwrap();
             globals
                 .set_item("ids", PyCell::new(py, ids).unwrap())
                 .unwrap();
@@ -923,7 +907,7 @@ ids.struct.ptr = ids.fp
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             );
-            for _ in 0..3 {
+            for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
             //Create references
@@ -1040,7 +1024,7 @@ memory[fp] = ids.ok_ref
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
             );
-            for _ in 0..3 {
+            for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
             //Create references
