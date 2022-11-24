@@ -11,6 +11,12 @@ sh build_envs.sh
 
 The venvs will be created under said directory.
 
+To actually use both implementations you would have to activate the environment you want. For example to use the cairo-rs-py integration:
+
+```shell
+source activate cairo-rs-py/bin/activate
+```
+
 ### Requirements
 
 The script assumes you have a Rust toolchain, Python 3.9 and the `venv` program installed.
