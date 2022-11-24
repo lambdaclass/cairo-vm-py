@@ -1,11 +1,18 @@
 #!/bin/sh
 
-python3.9 -m venv --upgrade-deps cairo-lang cairo-rs-py
-./cairo-lang/bin/pip install cairo-lang==0.10.2
-./cairo-rs-py/bin/pip install maturin==0.14.1 cairo-lang==0.10.2
-./cairo-rs-py/bin/maturin build --manifest-path ../Cargo.toml --release --strip --interpreter 3.9 --no-default-features --features extension
-./cairo-rs-py/bin/pip install ../target/wheels/cairo_rs_py-*.whl
-patch --directory ./cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < move-to-cairo-rs-py.patch
+set -e
+set -o pipefail
 
-./cairo-rs-py/bin/cairo-run --version
-./cairo-rs-py/bin/starknet --version
+# This is not reaaaaally a robust way to find it, but you need to be actively
+# trying to break it for this to fail :)
+SCRIPT_DIR=$(dirname $0)
+
+python3.9 -m venv --upgrade-deps ${SCRIPT_DIR}/cairo-lang ${SCRIPT_DIR}/cairo-rs-py
+${SCRIPT_DIR}/cairo-lang/bin/pip install cairo-lang==0.10.2
+${SCRIPT_DIR}/cairo-rs-py/bin/pip install maturin==0.14.1 cairo-lang==0.10.2
+${SCRIPT_DIR}/cairo-rs-py/bin/maturin build --manifest-path ${SCRIPT_DIR}/../Cargo.toml --release --strip --interpreter 3.9 --no-default-features --features extension
+${SCRIPT_DIR}/cairo-rs-py/bin/pip install ${SCRIPT_DIR}/../target/wheels/cairo_rs_py-*.whl
+patch --directory ${SCRIPT_DIR}/cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < ${SCRIPT_DIR}/move-to-cairo-rs-py.patch
+
+${SCRIPT_DIR}/cairo-rs-py/bin/cairo-run --version
+${SCRIPT_DIR}/cairo-rs-py/bin/starknet --version
