@@ -1,28 +1,35 @@
 use crate::relocatable::PyRelocatable;
+use cairo_rs::types::relocatable::Relocatable;
 use pyo3::{pyclass, pymethods};
 
 #[pyclass]
 pub struct PyRunContext {
-    pub pc: PyRelocatable,
-    pub ap: PyRelocatable,
-    pub fp: PyRelocatable,
+    pc: Relocatable,
+    ap: Relocatable,
+    fp: Relocatable,
+}
+
+impl PyRunContext {
+    pub fn new(pc: Relocatable, ap: Relocatable, fp: Relocatable) -> Self {
+        Self { pc, ap, fp }
+    }
 }
 
 #[pymethods]
 impl PyRunContext {
     #[getter]
     pub fn pc(&self) -> PyRelocatable {
-        self.pc.clone()
+        self.pc.clone().into()
     }
 
     #[getter]
     pub fn ap(&self) -> PyRelocatable {
-        self.ap.clone()
+        self.ap.clone().into()
     }
 
     #[getter]
     pub fn fp(&self) -> PyRelocatable {
-        self.fp.clone()
+        self.fp.clone().into()
     }
 }
 
@@ -31,12 +38,8 @@ mod test {
     use crate::run_context::PyRunContext;
 
     #[test]
-    fn ap() {
-        let run_context = PyRunContext {
-            pc: (1, 2).into(),
-            ap: (3, 4).into(),
-            fp: (5, 6).into(),
-        };
+    fn test_properties() {
+        let run_context = PyRunContext::new((1, 2).into(), (3, 4).into(), (5, 6).into());
 
         assert_eq!(run_context.pc(), (1, 2).into());
         assert_eq!(run_context.ap(), (3, 4).into());

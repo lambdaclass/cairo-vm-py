@@ -64,11 +64,7 @@ impl PyVM {
     #[getter]
     fn run_context(&self) -> PyRunContext {
         let vm = self.vm.borrow();
-        PyRunContext {
-            pc: vm.get_pc().clone().into(),
-            ap: vm.get_ap().into(),
-            fp: vm.get_fp().into(),
-        }
+        PyRunContext::new(vm.get_pc().clone(), vm.get_ap(), vm.get_fp())
     }
 }
 
@@ -1173,8 +1169,8 @@ lista_b = [lista_a[k] for k in range(2)]";
         );
 
         let run_context = vm.run_context();
-        assert_eq!(run_context.pc, (0, 0).into());
-        assert_eq!(run_context.ap, (1, 0).into());
-        assert_eq!(run_context.fp, (1, 0).into());
+        assert_eq!(run_context.pc(), (0, 0).into());
+        assert_eq!(run_context.ap(), (1, 0).into());
+        assert_eq!(run_context.fp(), (1, 0).into());
     }
 }
