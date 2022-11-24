@@ -293,7 +293,8 @@ impl PyCairoRunner {
         Ok(PyRelocatable::from(self.pyvm.vm.borrow().get_ap()))
     }
 
-    pub fn get_initial_fp(&self) -> PyResult<PyRelocatable> {
+    #[getter]
+    pub fn initial_fp(&self) -> PyResult<PyRelocatable> {
         Ok(PyRelocatable::from(
             self.inner
                 .get_initial_fp()
@@ -1232,7 +1233,7 @@ mod test {
             .unwrap();
         assert_eq! {
             PyRelocatable::from((1,2)),
-            runner.get_initial_fp().unwrap()
+            runner.initial_fp().unwrap()
         };
     }
 
