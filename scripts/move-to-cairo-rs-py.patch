@@ -1,36 +1,47 @@
-From 787a2f0d09f5531c7142df9107aa27c5cdd49624 Mon Sep 17 00:00:00 2001
+From f6f5dcf795418a0820f4f83d1573647edef5dc67 Mon Sep 17 00:00:00 2001
 From: Mariano Nicolini <mariano.nicolini.91@gmail.com>
 Date: Wed, 9 Nov 2022 18:58:33 -0300
-Subject: [PATCH] Replace core with cairo-rs-py
+Subject: [PATCH] First changes in runner
 
-Add notice indicating cairo-rs-py is in use
+Add some changes for testing
+
+Some more changes
+
+Comment isinstance assertion
+
+Replace CairoFunctionRunner::run for run_function_runner
+
+Add program as function argument
+
+Fix format
+
+Comment a type check
+
+Changes for test to pass
+
+Add cairo_rs_py runner to class_hash_inner
+
+Fix entrypoint
+
+Add hash_ptr
+
+Fix program input
+
+Add try-except code blocks so that the code can run y protostar environment tests
+
+Remove prints from execute_entry_point.py
 ---
- src/starkware/cairo/lang/vm/cairo_run.py      |   2 +-
- .../execution/execute_entry_point.py          |  35 +++--
+ .../execution/execute_entry_point.py          |  30 +++--
  .../business_logic/transaction/fee.py         |   6 +-
- .../starknet/business_logic/utils.py          |   2 +-
- src/starkware/starknet/cli/starknet_cli.py    |   2 +-
+ .../starknet/business_logic/utils.py          |   9 +-
  src/starkware/starknet/core/os/class_hash.py  | 123 ++++++++++++++++--
- src/starkware/starknet/core/os/os_utils.py    |  24 ++--
- .../starknet/core/os/segment_utils.py         |   9 +-
- .../starknet/core/os/syscall_utils.py         |  26 ++--
- 9 files changed, 174 insertions(+), 55 deletions(-)
+ src/starkware/starknet/core/os/os_utils.py    |  64 ++++++---
+ .../starknet/core/os/segment_utils.py         |  32 ++++-
+ .../starknet/core/os/syscall_utils.py         |  37 ++++--
+ 7 files changed, 237 insertions(+), 64 deletions(-)
 
-diff --git a/src/starkware/cairo/lang/vm/cairo_run.py b/src/starkware/cairo/lang/vm/cairo_run.py
-index 5e041f2..ae96bc5 100644
---- a/src/starkware/cairo/lang/vm/cairo_run.py
-+++ b/src/starkware/cairo/lang/vm/cairo_run.py
-@@ -33,7 +33,7 @@ def main():
-     start_time = time.time()
- 
-     parser = argparse.ArgumentParser(description="A tool to run Cairo programs.")
--    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
-+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__} (with cairo-rs-py)")
-     parser.add_argument(
-         "--program",
-         type=argparse.FileType("r"),
 diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-index 62d4290..f8f3417 100644
+index 62d4290..6cd0abc 100644
 --- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 +++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 @@ -41,6 +41,7 @@ from starkware.starkware_utils.error_handling import (
@@ -51,7 +62,7 @@ index 62d4290..f8f3417 100644
          os_context = os_utils.prepare_os_context(runner=runner)
  
          validate_contract_deployed(state=state, contract_address=self.contract_address)
-@@ -205,24 +207,29 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -205,24 +207,24 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
              os_context,
              len(self.calldata),
              # Allocate and mark the segment as read-only (to mark every input array as read-only).
@@ -59,11 +70,6 @@ index 62d4290..f8f3417 100644
 +            syscall_handler._allocate_segment(segments=runner, data=self.calldata),
          ]
  
-+        print("ENTRY POINT SELECTOR: ", self.entry_point_selector)
-+        print("OS CONTEXT: ", os_context)
-+        print("LEN CALLDATA: ", len(self.calldata))
-+        # print("ALLOCATE SEGMENT: ", syscall_handler._allocate_segment(segments=runner, data=self.calldata))
-+
          try:
              runner.run_from_entrypoint(
                  entry_point.offset,
@@ -91,7 +97,7 @@ index 62d4290..f8f3417 100644
                  verify_secure=True,
              )
          except VmException as exception:
-@@ -267,11 +274,11 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -267,11 +269,11 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
          )
  
          # When execution starts the stack holds entry_points_args + [ret_fp, ret_pc].
@@ -105,7 +111,7 @@ index 62d4290..f8f3417 100644
          runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
  
          return runner, syscall_handler
-@@ -355,4 +362,4 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -355,4 +357,4 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
              raise NotImplementedError(f"Call type {self.call_type} not implemented.")
  
          # Extract pre-fetched contract code from carried state.
@@ -130,31 +136,25 @@ index 9acaa73..9bbb9f5 100644
      # Convert Cairo usage to L1 gas usage.
      cairo_l1_gas_usage = max(
 diff --git a/src/starkware/starknet/business_logic/utils.py b/src/starkware/starknet/business_logic/utils.py
-index f63bc9f..22d9b91 100644
+index f63bc9f..15660fe 100644
 --- a/src/starkware/starknet/business_logic/utils.py
 +++ b/src/starkware/starknet/business_logic/utils.py
-@@ -48,7 +48,7 @@ def get_return_values(runner: CairoFunctionRunner) -> List[int]:
+@@ -48,7 +48,14 @@ def get_return_values(runner: CairoFunctionRunner) -> List[int]:
          exception_types=[Exception],
      ):
          ret_data_size, ret_data_ptr = runner.get_return_values(2)
 -        values = runner.memory.get_range(ret_data_ptr, ret_data_size)
-+        values = runner.get_range(ret_data_ptr, ret_data_size)
++
++        try: 
++            # CAIRO-RS VERSION
++            values = runner.get_range(ret_data_ptr, ret_data_size)
++        except:
++            # ORIGINAL VERSION
++            values = runner.memory.get_range(ret_data_ptr, ret_data_size)
++
  
      stark_assert(
          all(isinstance(value, int) for value in values),
-diff --git a/src/starkware/starknet/cli/starknet_cli.py b/src/starkware/starknet/cli/starknet_cli.py
-index 989b04b..21920cd 100755
---- a/src/starkware/starknet/cli/starknet_cli.py
-+++ b/src/starkware/starknet/cli/starknet_cli.py
-@@ -1493,7 +1493,7 @@ async def main():
-         "tx_status": tx_status,
-     }
-     parser = argparse.ArgumentParser(description="A tool to communicate with StarkNet.")
--    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
-+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__} (with cairo-rs-py)")
-     parser.add_argument("--network", type=str, help="The name of the StarkNet network.")
-     parser.add_argument(
-         "--network_id",
 diff --git a/src/starkware/starknet/core/os/class_hash.py b/src/starkware/starknet/core/os/class_hash.py
 index 132fb21..2e4b817 100644
 --- a/src/starkware/starknet/core/os/class_hash.py
@@ -313,24 +313,34 @@ index 132fb21..2e4b817 100644
 +
 +        return implicit_retvals, explicit_retvals
 diff --git a/src/starkware/starknet/core/os/os_utils.py b/src/starkware/starknet/core/os/os_utils.py
-index 20bd521..ddf4523 100644
+index 20bd521..0ea99f4 100644
 --- a/src/starkware/starknet/core/os/os_utils.py
 +++ b/src/starkware/starknet/core/os/os_utils.py
-@@ -45,16 +45,16 @@ def update_builtin_pointers(
+@@ -43,18 +43,23 @@ def update_builtin_pointers(
  
+     return return_builtins
  
+-
  def prepare_os_context(runner: CairoFunctionRunner) -> List[MaybeRelocatable]:
 -    syscall_segment = runner.segments.add()
-+    syscall_segment = runner.add_segment()
-     os_context: List[MaybeRelocatable] = [syscall_segment]
- 
+-    os_context: List[MaybeRelocatable] = [syscall_segment]
+-
 -    for builtin in runner.program.builtins:
 -        builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
 -        os_context.extend(builtin_runner.initial_stack())
-+    # for builtin in runner.program.builtins:
-+    #     builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
-+    #     os_context.extend(builtin_runner.initial_stack())
-+    os_context.extend(runner.get_program_builtins_initial_stack())
++    # CAIRO-RS VERSION
++    try: 
++        syscall_segment = runner.add_segment()
++        os_context: List[MaybeRelocatable] = [syscall_segment]
++        os_context.extend(runner.get_program_builtins_initial_stack())
++    # ORIGINAL VERSION
++    except:
++        syscall_segment = runner.segments.add()
++        os_context: List[MaybeRelocatable] = [syscall_segment]
++
++        for builtin in runner.program.builtins:
++            builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
++            os_context.extend(builtin_runner.initial_stack())
  
      return os_context
  
@@ -338,54 +348,102 @@ index 20bd521..ddf4523 100644
  def validate_and_process_os_context(
      runner: CairoFunctionRunner,
      syscall_handler: syscall_utils.BusinessLogicSysCallHandler,
-@@ -65,13 +65,15 @@ def validate_and_process_os_context(
+@@ -64,14 +69,23 @@ def validate_and_process_os_context(
+     Validates and processes an OS context that was returned by a transaction.
      Returns the syscall processor object containing the accumulated syscall information.
      """
-     # The returned values are os_context, retdata_size, retdata_ptr.
+-    # The returned values are os_context, retdata_size, retdata_ptr.
 -    os_context_end = runner.vm.run_context.ap - 2
-+    os_context_end = runner.get_ap() - 2
-     stack_ptr = os_context_end
+-    stack_ptr = os_context_end
 -    for builtin in runner.program.builtins[::-1]:
 -        builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
-+    print("STACK PTR: ", stack_ptr)
-+    # for builtin in runner.program.builtins[::-1]:
-+    #     builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
++    # CAIRO-RS VERSION
++    try:
++        os_context_end = runner.get_ap() - 2
++        stack_ptr = os_context_end
++        # The returned values are os_context, retdata_size, retdata_ptr.
++        stack_ptr = runner.get_builtins_final_stack(stack_ptr)
++    # ORIGINAL VERSION
++    except:
++        os_context_end = runner.vm.run_context.ap - 2
++
++        stack_ptr = os_context_end
  
 -        with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
 -            stack_ptr = builtin_runner.final_stack(runner=runner, pointer=stack_ptr)
-+    #     with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
-+    #         stack_ptr = builtin_runner.final_stack(runner=runner, pointer=stack_ptr)
-+    stack_ptr = runner.get_builtins_final_stack(stack_ptr)
++        for builtin in runner.program.builtins[::-1]:
++            builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
++
++            with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
++                stack_ptr = builtin_runner.final_stack(runner=runner, pointer=stack_ptr)
  
      final_os_context_ptr = stack_ptr - 1
      assert final_os_context_ptr + len(initial_os_context) == os_context_end
-@@ -82,7 +84,7 @@ def validate_and_process_os_context(
+@@ -81,9 +95,19 @@ def validate_and_process_os_context(
+         runner=runner, ptr_offset=SYSCALL_PTR_OFFSET, os_context=initial_os_context
      )
  
-     segment_utils.validate_segment_pointers(
+-    segment_utils.validate_segment_pointers(
 -        segments=runner.segments,
-+        segments=runner,
-         segment_base_ptr=syscall_base_ptr,
-         segment_stop_ptr=syscall_stop_ptr,
-     )
+-        segment_base_ptr=syscall_base_ptr,
+-        segment_stop_ptr=syscall_stop_ptr,
+-    )
++    # ORIGINAL VERSION
++    try: 
++        segment_utils.validate_segment_pointers(
++            segments=runner,
++            segment_base_ptr=syscall_base_ptr,
++            segment_stop_ptr=syscall_stop_ptr,
++        )
++    # CAIRO-RS VERSION
++    except:
++        segment_utils.validate_segment_pointers(
++            segments=runner.segments,
++            segment_base_ptr=syscall_base_ptr,
++            segment_stop_ptr=syscall_stop_ptr,
++        )
++
+     syscall_handler.post_run(runner=runner, syscall_stop_ptr=syscall_stop_ptr)
 diff --git a/src/starkware/starknet/core/os/segment_utils.py b/src/starkware/starknet/core/os/segment_utils.py
-index 1d09414..c803082 100644
+index 1d09414..33f5c26 100644
 --- a/src/starkware/starknet/core/os/segment_utils.py
 +++ b/src/starkware/starknet/core/os/segment_utils.py
-@@ -21,10 +21,10 @@ def get_os_segment_ptr_range(
+@@ -8,7 +8,7 @@ from starkware.starknet.definitions.error_codes import StarknetErrorCode
+ from starkware.starknet.public.abi import SYSCALL_PTR_OFFSET
+ from starkware.starkware_utils.error_handling import stark_assert, wrap_with_stark_exception
+ 
+-
++# LAMBDA MODIFIED
+ def get_os_segment_ptr_range(
+     runner: CairoFunctionRunner, ptr_offset: int, os_context: List[MaybeRelocatable]
+ ) -> Tuple[MaybeRelocatable, MaybeRelocatable]:
+@@ -21,10 +21,23 @@ def get_os_segment_ptr_range(
      ), f"Illegal OS ptr offset; must be one of: {allowed_offsets}."
  
      # The returned values are os_context, retdata_size, retdata_ptr.
 -    os_context_end = runner.vm.run_context.ap - 2
-+    os_context_end = runner.get_ap() - 2
++    # CAIRO-RS VERSION
++    try:
++        os_context_end = runner.get_ap() - 2
++    except:
++    # ORIGINAL VERSION
++        os_context_end = runner.vm.run_context.ap - 2
++
      final_os_context_ptr = os_context_end - len(os_context)
  
 -    return os_context[ptr_offset], runner.vm_memory[final_os_context_ptr + ptr_offset]
-+    return os_context[ptr_offset], runner.get(final_os_context_ptr + ptr_offset)
++    # CAIRO-RS VERSION
++    try:
++        return os_context[ptr_offset], runner.get(final_os_context_ptr + ptr_offset)
++    # ORIGINAL VERSION
++    except:
++        return os_context[ptr_offset], runner.vm_memory[final_os_context_ptr + ptr_offset]
++
++
  
  
  def get_os_segment_stop_ptr(
-@@ -61,14 +61,13 @@ def validate_segment_pointers(
+@@ -61,14 +74,19 @@ def validate_segment_pointers(
      segment_base_ptr: MaybeRelocatable,
      segment_stop_ptr: MaybeRelocatable,
  ):
@@ -395,15 +453,22 @@ index 1d09414..c803082 100644
          segment_base_ptr.offset == 0
      ), f"Segment base pointer must be zero; got {segment_base_ptr.offset}."
  
-     expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
+-    expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
 -        segment_index=segment_base_ptr.segment_index
 -    )
-+        index=segment_base_ptr.segment_index)
++    # CAIRO-RS VERSION
++    try: 
++        expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
++            index=segment_base_ptr.segment_index)
++   # ORIGINAL VERSION 
++    except:
++        expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
++            segment_index=segment_base_ptr.segment_index)
  
      stark_assert(
          expected_stop_ptr == segment_stop_ptr,
 diff --git a/src/starkware/starknet/core/os/syscall_utils.py b/src/starkware/starknet/core/os/syscall_utils.py
-index e44635b..60e69ae 100644
+index e44635b..c129e50 100644
 --- a/src/starkware/starknet/core/os/syscall_utils.py
 +++ b/src/starkware/starknet/core/os/syscall_utils.py
 @@ -458,7 +458,6 @@ class SysCallHandlerBase(ABC):
@@ -414,24 +479,25 @@ index e44635b..60e69ae 100644
          syscall_name can be "call_contract", "delegate_call", "delegate_l1_handler", "library_call"
          or "library_call_l1_handler".
          """
-@@ -589,8 +588,15 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+@@ -589,7 +588,16 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
      def _allocate_segment(
          self, segments: MemorySegmentManager, data: Iterable[MaybeRelocatable]
      ) -> RelocatableValue:
 -        segment_start = segments.add()
 +        # FIXME: Here "segments" in really a Runner under the hood.
 +        # May want to change the variable names.
++
++        # CAIRO-RS VERSION
 +        try: 
 +            segment_start = segments.add_segment()
++        # ORIGINAL VERSION
 +        except:
 +            segment_start = segments.add()
-+        print("SEGMENT START: ", segment_start)
++
          segment_end = segments.write_arg(ptr=segment_start, arg=data)
-+        print("SEGMENT end: ", segment_end)
          self.read_only_segments.append((segment_start, segment_end - segment_start))
          return segment_start
- 
-@@ -631,10 +637,10 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+@@ -631,10 +639,10 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
          args_struct_def: StructDefinition = syscall_info.syscall_request_struct.struct_definition_
          for arg, (arg_name, arg_def) in safe_zip(request, args_struct_def.members.items()):
              expected_type = get_runtime_type(arg_def.cairo_type)
@@ -446,21 +512,30 @@ index e44635b..60e69ae 100644
  
          return request
  
-@@ -902,10 +908,11 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+@@ -902,10 +910,20 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
          Validates that there were no out of bounds writes to read-only segments and marks
          them as accessed.
          """
 -        segments = runner.segments
-+        # segments = runner.segments
-+        segments = runner
++        # ORIGINAL VERSION
++        try: 
++            segments = runner.segments
++        # CAIRO-RS VERSION
++        except:
++            segments = runner
  
          for segment_ptr, segment_size in self.read_only_segments:
 -            used_size = segments.get_segment_used_size(segment_index=segment_ptr.segment_index)
-+            used_size = segments.get_segment_used_size(index=segment_ptr.segment_index)
++            # CAIRO-RS VERSION
++            try:
++                used_size = segments.get_segment_used_size(index=segment_ptr.segment_index)
++            # ORIGINAL VERSION
++            except: 
++                used_size = segments.get_segment_used_size(segment_index=segment_ptr.segment_index)
              stark_assert(
                  used_size == segment_size,
                  code=StarknetErrorCode.SECURITY_ERROR,
-@@ -1041,7 +1048,6 @@ class OsSysCallHandler(SysCallHandlerBase):
+@@ -1041,7 +1059,6 @@ class OsSysCallHandler(SysCallHandlerBase):
      def start_tx(self, tx_info_ptr: RelocatableValue):
          """
          Called when starting the execution of a transaction.
@@ -468,7 +543,7 @@ index e44635b..60e69ae 100644
          'tx_info_ptr' is a pointer to the TxInfo struct corresponding to said transaction.
          """
          assert self.tx_info_ptr is None
-@@ -1089,4 +1095,4 @@ class OsSysCallHandler(SysCallHandlerBase):
+@@ -1089,4 +1106,4 @@ class OsSysCallHandler(SysCallHandlerBase):
          Called when skipping the execution of a transaction.
          It replaces a call to start_tx and end_tx.
          """
@@ -476,5 +551,5 @@ index e44635b..60e69ae 100644
 +        next(self.tx_execution_info_iterator)
 \ No newline at end of file
 -- 
-2.38.1
+2.37.1 (Apple Git-137.1)
 
