@@ -4,6 +4,7 @@ use crate::{
     vm_core::PyVM,
 };
 use cairo_rs::{
+    bigint,
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
@@ -19,6 +20,7 @@ use cairo_rs::{
         security::verify_secure_runner,
     },
 };
+use num_bigint::BigInt;
 use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError, PyValueError},
     prelude::*,
@@ -412,7 +414,7 @@ impl PyCairoRunner {
             stack
         };
 
-        let return_fp = (*self.pyvm.vm).borrow_mut().add_memory_segment();
+        let return_fp = MaybeRelocatable::from(bigint!(0));
 
         let end = self
             .inner
