@@ -98,60 +98,66 @@ impl PyVM {
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
             let globals = py
                 .import("__main__")
-                .map_err(to_vm_error)?
+                .map_err(|err| to_vm_error(err, py))?
                 .dict()
                 .copy()
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
 
-            add_scope_locals(globals, exec_scopes)?;
+            add_scope_locals(globals, exec_scopes, py)?;
 
             globals
                 .set_item("memory", pycell!(py, memory))
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("segments", pycell!(py, segments))
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("ap", pycell!(py, ap))
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("fp", pycell!(py, fp))
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("ids", pycell!(py, ids))
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("vm_enter_scope", enter_scope)
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("vm_exit_scope", exit_scope)
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("range_check_builtin", range_check_builtin)
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item("ecdsa_builtin", ecdsa_builtin)
-                .map_err(to_vm_error)?;
-            globals.set_item("PRIME", prime).map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
+            globals
+                .set_item("PRIME", prime)
+                .map_err(|err| to_vm_error(err, py))?;
             globals
                 .set_item(
                     "to_felt_or_relocatable",
                     pycell!(py, to_felt_or_relocatable),
                 )
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
 
             for (name, pyobj) in hint_locals.iter() {
-                globals.set_item(name, pyobj).map_err(to_vm_error)?;
+                globals
+                    .set_item(name, pyobj)
+                    .map_err(|err| to_vm_error(err, py))?;
             }
 
             if let Some(ref static_locals) = self.static_locals {
                 for (name, pyobj) in static_locals.iter() {
-                    globals.set_item(name, pyobj).map_err(to_vm_error)?;
+                    globals
+                        .set_item(name, pyobj)
+                        .map_err(|err| to_vm_error(err, py))?;
                 }
             }
 
             py.run(&hint_data.code, Some(globals), None)
-                .map_err(to_vm_error)?;
+                .map_err(|err| to_vm_error(err, py))?;
 
             update_scope_hint_locals(
                 exec_scopes,
@@ -244,10 +250,13 @@ impl PyVM {
 pub(crate) fn add_scope_locals(
     globals: &PyDict,
     exec_scopes: &ExecutionScopes,
+    py: Python,
 ) -> Result<(), VirtualMachineError> {
     for (name, elem) in exec_scopes.get_local_variables()? {
         if let Some(pyobj) = elem.downcast_ref::<PyObject>() {
-            globals.set_item(name, pyobj).map_err(to_vm_error)?;
+            globals
+                .set_item(name, pyobj)
+                .map_err(|err| to_vm_error(err, py))?;
         }
     }
     Ok(())

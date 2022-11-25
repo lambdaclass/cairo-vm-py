@@ -15,12 +15,13 @@ struct HintException {
 #[macro_export]
 macro_rules! pycell {
     ($py:expr, $val:expr) => {
-        PyCell::new($py, $val).map_err(to_vm_error)?
+        PyCell::new($py, $val).map_err(|err| to_vm_error(err, $py))?
     };
 }
 
-pub fn to_vm_error(pyerror: PyErr) -> VirtualMachineError {
-    VirtualMachineError::CustomHint(format!("{:?}", pyerror))
+pub fn to_vm_error(pyerror: PyErr, py: Python) -> VirtualMachineError {
+    let value = pyerror.value(py);
+    VirtualMachineError::CustomHint(format!("{:?}", value))
 }
 
 pub fn to_py_error<T: Display>(error: T) -> PyErr {
@@ -29,7 +30,14 @@ pub fn to_py_error<T: Display>(error: T) -> PyErr {
     //         VmException::new_err((0, None::<i32>, HintException { inner_exc: error.to_py(py)}, None::<i32>, None::<i32>, [error.to_string()]))
     //     }
     // }
-    VmException::new_err((0, None::<i32>, 1, None::<i32>, None::<i32>, ["Hola"]))
+    VmException::new_err((
+        0,
+        None::<i32>,
+        1,
+        None::<i32>,
+        None::<i32>,
+        [error.to_string()],
+    ))
 
     // PyValueError::new_err(format!("{}", error))
 }
