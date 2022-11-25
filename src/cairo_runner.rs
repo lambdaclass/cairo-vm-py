@@ -422,7 +422,7 @@ impl PyCairoRunner {
                 &mut (*self.pyvm.vm).borrow_mut(),
                 entrypoint,
                 stack,
-                return_fp.into(),
+                return_fp,
             )
             .map_err(to_py_error)?;
 
