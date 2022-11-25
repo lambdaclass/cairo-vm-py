@@ -461,7 +461,7 @@ memory[fp+2] = ids.CONST
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
             //Check ids.a now contains memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
