@@ -91,7 +91,7 @@ impl PySegmentManager {
             .map_err(to_py_error)
     }
 
-    pub fn add_temporary_segment(&mut self) -> PyResult<PyRelocatable> {
+    pub fn add_temp_segment(&mut self) -> PyResult<PyRelocatable> {
         Ok(PyRelocatable::from(
             self.vm.borrow_mut().add_temporary_segment(),
         ))
@@ -102,7 +102,7 @@ impl PySegmentManager {
 mod test {
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_rs::bigint;
+    use cairo_rs::{bigint, types::relocatable::Relocatable};
     use num_bigint::{BigInt, Sign};
     use pyo3::{Python, ToPyObject};
 
@@ -142,7 +142,7 @@ mod test {
 
             assert_eq!(
                 vm_ref
-                    .get_maybe((0, 0))
+                    .get_maybe(&Relocatable::from((0, 0)))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -151,7 +151,7 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe((0, 1))
+                    .get_maybe(&Relocatable::from((0, 1)))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
@@ -160,7 +160,7 @@ mod test {
             );
 
             let relocatable = vm_ref
-                .get_maybe((0, 2))
+                .get_maybe(&Relocatable::from((0, 2)))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -178,17 +178,17 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable + 1)
+                    .get_maybe(&(&relocatable + 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(4),
             );
-            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
             let relocatable = vm_ref
-                .get_maybe((0, 3))
+                .get_maybe(&Relocatable::from((0, 3)))
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
@@ -206,27 +206,30 @@ mod test {
             );
             assert_eq!(
                 vm_ref
-                    .get_maybe(&relocatable + 1)
+                    .get_maybe(&(&relocatable + 1))
                     .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &bigint!(6),
             );
-            assert!(vm_ref.get_maybe(&relocatable + 2).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
-            assert!(vm_ref.get_maybe((0, 4)).unwrap().is_none());
+            assert!(vm_ref
+                .get_maybe(&Relocatable::from((0, 4)))
+                .unwrap()
+                .is_none());
         });
     }
 
     #[test]
-    fn add_temporary_segment_test() {
-        let vm = PyVM::new(
+    fn add_temp_segment_test() {
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
         let memory = PyMemory::new(&vm);
-        let mut segments = PySegmentManager::new(&vm, memory);
-        assert!(segments.add_temporary_segment().is_ok());
+        let mut segments = PySegmentManager::new(&mut vm, memory);
+        assert!(segments.add_temp_segment().is_ok());
     }
 }

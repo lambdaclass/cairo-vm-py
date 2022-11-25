@@ -32,9 +32,9 @@ if __name__ == "__main__":
     test_program("memcpy")
     test_program("memset")
     test_program("dict_new")
-    test_program("dict_read")
+    # test_program("dict_read") # Waiting on starkware PR
     # test_program("dict_write") # ValueError: Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
-    test_program("dict_update")
+    # test_program("dict_update") # Waiting on starkware PR
     test_program("default_dict_new")
     # test_program("squash_dict") # ValueError: Custom Hint Error: ValueError: Failed to get ids value
     # test_program("dict_squash") # Custom Hint Error: AttributeError: 'PyTypeId' object has no attribute 'segment_index'
@@ -69,4 +69,7 @@ if __name__ == "__main__":
     test_program("blake2s_finalize")
     test_program("blake2s_felt")
     test_program("blake2s_integration_tests")
+    test_program("relocate_segments")
+    test_program("relocate_segments_with_offset")
+    test_program("ecdsa")
     print("\nAll test have passed")
