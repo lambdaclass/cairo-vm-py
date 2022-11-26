@@ -1,6 +1,7 @@
 **/target
 **/.DS_Store
-/Cargo.lock
 **/*.trace
 **/*.memory
 **/*.json
+scripts/cairo-lang
+scripts/cairo-rs-py
