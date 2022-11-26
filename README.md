@@ -6,7 +6,7 @@ cairo-rs-py adds Python bindings to the [cairo-rs](https://github.com/lambdaclas
 ## Dependencies
 - Rust
 - Cargo
-- PyEnv
+- pyenv
 - make
 
 ## Using cairo-rs-py
