@@ -4,9 +4,8 @@
 cairo-rs-py adds Python bindings to the [cairo-rs](https://github.com/lambdaclass/cairo-rs) Cairo VM.
 
 ## Dependencies
-- Rust
-- Cargo
-- pyenv
+- Rust and Cargo
+- pyenv and python 3.9.15
 - make
 
 ## Using cairo-rs-py
