@@ -104,6 +104,15 @@ impl PyCairoRunner {
         }
         self.run_until_pc(&end)?;
 
+        self.inner
+            .end_run(
+                false,
+                false,
+                &mut (*self.pyvm.vm).borrow_mut(),
+                &self.hint_processor,
+            )
+            .map_err(to_py_error)?;
+
         (*self.pyvm.vm)
             .borrow_mut()
             .verify_auto_deductions()
