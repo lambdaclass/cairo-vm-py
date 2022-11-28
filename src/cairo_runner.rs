@@ -631,7 +631,6 @@ mod test {
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use cairo_rs::bigint;
     use num_bigint::BigInt;
-    use pyo3::PyIterProtocol;
     use std::fs;
 
     #[test]
@@ -1620,22 +1619,13 @@ mod test {
         Where Type can be either TypeFelt, TypePointer or TypeStruct
         */
 
-        // We first create the iterable pyclass (A), implementing PyIterProtocol
+        // We first create the iterable pyclass (A)
         #[pyclass(unsendable)]
         struct MyIterator {
             iter: Box<dyn Iterator<Item = PyObject>>,
         }
 
-        #[pyproto]
-        impl PyIterProtocol for MyIterator {
-            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-                slf
-            }
-            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
-                slf.iter.next()
-            }
-        }
-
+        // This pyclass implements the iterator dunder methods __iter__ and __next__
         // We then implement a __getattr__ that will allow us to call Object.__annotations__ (B)
         // This method returns a second object, so that we can then implement the values() method
 
@@ -1646,6 +1636,12 @@ mod test {
                 Ok(Annotations {
                     0: vec![TypeFelt, TypeFelt],
                 })
+            }
+            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+                slf
+            }
+            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
+                slf.iter.next()
             }
         }
         #[pyclass(unsendable)]
@@ -1706,15 +1702,6 @@ mod test {
             iter: Box<dyn Iterator<Item = PyObject>>,
         }
 
-        #[pyproto]
-        impl PyIterProtocol for MyIterator {
-            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-                slf
-            }
-            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
-                slf.iter.next()
-            }
-        }
         #[pymethods]
         // This method is implemented exclusively to support arg.__annotations__
         impl MyIterator {
@@ -1722,6 +1709,12 @@ mod test {
                 Ok(Annotations {
                     0: vec![TypePointer, TypePointer],
                 })
+            }
+            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+                slf
+            }
+            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
+                slf.iter.next()
             }
         }
         #[pyclass(unsendable)]
