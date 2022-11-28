@@ -84,14 +84,6 @@ impl PyIds {
             .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
 
         if let Some(cairo_type) = hint_ref.cairo_type.as_deref() {
-            let chars = cairo_type.chars().rev();
-            let clear_ref = chars
-                .skip_while(|c| c == &'*')
-                .collect::<String>()
-                .chars()
-                .rev()
-                .collect::<String>();
-
             if self.struct_types.contains_key(cairo_type) {
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
@@ -104,7 +96,10 @@ impl PyIds {
                     struct_types: Rc::clone(&self.struct_types),
                 }
                 .into_py(py));
-            } else if self.struct_types.contains_key(&clear_ref) {
+            } else if self
+                .struct_types
+                .contains_key(cairo_type.trim_end_matches('*'))
+            {
                 let addr =
                     compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
 
@@ -118,7 +113,7 @@ impl PyIds {
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
                     hint_value,
-                    cairo_type: cairo_type.to_string(),
+                    cairo_type: cairo_type.trim_end_matches('*').to_string(),
                     struct_types: Rc::clone(&self.struct_types),
                 }
                 .into_py(py));
@@ -171,9 +166,9 @@ struct CairoStruct {
 }
 
 #[pyclass(unsendable)]
-struct PyTypedId {
+pub(crate) struct PyTypedId {
     vm: Rc<RefCell<VirtualMachine>>,
-    hint_value: Relocatable,
+    pub hint_value: Relocatable,
     cairo_type: String,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
