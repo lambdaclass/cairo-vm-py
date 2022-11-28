@@ -629,7 +629,7 @@ impl PyExecutionResources {
 mod test {
     use super::*;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
-    use cairo_rs::bigint;
+    use cairo_rs::{bigint, vm::errors::vm_errors::VirtualMachineError};
     use num_bigint::BigInt;
     use std::fs;
 
@@ -1761,5 +1761,25 @@ mod test {
                 ]
             );
         })
+    }
+
+    #[test]
+    fn mark_as_accessed_run_not_finished() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            format!(
+                "{:?}",
+                runner.mark_as_accessed((0, 0).into(), 3).unwrap_err()
+            ),
+            format!("{:?}", to_py_error(VirtualMachineError::RunNotFinished)),
+        );
     }
 }
