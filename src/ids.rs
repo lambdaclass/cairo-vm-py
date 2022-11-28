@@ -528,7 +528,6 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
 
             let py_result = py.run(code, Some(globals), None);
 
-            //Err(CustomHint("AttributeError: 'PyTypeId' object has no attribute 'y'"))
             assert!(py_result.map_err(to_vm_error).is_err());
         });
     }
@@ -902,7 +901,6 @@ ids.struct.ptr = ids.fp
 
             let py_result = py.run(code, Some(globals), None);
 
-            //Err(CustomHint("AttributeError: 'PyTypeId' object has no attribute 'y'"))
             assert!(py_result.map_err(to_vm_error).is_err());
         });
     }
