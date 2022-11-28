@@ -166,7 +166,7 @@ struct CairoStruct {
 }
 
 #[pyclass(unsendable)]
-pub struct PyTypedId {
+pub(crate) struct PyTypedId {
     vm: Rc<RefCell<VirtualMachine>>,
     pub hint_value: Relocatable,
     cairo_type: String,
