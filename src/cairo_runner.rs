@@ -68,7 +68,7 @@ impl PyCairoRunner {
 
         Ok(PyCairoRunner {
             inner: cairo_runner,
-            pyvm: PyVM::new(program.prime, true),
+            pyvm: PyVM::new(program.prime, true, program.error_message_attributes),
             hint_processor: BuiltinHintProcessor::new_empty(),
             hint_locals: HashMap::new(),
             struct_types: Rc::new(struct_types),
