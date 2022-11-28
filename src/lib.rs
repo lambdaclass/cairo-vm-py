@@ -17,6 +17,5 @@ use pyo3::prelude::*;
 #[pymodule]
 fn cairo_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCairoRunner>()?;
-    // m.add_function(wrap_pyfunction!(test_exception, m)?)?;
     Ok(())
 }
