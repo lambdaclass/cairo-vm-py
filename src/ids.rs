@@ -343,7 +343,7 @@ mod tests {
     use super::*;
 
     fn create_simple_struct_type() -> (String, HashMap<String, Member>) {
-        //Return new type for SimpleStruct { x: felt, y: felt }
+        //Return new type for SimpleStruct { x: felt, ptr: felt* }
         (
             String::from("SimpleStruct"),
             HashMap::from([
