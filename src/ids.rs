@@ -371,6 +371,7 @@ mod tests {
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -439,6 +440,7 @@ memory[fp+2] = ids.CONST
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -531,6 +533,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -642,6 +645,7 @@ memory[fp + 1] = ids.ns.struct.address_
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..3 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -708,6 +712,7 @@ assert ids.ssp.x == 5
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -748,6 +753,7 @@ assert ids.ssp.x == 5
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -818,6 +824,7 @@ assert ids.ssp.x == 5
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -897,6 +904,7 @@ ids.struct.ptr = ids.struct.address_
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..3 {
                 vm.vm.borrow_mut().add_memory_segment();

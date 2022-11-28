@@ -305,6 +305,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -325,6 +326,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -345,6 +347,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
@@ -384,6 +387,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
 
         let constants = HashMap::from([(String::from("CONST"), bigint!(1))]);
@@ -424,6 +428,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
 
         for _ in 0..2 {
@@ -467,6 +472,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
 
         for _ in 0..2 {
@@ -516,6 +522,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
@@ -554,6 +561,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
@@ -615,6 +623,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let code = "word = word[::-1]
 print(word)";
@@ -646,6 +655,7 @@ print(word)";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_exit_scope()";
@@ -669,6 +679,7 @@ print(word)";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()";
@@ -691,6 +702,7 @@ print(word)";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()
@@ -714,6 +726,7 @@ vm_exit_scope()";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code_a = "vm_enter_scope()";
@@ -749,6 +762,7 @@ vm_exit_scope()";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()
@@ -773,6 +787,7 @@ vm_enter_scope()";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "lista_a = [1,2,3]
@@ -795,6 +810,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code_a = "vm_enter_scope({'n': 12})";
@@ -830,6 +846,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "assert(ap.segment_index == 1)";
@@ -851,6 +868,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "felt = to_felt_or_relocatable(456)";
@@ -884,6 +902,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "felt = to_felt_or_relocatable([1,2,3])";
@@ -904,6 +923,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "ids.test_value = to_felt_or_relocatable(ids.relocatable)";
@@ -945,6 +965,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let pyvm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let mut exec_scopes = ExecutionScopes::new();
         let code = "assert(memory.get_range(ids.address, 3) == [1,2,7])";
@@ -993,6 +1014,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let pyvm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let code = "assert(segments.memory.get_range(ids.address, 2) == [9,12])";
 
@@ -1035,6 +1057,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         vm.static_locals = Some(HashMap::from([(
             "__number_max".to_string(),
@@ -1070,6 +1093,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         vm.static_locals = Some(HashMap::from([(
             "__number_max".to_string(),
@@ -1104,6 +1128,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         vm.static_locals = Some(HashMap::from([(
             "__number_max".to_string(),
