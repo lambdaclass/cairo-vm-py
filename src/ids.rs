@@ -506,7 +506,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
             //Check ids.a.x is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -621,7 +621,7 @@ memory[fp + 1] = ids.ns.struct.address_
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
 
             //Check ids.Struct.SIZE is now at memory[fp]
             assert_eq!(
@@ -698,7 +698,7 @@ assert ids.ssp.x == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
         });
     }
 
@@ -738,7 +738,7 @@ assert ids.ssp.x == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result.map_err(to_vm_error).is_err());
+            assert!(py_result.map_err(|err| to_vm_error(err, py)).is_err());
         });
     }
 
@@ -806,8 +806,8 @@ assert ids.ssp.x == 5
             let py_result = py.run(code, Some(globals), None);
 
             assert_eq!(
-                py_result.map_err(to_vm_error),
-                Err(to_vm_error(to_py_error(IDS_SET_ERROR_MSG))),
+                py_result.map_err(|err| to_vm_error(err, py)),
+                Err(to_vm_error(to_py_error(IDS_SET_ERROR_MSG), py)),
             );
         });
     }
@@ -869,7 +869,7 @@ ids.struct.ptr = ids.struct.address_
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
             //Check ids.struct.x now contains 5
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -887,7 +887,7 @@ ids.struct.ptr = ids.struct.address_
             let py_result = py.run(code, Some(globals), None);
 
             //Err(CustomHint("AttributeError: 'PyTypeId' object has no attribute 'y'"))
-            assert!(py_result.map_err(to_vm_error).is_err());
+            assert!(py_result.map_err(|err| to_vm_error(err, py)).is_err());
         });
     }
 
@@ -945,7 +945,7 @@ memory[fp] = ids.a
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
