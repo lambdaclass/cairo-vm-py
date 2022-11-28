@@ -1873,4 +1873,18 @@ mod test {
             assert_eq!(get_value(&segment, 4), None);
         });
     }
+
+    #[test]
+    fn mark_as_accessed_run_not_finished() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        assert!(runner.mark_as_accessed((0, 0).into(), 3).is_err());
+    }
 }
