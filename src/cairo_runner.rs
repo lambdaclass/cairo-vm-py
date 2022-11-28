@@ -1764,6 +1764,54 @@ mod test {
     }
 
     #[test]
+    fn cairo_run_with_trace_file() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let trace_path = "cairo_programs/_temp_fibonacci.trace";
+
+        runner
+            .cairo_run_py(false, Some(trace_path), None, None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        // We simply check if file exists
+        assert!(fs::canonicalize(trace_path).is_ok());
+
+        _ = fs::remove_file(trace_path);
+    }
+
+    #[test]
+    fn cairo_run_with_memory_file() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let memory_path = "cairo_programs/_temp_fibonacci.memory";
+
+        runner
+            .cairo_run_py(false, None, Some(memory_path), None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        // We simply check if file exists
+        assert!(fs::canonicalize(memory_path).is_ok());
+
+        _ = fs::remove_file(memory_path);
+    }
+
+    #[test]
     fn mark_as_accessed_run_not_finished() {
         let path = String::from("cairo_programs/fibonacci.json");
         let program = fs::read_to_string(path).unwrap();
