@@ -1,6 +1,6 @@
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use num_bigint::BigInt;
-use pyo3::{exceptions::PyValueError, PyErr, Python};
+use pyo3::{PyErr, Python};
 use std::{collections::HashMap, fmt::Display};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
