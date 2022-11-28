@@ -9,7 +9,7 @@ use crate::{
 };
 use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::serde::deserialize_program::Member;
+use cairo_rs::serde::deserialize_program::{Attribute, Member};
 use cairo_rs::types::exec_scope::ExecutionScopes;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use cairo_rs::{
@@ -18,7 +18,7 @@ use cairo_rs::{
 };
 use num_bigint::BigInt;
 use pyo3::PyCell;
-use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
+use pyo3::{pyclass, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
 use std::any::Any;
 use std::collections::HashMap;
@@ -51,18 +51,22 @@ pub struct PyVM {
     pub(crate) static_locals: Option<HashMap<String, PyObject>>,
 }
 
-#[pymethods]
 impl PyVM {
-    #[new]
-    pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
+    pub fn new(
+        prime: BigInt,
+        trace_enabled: bool,
+        error_message_attributes: Vec<Attribute>,
+    ) -> PyVM {
         PyVM {
-            vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
+            vm: Rc::new(RefCell::new(VirtualMachine::new(
+                prime,
+                trace_enabled,
+                error_message_attributes,
+            ))),
             static_locals: None,
         }
     }
-}
 
-impl PyVM {
     pub(crate) fn get_vm(&self) -> Rc<RefCell<VirtualMachine>> {
         Rc::clone(&self.vm)
     }
