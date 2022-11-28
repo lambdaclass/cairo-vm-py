@@ -18,6 +18,9 @@ pub fn to_vm_error(pyerror: PyErr, py: Python) -> VirtualMachineError {
 }
 
 pub fn to_py_error<T: Display>(error: T) -> PyErr {
+    // these are some dummy values, the only important one is
+    // the `[error.to_string()]` one that lets the error message
+    // from a hint to be printed (needed for some tests to pass)
     VmException::new_err((
         None::<i32>,
         None::<i32>,
