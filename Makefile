@@ -1,4 +1,4 @@
-.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test full-test run-comparer-tracer compare_trace_memory compare_trace compare_memory
+.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test full-test run-comparer-tracer compare_trace_memory compare_trace compare_memory compare_memory_devnet
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
