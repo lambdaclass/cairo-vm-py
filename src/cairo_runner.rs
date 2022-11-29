@@ -1511,6 +1511,21 @@ mod test {
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
     }
 
+    #[test]
+    fn set_bad_entrypoint_on_new() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        eprintln!("set");
+        let program = fs::read_to_string(path).unwrap();
+        let result = PyCairoRunner::new(
+            program,
+            Some(" non-existent entrypoint".to_string()),
+            Some("small".to_string()),
+            false,
+        );
+
+        assert!(result.is_err());
+    }
+
     /// Test that `PyCairoRunner::get()` works as intended.
     #[test]
     fn get() {
