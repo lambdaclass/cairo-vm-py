@@ -11,7 +11,7 @@ def test_program_error(program_name: str, error_msg: str):
          new_runner(program_name).cairo_run(False)
          print(f"Failure {program_name} ran without errors")
          sys.exit(1)  
-    except ValueError as err:
+    except Exception as err:
         assert str(err).__contains__(error_msg), True
         print(f"{program_name} OK")
 
