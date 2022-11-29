@@ -1,7 +1,6 @@
 #!/bin/sh
 
 set -e
-set -o pipefail
 
 # This is not reaaaaally a robust way to find it, but you need to be actively
 # trying to break it for this to fail :)
