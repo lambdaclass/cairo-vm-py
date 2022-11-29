@@ -75,6 +75,8 @@ clean:
 	rm -f $(TEST_DIR)/*.memory
 	rm -f $(TEST_DIR)/*.trace
 	rm -rf cairo-rs-py-env
+	rm -rf starknet-devnet
+	rm -rf scripts/memory_comparator/cairo*
 
 run-python-test: $(COMPILED_TESTS)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
