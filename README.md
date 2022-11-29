@@ -9,6 +9,27 @@ cairo-rs-py adds Python bindings to the [cairo-rs](https://github.com/lambdaclas
 - GMP
 - make
 
+## Using cairo-rs-py
+To setup the Python environment, and install necessary Python libraries, run `make deps`.
+
+Finally, install into the python environment with `maturin develop --release`.
+
+After that, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
+
+```python
+import cairo_rs_py
+
+with open(f"cairo_programs/array_sum.json") as file:
+    runner = cairo_rs_py.CairoRunner(file.read(), "main", "all", False)
+    runner.cairo_run(True)
+```
+
+## Testing
+To run the test suite:
+```bash
+make full-test
+```
+
 ## Quick and dirty script to try out `cairo-rs-py`
 
 The `build_envs.sh` script will build two Python virtual environments:
@@ -47,23 +68,3 @@ To actually use both implementations you would have to activate the environment 
 source activate cairo-rs-py/bin/activate
 ```
 
-## Using cairo-rs-py
-To setup the Python environment, and install necessary Python libraries, run `make deps`.
-
-Finally, install into the python environment with `maturin develop --release`.
-
-After that, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
-
-```python
-import cairo_rs_py
-
-with open(f"cairo_programs/array_sum.json") as file:
-    runner = cairo_rs_py.CairoRunner(file.read(), "main", "all", False)
-    runner.cairo_run(True)
-```
-
-## Testing
-To run the test suite:
-```bash
-make full-test
-```
