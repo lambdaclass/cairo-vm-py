@@ -138,7 +138,7 @@ mod test {
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
         });
     }
 
@@ -209,7 +209,7 @@ assert memory[ap] == fp
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
         });
     }
 
@@ -305,10 +305,10 @@ assert memory[ap] == fp
 
             let range = memory
                 .get_range(maybe_relocatable.into(), size, py)
-                .map_err(to_vm_error);
+                .map_err(|err| to_vm_error(err, py));
 
             let expected_error = VirtualMachineError::CustomHint(String::from(
-                "TypeError: Failed to call get_range method from Cairo memory",
+                "TypeError('Failed to call get_range method from Cairo memory')",
             ));
             assert!(range.is_err());
             assert_eq!(range.unwrap_err(), expected_error);
