@@ -78,14 +78,14 @@ clean:
 
 run-python-test: $(COMPILED_TESTS)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	maturin develop && \
+	maturin develop --release && \
 	python3 hints_tests.py && \
 	python3 get_builtins_initial_stack.py && \
 	deactivate
 
 run-comparer-tracer: 
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	maturin develop && \
+	maturin develop --release && \
 	make compare_trace_memory && \
 	deactivate
 
