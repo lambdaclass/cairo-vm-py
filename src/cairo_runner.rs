@@ -1863,4 +1863,27 @@ mod test {
             assert_eq!(result, Ok(&expected) as Result<&BigInt, &PyRelocatable>);
         });
     }
+
+    #[test]
+    fn get_return_values_out_of_bounds() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        Python::with_gil(|py| {
+            let oob_error = runner.get_return_values(100, py);
+
+            assert!(oob_error.is_err());
+        });
+    }
 }
