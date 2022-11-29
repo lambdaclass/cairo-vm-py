@@ -125,9 +125,4 @@ compare_memory_devnet:
 	patch --directory scripts/memory_comparator/cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-rs-py.patch
 	patch --directory scripts/memory_comparator/cairo-lang/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-lang.patch
 # Run each test one by one in each env and run the memory comparator
-# Notes:
-# Steps:
-# 1- Run test in both envs
-# 2- Run memory comparator
-# 3- Cleanup memory files
-# Repeat for each non-failing test
+	./scripts/memory_comparator/run_tests_compare_memory.sh
