@@ -5,7 +5,7 @@ use crate::{
 };
 use cairo_rs::{
     bigint,
-    cairo_run::write_output,
+    cairo_run::{write_binary_memory, write_output},
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
     types::{
@@ -26,7 +26,14 @@ use pyo3::{
     prelude::*,
     types::PyIterator,
 };
-use std::{any::Any, borrow::BorrowMut, collections::HashMap, iter::zip, path::PathBuf, rc::Rc};
+use std::{
+    any::Any,
+    borrow::BorrowMut,
+    collections::HashMap,
+    iter::zip,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
@@ -208,6 +215,10 @@ impl PyCairoRunner {
 
     pub fn write_output(&mut self) -> PyResult<()> {
         write_output(&mut self.inner, &mut (*self.pyvm.vm).borrow_mut()).map_err(to_py_error)
+    }
+
+    pub fn write_binary_memory(&mut self, name: String) -> PyResult<()> {
+        write_binary_memory(&self.inner.relocated_memory, &Path::new(&name)).map_err(to_py_error)
     }
 
     pub fn add_segment(&self) -> PyRelocatable {
