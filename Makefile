@@ -115,6 +115,10 @@ compare_memory_devnet:
 	pip install starknet-devnet && \
 	cd starknet-devnet; scripts/install_dev_tools.sh
 # Create the folder where we will store the memory outputs
+	mkdir starknet-devnet/memory_files
+# Compile test files
+	. scripts/memory_comparator/cairo-lang/bin/activate && \
+	cd starknet-devnet; scripts/compile_contracts.sh
 # Run each test one by one in each env and run the memory comparator
 # Notes:
 # Steps:
