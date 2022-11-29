@@ -218,7 +218,7 @@ impl PyCairoRunner {
     }
 
     pub fn write_binary_memory(&mut self, name: String) -> PyResult<()> {
-        write_binary_memory(&self.inner.relocated_memory, &Path::new(&name)).map_err(to_py_error)
+        write_binary_memory(&self.inner.relocated_memory, Path::new(&name)).map_err(to_py_error)
     }
 
     pub fn add_segment(&self) -> PyRelocatable {
