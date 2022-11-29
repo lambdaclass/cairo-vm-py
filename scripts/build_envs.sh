@@ -3,7 +3,34 @@
 set -e
 set -o pipefail
 
-# This is not reaaaaally a robust way to find it, but you need to be actively
+OS="$(uname)"
+
+#install dependencies 
+
+if [ ${OS} == "Darwin" ] ; then 
+    brew install gmp
+    export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib
+elif [ ${OS} == "Linux" ] ; then 
+    # Ubuntu/Debian
+    sudo apt install -y libgmp3-dev
+    if [ $? == 0 ]; then 
+        echo OK
+    fi
+    # Fedora 
+    sudo dnf -y install gmp
+    if [ $? == 0 ]; then 
+        echo OK
+    fi
+    # CentOS
+    yum install gmp-devel
+    if [ $? == 0 ]; then 
+        echo OK
+    fi
+else 
+    echo 'The gmp depency is required in order to build the repository, please check out you have it on your system'
+fi 
+
+#This is not reaaaaally a robust way to find it, but you need to be actively
 # trying to break it for this to fail :)
 SCRIPT_DIR=$(dirname $0)
 
