@@ -100,4 +100,16 @@ compare_trace: $(CAIRO_RS_TRACE) $(CAIRO_TRACE)
 compare_memory: $(CAIRO_RS_MEM) $(CAIRO_MEM)
 	cd tests; ./compare_vm_state.sh memory
 	
-	
+compare_memory_devnet:
+# Set up the virtual envs with the patched starknet files 
+	scripts/memory_comparator/build_envs.sh
+# Clone the starknet-devnet from github
+# Set up the starknet-devnet in each env
+# Create the folder where we will store the memory outputs
+# Run each test one by one in each env and run the memory comparator
+# Notes:
+# Steps:
+# 1- Run test in both envs
+# 2- Run memory comparator
+# 3- Cleanup memory files
+# Repeat for each non-failing test
