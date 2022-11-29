@@ -1830,4 +1830,37 @@ mod test {
             format!("{:?}", to_py_error(VirtualMachineError::RunNotFinished)),
         );
     }
+
+    #[test]
+    fn get_return_values_ok() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        Python::with_gil(|py| {
+            let addresses = runner
+                .get_return_values(1, py)
+                .unwrap()
+                .extract::<Vec<PyMaybeRelocatable>>(py)
+                .unwrap();
+            assert_eq!(addresses.len(), 1);
+
+            let result = match &addresses[0] {
+                PyMaybeRelocatable::Int(value) => Ok(value),
+                PyMaybeRelocatable::RelocatableValue(r) => Err(r),
+            };
+            let expected = bigint!(144);
+            assert_eq!(result, Ok(&expected) as Result<&BigInt, &PyRelocatable>);
+        });
+    }
 }
