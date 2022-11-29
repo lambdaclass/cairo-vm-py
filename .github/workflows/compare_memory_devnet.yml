@@ -8,23 +8,22 @@ on:
 
 env:
     CARGO_TERM_COLOR: always
-  
-  jobs:
-    compare_memory_devnet:
-      runs-on: ubuntu-20.04
-      steps:
-      - name: Install Rust 1.61.0
-        uses: actions-rs/toolchain@v1
-        with:
-            toolchain: 1.61.0
-            override: true
-            components: rustfmt, clippy
-      - uses: actions/checkout@v3
-      - name: Setup Pyenv
-        uses: "gabrielfalcao/pyenv-action@v9"
-        with:
-          default: 3.9
-      - name: Install test dependencies
-        run: make deps-default-version
-      - name: Run devnet tests & compare memory outputs
-        run: make compare_memory_devnet
+jobs:
+  compare_memory_devnet:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install Rust 1.61.0
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: 1.61.0
+          override: true
+          components: rustfmt, clippy
+    - uses: actions/checkout@v3
+    - name: Setup Pyenv
+      uses: "gabrielfalcao/pyenv-action@v9"
+      with:
+        default: 3.9
+    - name: Install test dependencies
+      run: make deps-default-version
+    - name: Run devnet tests & compare memory outputs
+      run: make compare_memory_devnet
