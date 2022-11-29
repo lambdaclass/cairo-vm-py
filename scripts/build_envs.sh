@@ -27,7 +27,7 @@ elif [ ${OS} == "Linux" ] ; then
         echo OK
     fi
 else 
-    echo 'The gmp depency is required in order to build the repository, please check out you have it on your system'
+    echo 'The gmp depency is required in order to build the repository, please check out if you have it on your system'
 fi 
 
 #This is not reaaaaally a robust way to find it, but you need to be actively
