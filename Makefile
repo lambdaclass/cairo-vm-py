@@ -103,7 +103,7 @@ compare_memory: $(CAIRO_RS_MEM) $(CAIRO_MEM)
 	cd tests; ./compare_vm_state.sh memory
 	
 compare_memory_devnet:
-# Set up the virtual envs with the patched starknet files 
+# Set up the virtual envs
 	scripts/memory_comparator/build_envs.sh
 # Clone the starknet-devnet from github
 	git clone git@github.com:Shard-Labs/starknet-devnet.git
@@ -121,6 +121,9 @@ compare_memory_devnet:
 # Compile test files
 	. scripts/memory_comparator/cairo-lang/bin/activate && \
 	cd starknet-devnet; scripts/compile_contracts.sh
+# Patch both envs
+	patch --directory scripts/memory_comparator/cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-rs-py.patch
+	patch --directory scripts/memory_comparator/cairo-lang/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-lang.patch
 # Run each test one by one in each env and run the memory comparator
 # Notes:
 # Steps:
