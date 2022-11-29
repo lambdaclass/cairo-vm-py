@@ -1,9 +1,9 @@
 from starkware.cairo.common.alloc import alloc
 
-func unsafe_keccak(data : felt*, length : felt) -> (low : felt, high : felt):
-    alloc_locals
-    local low
-    local high
+func unsafe_keccak(data: felt*, length: felt) -> (low: felt, high: felt) {
+    alloc_locals;
+    local low;
+    local high;
     %{
         from eth_hash.auto import keccak
 
@@ -25,27 +25,25 @@ func unsafe_keccak(data : felt*, length : felt) -> (low : felt, high : felt):
         ids.high = int.from_bytes(hashed[:16], 'big')
         ids.low = int.from_bytes(hashed[16:32], 'big')
     %}
-    return (low=low, high=high)
-end
+    return (low=low, high=high);
+}
 
-func main():
-    alloc_locals
+func main() {
+    alloc_locals;
 
-    let (data : felt*) = alloc()
+    let (data: felt*) = alloc();
 
-    assert data[0] = 500 
-    assert data[1] = 2
-    assert data[2] = 3
-    assert data[3] = 6
-    assert data[4] = 1
-    assert data[5] = 4444
+    assert data[0] = 500;
+    assert data[1] = 2;
+    assert data[2] = 3;
+    assert data[3] = 6;
+    assert data[4] = 1;
+    assert data[5] = 4444;
 
-    let (low : felt, high : felt) = unsafe_keccak(data, 6)
+    let (low: felt, high: felt) = unsafe_keccak(data, 6);
 
-    assert low = 182565855334575837944615807286777833262
-    assert high = 90044356407795786957420814893241941221
+    assert low = 182565855334575837944615807286777833262;
+    assert high = 90044356407795786957420814893241941221;
 
-    return ()
-end
-    
-
+    return ();
+}
