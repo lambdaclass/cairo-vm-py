@@ -1,6 +1,7 @@
 use crate::ecdsa::PySignature;
 use crate::ids::PyIds;
 use crate::pycell;
+use crate::run_context::PyRunContext;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::to_felt_or_relocatable::ToFeltOrRelocatableFunc;
 use crate::{
@@ -45,10 +46,10 @@ const GLOBAL_NAMES: [&str; 18] = [
     "__name__",
 ];
 
+#[derive(Clone)]
 #[pyclass(unsendable)]
 pub struct PyVM {
     pub(crate) vm: Rc<RefCell<VirtualMachine>>,
-    pub(crate) static_locals: Option<HashMap<String, PyObject>>,
 }
 
 #[pymethods]
@@ -57,8 +58,13 @@ impl PyVM {
     pub fn new(prime: BigInt, trace_enabled: bool) -> PyVM {
         PyVM {
             vm: Rc::new(RefCell::new(VirtualMachine::new(prime, trace_enabled))),
-            static_locals: None,
         }
+    }
+
+    #[getter]
+    fn run_context(&self) -> PyRunContext {
+        let vm = self.vm.borrow();
+        PyRunContext::new(vm.get_pc().clone(), vm.get_ap(), vm.get_fp())
     }
 }
 
@@ -74,6 +80,7 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopes,
         constants: &HashMap<String, BigInt>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+        static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), VirtualMachineError> {
         Python::with_gil(|py| -> Result<(), VirtualMachineError> {
             let memory = PyMemory::new(self);
@@ -148,7 +155,7 @@ impl PyVM {
                     .map_err(|err| to_vm_error(err, py))?;
             }
 
-            if let Some(ref static_locals) = self.static_locals {
+            if let Some(static_locals) = static_locals {
                 for (name, pyobj) in static_locals.iter() {
                     globals
                         .set_item(name, pyobj)
@@ -159,13 +166,7 @@ impl PyVM {
             py.run(&hint_data.code, Some(globals), None)
                 .map_err(|err| to_vm_error(err, py))?;
 
-            update_scope_hint_locals(
-                exec_scopes,
-                hint_locals,
-                self.static_locals.as_ref(),
-                globals,
-                py,
-            );
+            update_scope_hint_locals(exec_scopes, hint_locals, static_locals, globals, py);
 
             if self.vm.borrow_mut().get_signature_builtin().is_ok() {
                 ecdsa_builtin
@@ -179,6 +180,7 @@ impl PyVM {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn step_hint(
         &self,
         hint_executor: &dyn HintProcessor,
@@ -187,6 +189,7 @@ impl PyVM {
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
+        static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), VirtualMachineError> {
         let pc_offset = (*self.vm).borrow().get_pc().offset;
 
@@ -203,6 +206,7 @@ impl PyVM {
                         exec_scopes,
                         constants,
                         Rc::clone(&struct_types),
+                        static_locals,
                     )?;
                 }
             }
@@ -211,6 +215,7 @@ impl PyVM {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn step(
         &self,
         hint_executor: &dyn HintProcessor,
@@ -219,6 +224,7 @@ impl PyVM {
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
+        static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), VirtualMachineError> {
         self.step_hint(
             hint_executor,
@@ -227,6 +233,7 @@ impl PyVM {
             hint_data_dictionary,
             struct_types,
             constants,
+            static_locals,
         )?;
         self.vm.borrow_mut().step_instruction()
     }
@@ -320,6 +327,7 @@ mod test {
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -340,6 +348,7 @@ mod test {
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -374,6 +383,7 @@ mod test {
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -403,7 +413,8 @@ mod test {
                 &mut HashMap::new(),
                 &mut exec_scopes,
                 &constants,
-                Rc::new(HashMap::new())
+                Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -417,7 +428,8 @@ mod test {
                 &mut HashMap::new(),
                 &mut exec_scopes,
                 &constants,
-                Rc::new(HashMap::new())
+                Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -462,6 +474,7 @@ mod test {
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
                 &HashMap::new(),
+                None,
             ),
             Ok(())
         );
@@ -511,6 +524,7 @@ mod test {
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
                 &HashMap::new(),
+                None,
             ),
             Ok(())
         );
@@ -538,6 +552,7 @@ mod test {
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -549,6 +564,7 @@ mod test {
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -577,6 +593,7 @@ mod test {
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -588,6 +605,7 @@ mod test {
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -599,6 +617,7 @@ mod test {
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -610,6 +629,7 @@ mod test {
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -633,6 +653,7 @@ print(word)";
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -662,6 +683,7 @@ print(word)";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Err(VirtualMachineError::MainScopeError(
                 ExecScopeError::ExitMainScopeError
@@ -685,6 +707,7 @@ print(word)";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -708,6 +731,7 @@ vm_exit_scope()";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -731,6 +755,7 @@ vm_exit_scope()";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -743,6 +768,7 @@ vm_exit_scope()";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -767,6 +793,7 @@ vm_enter_scope()";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -790,6 +817,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -812,6 +840,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -823,6 +852,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -846,6 +876,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -867,6 +898,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -900,6 +932,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             )
             .is_err());
     }
@@ -931,6 +964,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         );
@@ -988,6 +1022,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         )
@@ -1030,6 +1065,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                None,
             ),
             Ok(())
         )
@@ -1041,10 +1077,10 @@ lista_b = [lista_a[k] for k in range(2)]";
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        vm.static_locals = Some(HashMap::from([(
+        let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
-        )]));
+        )]);
         let code = "number = __number_max";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         let mut exec_scopes = ExecutionScopes::new();
@@ -1055,6 +1091,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                Some(&static_locals),
             ),
             Ok(())
         );
@@ -1076,10 +1113,10 @@ lista_b = [lista_a[k] for k in range(2)]";
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        vm.static_locals = Some(HashMap::from([(
+        let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
-        )]));
+        )]);
         let code = "__number_max = 15";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         let mut exec_scopes = ExecutionScopes::new();
@@ -1090,12 +1127,12 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                Some(&static_locals),
             ),
             Ok(())
         );
         let number = Python::with_gil(|py| -> usize {
-            vm.static_locals
-                .unwrap()
+            static_locals
                 .get("__number_max")
                 .unwrap()
                 .extract::<usize>(py)
@@ -1110,10 +1147,10 @@ lista_b = [lista_a[k] for k in range(2)]";
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
         );
-        vm.static_locals = Some(HashMap::from([(
+        let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
-        )]));
+        )]);
         let code = "assert(__number_max == 90)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         let mut exec_scopes = ExecutionScopes::new();
@@ -1125,10 +1162,24 @@ lista_b = [lista_a[k] for k in range(2)]";
                 &mut exec_scopes,
                 &HashMap::new(),
                 Rc::new(HashMap::new()),
+                Some(&static_locals),
             ),
             Ok(())
         );
         assert!(exec_scopes.data[0].is_empty());
         assert!(hint_locals.is_empty())
+    }
+
+    #[test]
+    fn run_context() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        let run_context = vm.run_context();
+        assert_eq!(run_context.pc(), (0, 0).into());
+        assert_eq!(run_context.ap(), (1, 0).into());
+        assert_eq!(run_context.fp(), (1, 0).into());
     }
 }

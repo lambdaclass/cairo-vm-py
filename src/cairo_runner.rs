@@ -40,6 +40,7 @@ pub struct PyCairoRunner {
     hint_processor: BuiltinHintProcessor,
     hint_locals: HashMap<String, PyObject>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+    static_locals: Option<HashMap<String, PyObject>>,
 }
 
 #[pymethods]
@@ -75,6 +76,7 @@ impl PyCairoRunner {
             hint_processor: BuiltinHintProcessor::new_empty(),
             hint_locals: HashMap::new(),
             struct_types: Rc::new(struct_types),
+            static_locals: None,
         })
     }
 
@@ -100,7 +102,7 @@ impl PyCairoRunner {
             self.hint_locals = locals
         }
 
-        self.pyvm.static_locals = static_locals;
+        self.static_locals = static_locals;
 
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
@@ -183,6 +185,7 @@ impl PyCairoRunner {
                     &hint_data_dictionary,
                     Rc::clone(&self.struct_types),
                     &constants,
+                    self.static_locals.as_ref(),
                 )
                 .map_err(to_py_error)?;
         }
@@ -293,7 +296,8 @@ impl PyCairoRunner {
         Ok(PyRelocatable::from(self.pyvm.vm.borrow().get_ap()))
     }
 
-    pub fn get_initial_fp(&self) -> PyResult<PyRelocatable> {
+    #[getter]
+    pub fn initial_fp(&self) -> PyResult<PyRelocatable> {
         Ok(PyRelocatable::from(
             self.inner
                 .get_initial_fp()
@@ -355,7 +359,7 @@ impl PyCairoRunner {
             self.hint_locals = locals
         }
 
-        self.pyvm.static_locals = static_locals;
+        self.static_locals = static_locals;
         let apply_modulo_to_args = apply_modulo_to_args.unwrap_or(true);
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
@@ -598,6 +602,11 @@ impl PyCairoRunner {
     #[getter]
     pub fn memory(&self) -> PyMemory {
         PyMemory::new(&self.pyvm)
+    }
+
+    #[getter]
+    pub fn vm(&self) -> PyVM {
+        self.pyvm.clone()
     }
 
     #[getter]
@@ -1140,10 +1149,9 @@ mod test {
                     None,
                 )
                 .unwrap();
-            assert!(!runner.pyvm.static_locals.as_ref().unwrap().is_empty());
+            assert!(!runner.static_locals.as_ref().unwrap().is_empty());
             assert_eq!(
                 runner
-                    .pyvm
                     .static_locals
                     .as_ref()
                     .unwrap()
@@ -1243,7 +1251,7 @@ mod test {
             .unwrap();
         assert_eq! {
             PyRelocatable::from((1,2)),
-            runner.get_initial_fp().unwrap()
+            runner.initial_fp().unwrap()
         };
     }
 
@@ -1819,6 +1827,15 @@ mod test {
             assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
             assert_eq!(get_value(&segment, 4), None);
         });
+    }
+
+    #[test]
+    fn vm() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+
+        let vm = runner.vm();
+        assert_eq!(vm.vm.as_ptr(), runner.pyvm.vm.as_ptr());
     }
 
     #[test]
