@@ -236,4 +236,31 @@ mod test {
         let mut segments = PySegmentManager::new(&mut vm, memory);
         assert!(segments.add_temp_segment().is_ok());
     }
+
+    #[test]
+    fn get_segment_used_size() {
+        let mut vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+        );
+
+        let memory = PyMemory::new(&vm);
+        let mut segments = PySegmentManager::new(&vm, memory);
+
+        let segment = segments.add().expect("Unable to add a new segment.");
+        vm.vm.borrow_mut().load_data(
+            &Relocatable::from(&segment).into(),
+            vec![
+                bigint!(1).into(),
+                bigint!(2).into(),
+                bigint!(3).into(),
+                bigint!(4).into(),
+            ],
+        );
+        vm.vm.borrow_mut().compute_effective_sizes();
+        assert_eq!(
+            segments.get_segment_used_size(segment.segment_index as _),
+            Some(4),
+        );
+    }
 }
