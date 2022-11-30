@@ -36,7 +36,7 @@ const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
 pub struct PyCairoRunner {
     inner: CairoRunner,
     pyvm: PyVM,
-    hint_processor: BuiltinHintProcessor,
+    hint_processor: BuiltinHintProcessor<'static>,
     hint_locals: HashMap<String, PyObject>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
