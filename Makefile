@@ -25,16 +25,16 @@ $(BAD_TEST_DIR)/%.json: $(BAD_TEST_DIR)/%.cairo
 	cairo-compile $< --output $@
 deps:
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
-	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
+	pip install ecdsa fastecdsa sympy cairo-lang==0.10.2 maturin
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	pip install cairo_lang==0.9.1 && \
+	pip install cairo_lang==0.10.2 && \
 	deactivate
 
 deps-macos:
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
-	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
+	pip install ecdsa fastecdsa sympy cairo-lang==0.10.2 maturin
 	python3 -m venv cairo-rs-py-env
 	pyenv install pypy3.7-7.3.9
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
@@ -43,7 +43,7 @@ deps-macos:
 	deactivate
 
 deps-default-version:
-	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
+	pip install ecdsa fastecdsa sympy cairo-lang==0.10.2 maturin
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
 	pip install cairo_lang==0.9.1 && \
@@ -83,7 +83,7 @@ run-python-test: $(COMPILED_TESTS)
 	python3 get_builtins_initial_stack.py && \
 	deactivate
 
-run-comparer-tracer: 
+run-comparer-tracer:
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	maturin develop && \
 	make compare_trace_memory && \
@@ -99,5 +99,3 @@ compare_trace: $(CAIRO_RS_TRACE) $(CAIRO_TRACE)
 
 compare_memory: $(CAIRO_RS_MEM) $(CAIRO_MEM)
 	cd tests; ./compare_vm_state.sh memory
-	
-	
