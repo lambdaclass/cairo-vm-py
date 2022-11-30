@@ -39,14 +39,14 @@ deps-macos:
 	pyenv install pypy3.7-7.3.9
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
 	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa && \
-	pip install cairo_lang==0.9.1 && \
+	pip install cairo_lang==0.10.2 && \
 	deactivate
 
 deps-default-version:
 	pip install ecdsa fastecdsa sympy cairo-lang==0.10.2 maturin
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
-	pip install cairo_lang==0.9.1 && \
+	pip install cairo_lang==0.10.2 && \
 	cargo install cargo-tarpaulin && \
 	deactivate
 
