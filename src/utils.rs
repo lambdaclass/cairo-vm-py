@@ -4,6 +4,8 @@ use pyo3::{PyErr, Python};
 use std::{collections::HashMap, fmt::Display};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
+pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, HintException);
+pyo3::import_exception!(starkware.starknet.core.os.syscall_utils, HandlerException);
 
 #[macro_export]
 macro_rules! pycell {
@@ -24,7 +26,13 @@ pub fn to_py_error<T: Display>(error: T) -> PyErr {
     VmException::new_err((
         None::<i32>,
         None::<i32>,
-        None::<i32>,
+        HintException::new_err((
+            // HandlerException::new_err((3, 4, None::<i32>)),
+            None::<i32>,
+            None::<i32>,
+            None::<i32>,
+            None::<i32>,
+        )),
         None::<i32>,
         None::<i32>,
         [error.to_string()],

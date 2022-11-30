@@ -201,6 +201,7 @@ impl PyVM {
                         .downcast_ref::<HintProcessorData>()
                         .ok_or(VirtualMachineError::WrongHintData)?;
 
+                    println!("hint_data.code: {:?}", hint_data.code);
                     self.execute_hint(
                         hint_data,
                         hint_locals,
@@ -208,6 +209,7 @@ impl PyVM {
                         constants,
                         Rc::clone(&struct_types),
                     )?;
+                    println!("hint_data.code: {:?} OK", hint_data.code);
                 }
             }
         }
