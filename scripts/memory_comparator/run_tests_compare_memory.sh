@@ -5,7 +5,7 @@ exit_code=0
 cd starknet-devnet
 for file in test/test_*.py; do
     # Skip problematic files
-    if ! ([ "$file" == "test/test_account.py" ] || [ "$file" == "test/test_estimate_fee.py" ] || ["$file" == "test/test_rpc_estimate_fee.py"] || ["$file" == "test/test_fee_token.py"] || ["$file" == "test/test_postman.py"] || ["$file" == "test/testnet_deployment.py"]); then
+    if ! ([ "$file" == "test/test_account.py" ] || [ "$file" == "test/test_estimate_fee.py" ] || [ "$file" == "test/test_rpc_estimate_fee.py" ] || [ "$file" == "test/test_fee_token.py" ] || [ "$file" == "test/test_postman.py" ] || [ "$file" == "test/testnet_deployment.py" ]); then
         # Run tests in cairo-rs-py env
         . ../scripts/memory_comparator/cairo-rs-py/bin/activate
         poetry run pytest $file
