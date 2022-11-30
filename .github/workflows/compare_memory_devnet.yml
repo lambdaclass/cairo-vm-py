@@ -23,7 +23,11 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
+    - name: Clone starknet-devnet
+      uses: actions/checkout@master
+      with:
+        repository: Shard-Labs/starknet-devnet
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
     - name: Run devnet tests & compare memory outputs
-      run: make compare_memory_devnet
+      run: make compare_memory_devnet_ci
