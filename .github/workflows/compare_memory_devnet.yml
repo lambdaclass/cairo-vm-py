@@ -30,8 +30,6 @@ jobs:
       with:
         repository: Shard-Labs/starknet-devnet
         path: starknet-devnet
-    - name: Check directory
-      run: ls
     - name: Install test dependencies
       run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
     - name: Run devnet tests & compare memory outputs
