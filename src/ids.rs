@@ -53,7 +53,7 @@ impl PyIds {
             types_set.insert(
                 key.rsplit('.')
                     .next()
-                    .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+                    .ok_or_else(|| PyValueError::new_err(STRUCT_TYPES_GET_ERROR_MSG))?,
             );
         }
         if types_set.contains(name) {
@@ -69,7 +69,7 @@ impl PyIds {
                 structs_size.insert(
                     key.rsplit('.')
                         .next()
-                        .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?,
+                        .ok_or_else(|| PyValueError::new_err(STRUCT_TYPES_GET_ERROR_MSG))?,
                     max_offset,
                 );
             }
@@ -81,7 +81,7 @@ impl PyIds {
         let hint_ref = self
             .references
             .get(name)
-            .ok_or_else(|| to_py_error(IDS_GET_ERROR_MSG))?;
+            .ok_or_else(|| PyValueError::new_err(IDS_GET_ERROR_MSG))?;
 
         if let Some(cairo_type) = hint_ref.cairo_type.as_deref() {
             if self.struct_types.contains_key(cairo_type) {
@@ -131,7 +131,7 @@ impl PyIds {
         let hint_ref = self
             .references
             .get(name)
-            .ok_or_else(|| to_py_error(IDS_SET_ERROR_MSG))?;
+            .ok_or_else(|| PyValueError::new_err(IDS_SET_ERROR_MSG))?;
         let var_addr = compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
         self.vm
             .borrow_mut()
@@ -337,6 +337,29 @@ mod tests {
 
     use super::*;
 
+    fn create_simple_struct_type() -> (String, HashMap<String, Member>) {
+        //Return new type for SimpleStruct { x: felt, ptr: felt* }
+        (
+            String::from("SimpleStruct"),
+            HashMap::from([
+                (
+                    String::from("x"),
+                    Member {
+                        cairo_type: String::from("felt"),
+                        offset: 0,
+                    },
+                ),
+                (
+                    String::from("ptr"),
+                    Member {
+                        cairo_type: String::from("felt*"),
+                        offset: 1,
+                    },
+                ),
+            ]),
+        )
+    }
+
     #[test]
     fn ids_get_test() {
         Python::with_gil(|py| {
@@ -392,7 +415,7 @@ memory[fp+2] = ids.CONST
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -402,6 +425,316 @@ memory[fp+2] = ids.CONST
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
                 Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(3))))
             );
+        });
+    }
+
+    #[test]
+    fn ids_get_simple_struct() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("a"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    cairo_type: Some(String::from("SimpleStruct")),
+                },
+            );
+
+            //Create struct types
+            let struct_types = HashMap::from([create_simple_struct_type()]);
+
+            //Insert ids.a.x into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(
+                    &Relocatable::from((1, 0)),
+                    &MaybeRelocatable::from(Into::<BigInt>::into(55)),
+                )
+                .unwrap();
+
+            //Insert ids.a.ptr into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
+                .unwrap();
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+memory[fp] = ids.a.x
+memory[fp + 1] = ids.a.ptr
+memory[fp + 2] = ids.SimpleStruct.SIZE
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            //Check ids.a.x is now at memory[fp]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(55))))
+            );
+            //Check ids.a.ptr is now at memory[fp + 1]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
+                Ok(Some(MaybeRelocatable::from((1, 0))))
+            );
+            //Check ids.SimpleStruct.SIZE is now at memory[fp + 2]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(2))))
+            );
+        });
+    }
+
+    #[test]
+    fn ids_get_nested_struct() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("ns"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    cairo_type: Some(String::from("NestedStruct")),
+                },
+            );
+
+            //Create struct types
+            let mut struct_types = HashMap::new();
+
+            //Insert new type Struct {}
+            struct_types.insert(String::from("Struct"), HashMap::new());
+
+            //Insert new type NestedStruct { x: felt, y: felt }
+            struct_types.insert(
+                String::from("NestedStruct"),
+                HashMap::from([
+                    (
+                        String::from("x"),
+                        Member {
+                            cairo_type: String::from("felt"),
+                            offset: 0,
+                        },
+                    ),
+                    (
+                        String::from("struct"),
+                        Member {
+                            cairo_type: String::from("Struct"),
+                            offset: 1,
+                        },
+                    ),
+                ]),
+            );
+
+            //Insert ids.ns.x into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(
+                    &Relocatable::from((1, 0)),
+                    &MaybeRelocatable::from(Into::<BigInt>::into(55)),
+                )
+                .unwrap();
+
+            //Insert ids.ns.ptr into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
+                .unwrap();
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 3));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+memory[fp] = ids.Struct.SIZE
+memory[fp + 1] = ids.ns.struct.address_
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+
+            //Check ids.Struct.SIZE is now at memory[fp]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 3))),
+                Ok(Some(MaybeRelocatable::from(bigint!(0))))
+            );
+            //Check that address of ids.ns.struct is now at memory[fp + 1]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 4))),
+                Ok(Some(MaybeRelocatable::from((1, 1))))
+            );
+        });
+    }
+
+    #[test]
+    fn ids_get_pointer() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..3 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("ssp"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    cairo_type: Some(String::from("SimpleStruct*")),
+                },
+            );
+
+            //Insert ids.ssp into memory
+            vm.vm
+                .borrow_mut()
+                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from((2, 0)))
+                .unwrap();
+
+            let struct_types = HashMap::from([create_simple_struct_type()]);
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+ids.ssp.x = 5
+assert ids.ssp.x == 5
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+        });
+    }
+
+    #[test]
+    fn ids_failed_get_test() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &HashMap::new(),
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r"memory[fp] = ids.b";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            // assert!(py_result.map_err(|err| to_vm_error(err, py)).is_err());
+            assert!(py_result.is_err());
         });
     }
 
@@ -442,6 +775,7 @@ memory[fp+2] = ids.CONST
             );
 
             let globals = PyDict::new(py);
+
             globals
                 .set_item("memory", PyCell::new(py, memory).unwrap())
                 .unwrap();
@@ -456,11 +790,160 @@ memory[fp+2] = ids.CONST
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.a now contains memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
                 Ok(Some(MaybeRelocatable::from(bigint!(2))))
+            );
+
+            //ids.b does not exist
+            let code = "ids.b = memory[fp]";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert!(py_result.is_err(),);
+        });
+    }
+
+    #[test]
+    fn ids_set_struct_attribute() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..2 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("struct"),
+                HintReference {
+                    register: Some(Register::FP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: None,
+                    immediate: None,
+                    cairo_type: Some(String::from("SimpleStruct")),
+                },
+            );
+
+            let struct_types = HashMap::from([create_simple_struct_type()]);
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(struct_types),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+ids.struct.x = 5
+
+ids.struct.ptr = ids.struct.address_
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            //Check ids.struct.x now contains 5
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
+                Ok(Some(MaybeRelocatable::from(bigint!(5))))
+            );
+            //Check ids.struct.x now contains ids.struct's address
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
+                Ok(Some(MaybeRelocatable::from((1, 0))))
+            );
+
+            //ids.struct.y does not exist
+            let code = "ids.struct.y = 10";
+
+            let py_result = py.run(code, Some(globals), None);
+
+            //Err(CustomHint("AttributeError: 'PyTypeId' object has no attribute 'y'"))
+            assert!(py_result.map_err(|err| to_vm_error(err, py)).is_err());
+        });
+    }
+
+    #[test]
+    fn ids_ap_tracked_ref() {
+        Python::with_gil(|py| {
+            let vm = PyVM::new(
+                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+                false,
+            );
+            for _ in 0..3 {
+                vm.vm.borrow_mut().add_memory_segment();
+            }
+            //Create references
+            let mut references = HashMap::new();
+            references.insert(
+                String::from("a"),
+                HintReference {
+                    register: Some(Register::AP),
+                    offset1: 0,
+                    offset2: 0,
+                    dereference: true,
+                    inner_dereference: false,
+                    ap_tracking_data: Some(ApTracking::default()),
+                    immediate: None,
+                    cairo_type: None,
+                },
+            );
+
+            let memory = PyMemory::new(&vm);
+            let fp = PyRelocatable::from((1, 0));
+            let ids = PyIds::new(
+                &vm,
+                &references,
+                &ApTracking::default(),
+                &HashMap::new(),
+                Rc::new(HashMap::new()),
+            );
+
+            let globals = PyDict::new(py);
+            globals
+                .set_item("memory", PyCell::new(py, memory).unwrap())
+                .unwrap();
+            globals
+                .set_item("fp", PyCell::new(py, fp).unwrap())
+                .unwrap();
+            globals
+                .set_item("ids", PyCell::new(py, ids).unwrap())
+                .unwrap();
+
+            let code = r#"
+ids.a = 5
+memory[fp] = ids.a
+"#;
+
+            let py_result = py.run(code, Some(globals), None);
+
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            //Check ids.a is now at memory[fp]
+            assert_eq!(
+                vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
+                Ok(Some(MaybeRelocatable::from(Into::<BigInt>::into(5))))
             );
         });
     }

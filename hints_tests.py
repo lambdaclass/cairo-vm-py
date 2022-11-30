@@ -69,5 +69,7 @@ if __name__ == "__main__":
     test_program("blake2s_finalize")
     test_program("blake2s_felt")
     test_program("blake2s_integration_tests")
+    test_program("relocate_segments")
+    test_program("relocate_segments_with_offset")
     test_program("ecdsa")
     print("\nAll test have passed")
