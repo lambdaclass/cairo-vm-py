@@ -29,7 +29,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: Shard-Labs/starknet-devnet
-        path: .
+        path: starknet-devnet
     - name: Check directory
       run: ls
     - name: Install test dependencies
