@@ -28,14 +28,14 @@ jobs:
       run: make deps-default-version
     - name: Format
       run: cargo fmt --all -- --check
+    - name: Run clippy
+      run: make clippy
     - name: Build
       run: make build
     - name: Run tests
       run: make full-test
     - name: Compare-Trace-Memory
       run : make run-comparer-tracer
-    - name: Run clippy
-      run: make clippy
     - name: Coverage
       run: make coverage
     - name: Upload coverage to codecov.io

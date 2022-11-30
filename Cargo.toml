@@ -8,12 +8,12 @@ name = "cairo_rs_py"
 crate-type = ["cdylib"]
 
 [features]
-pypy = ["pyo3/num-bigint", "pyo3/extension-module"]
+extension = ["pyo3/num-bigint", "pyo3/extension-module"]
 default = ["pyo3/num-bigint", "pyo3/auto-initialize"]
 
 [dependencies]
 pyo3 = { version = "0.16.5" }
-cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "2ddf78e20cc25e660263a0c9c1b942780d95a0e6" }
+cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "012681e82f0617b723fe3433723a95a64eafafc9" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
 
