@@ -19,6 +19,8 @@ for file in test/test_*.py; do
         if ! $memory_comparator_path $class_hash_path.memory $class_hash_path.rs.memory; then
             echo "Memory differs for last class_hash on test $file"
             exit_code=1
+        else
+            echo "Memory comparison successful"
         fi
         if ! $memory_comparator_path $execute_entry_point_path.memory $execute_entry_point_path.rs.memory; then
             echo "Memory differs for last execute_entry_point on test $file"
