@@ -23,7 +23,7 @@ use pyo3::{
     ToPyObject,
 };
 
-use crate::{relocatable::PyMaybeRelocatable, utils::to_py_error, vm_core::PyVM};
+use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
 
 const IDS_GET_ERROR_MSG: &str = "Failed to get ids value";
 const IDS_SET_ERROR_MSG: &str = "Failed to set ids value to Cairo memory";
@@ -112,7 +112,7 @@ impl PyIds {
                     .vm
                     .borrow()
                     .get_relocatable(&addr)
-                    .map_err(to_py_error)?
+                    .map_err(|err| PyValueError::new_err(err.to_string()))?
                     .into_owned();
 
                 return Ok(PyTypedId {
@@ -141,7 +141,7 @@ impl PyIds {
         self.vm
             .borrow_mut()
             .insert_value(&var_addr, &val)
-            .map_err(to_py_error)
+            .map_err(|err| PyValueError::new_err(err.to_string()))
     }
 }
 
@@ -193,7 +193,7 @@ impl PyTypedId {
                 Ok(match member.cairo_type.as_str() {
                     "felt" | "felt*" => vm
                         .get_maybe(&(&self.hint_value + member.offset))
-                        .map_err(to_py_error)?
+                        .map_err(|err| PyValueError::new_err(err.to_string()))?
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
 
@@ -217,7 +217,7 @@ impl PyTypedId {
         let struct_type = self
             .struct_types
             .get(&self.cairo_type)
-            .ok_or_else(|| to_py_error(STRUCT_TYPES_GET_ERROR_MSG))?;
+            .ok_or_else(|| PyValueError::new_err(STRUCT_TYPES_GET_ERROR_MSG))?;
 
         let member = struct_type.get(field_name).ok_or_else(|| {
             PyAttributeError::new_err(format!(
@@ -230,7 +230,7 @@ impl PyTypedId {
         match member.cairo_type.as_str() {
             "felt" | "felt*" => {
                 let field_addr = &self.hint_value + member.offset;
-                vm.insert_value(&field_addr, val).map_err(to_py_error)
+                vm.insert_value(&field_addr, val).map_err(|err| PyValueError::new_err(err.to_string()))
             }
 
             _cairo_type => Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
@@ -254,21 +254,26 @@ pub fn get_value_from_reference(
     //Then calculate address
     let var_addr = compute_addr_from_reference(hint_reference, vm, ap_tracking)?;
     let value = if hint_reference.dereference {
-        vm.get_maybe(&var_addr).map_err(to_py_error)?
+        vm.get_maybe(&var_addr)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?
     } else {
         return Ok(PyMaybeRelocatable::from(var_addr));
     };
     match value {
         Some(MaybeRelocatable::RelocatableValue(ref rel)) => {
             if let Some(immediate) = &hint_reference.immediate {
-                let modified_value = rel + bigint_to_usize(immediate).map_err(to_py_error)?;
+                let modified_value = rel
+                    + bigint_to_usize(immediate)
+                        .map_err(|err| PyValueError::new_err(err.to_string()))?;
                 Ok(PyMaybeRelocatable::from(modified_value))
             } else {
                 Ok(PyMaybeRelocatable::from(rel.clone()))
             }
         }
         Some(MaybeRelocatable::Int(ref num)) => Ok(PyMaybeRelocatable::Int(num.clone())),
-        None => Err(to_py_error(VirtualMachineError::FailedToGetIds)),
+        None => Err(PyValueError::new_err(
+            VirtualMachineError::FailedToGetIds.to_string(),
+        )),
     }
 }
 
@@ -284,31 +289,39 @@ pub fn compute_addr_from_reference(
         //This should never fail
         Some(Register::FP) => vm.get_fp(),
         Some(Register::AP) => {
-            let var_ap_trackig = hint_reference
-                .ap_tracking_data
-                .as_ref()
-                .ok_or(VirtualMachineError::NoneApTrackingData)
-                .map_err(to_py_error)?;
+            let var_ap_trackig = hint_reference.ap_tracking_data.as_ref().ok_or_else(|| {
+                PyValueError::new_err(VirtualMachineError::NoneApTrackingData.to_string())
+            })?;
 
             let ap = vm.get_ap();
 
             apply_ap_tracking_correction(&ap, var_ap_trackig, hint_ap_tracking)
-                .map_err(to_py_error)?
+                .map_err(|err| PyValueError::new_err(err.to_string()))?
         }
-        None => return Err(to_py_error(VirtualMachineError::NoRegisterInReference)),
+        None => {
+            return Err(PyValueError::new_err(
+                VirtualMachineError::NoRegisterInReference.to_string(),
+            ))
+        }
     };
     if hint_reference.offset1.is_negative()
         && base_addr.offset < hint_reference.offset1.unsigned_abs().try_into()?
     {
-        return Err(to_py_error(VirtualMachineError::FailedToGetIds));
+        return Err(PyValueError::new_err(
+            VirtualMachineError::FailedToGetIds.to_string(),
+        ));
     }
     if !hint_reference.inner_dereference {
         Ok(base_addr + hint_reference.offset1 + hint_reference.offset2)
     } else {
         let addr = base_addr + hint_reference.offset1;
-        let dereferenced_addr = vm.get_relocatable(&addr).map_err(to_py_error)?.into_owned();
+        let dereferenced_addr = vm
+            .get_relocatable(&addr)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?
+            .into_owned();
         if let Some(imm) = &hint_reference.immediate {
-            Ok(dereferenced_addr + bigint_to_usize(imm).map_err(to_py_error)?)
+            Ok(dereferenced_addr
+                + bigint_to_usize(imm).map_err(|err| PyValueError::new_err(err.to_string()))?)
         } else {
             Ok(dereferenced_addr + hint_reference.offset2)
         }
@@ -751,7 +764,7 @@ assert ids.ssp_x_ptr == 5
 
             assert_eq!(
                 py_result.map_err(|err| to_vm_error(err, py)),
-                Err(to_vm_error(to_py_error(IDS_GET_ERROR_MSG), py))
+                Err(to_vm_error(PyValueError::new_err(IDS_GET_ERROR_MSG), py))
             );
         });
     }
@@ -809,7 +822,7 @@ assert ids.ssp_x_ptr == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result.is_ok());
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
             //Check ids.a now contains memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
@@ -821,7 +834,10 @@ assert ids.ssp_x_ptr == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result.is_err(),);
+            assert_eq!(
+                py_result.map_err(|err| to_vm_error(err, py)),
+                Err(to_vm_error(PyValueError::new_err(IDS_SET_ERROR_MSG), py))
+            );
         });
     }
 
@@ -1011,7 +1027,9 @@ memory[fp] = ids.ok_ref
             assert_eq!(
                 py_result.map_err(|err| to_vm_error(err, py)),
                 Err(to_vm_error(
-                    to_py_error(VirtualMachineError::InvalidTrackingGroup(1, 0)),
+                    PyValueError::new_err(
+                        VirtualMachineError::InvalidTrackingGroup(1, 0).to_string()
+                    ),
                     py
                 ))
             );
@@ -1023,7 +1041,7 @@ memory[fp] = ids.ok_ref
             assert_eq!(
                 py_result.map_err(|err| to_vm_error(err, py)),
                 Err(to_vm_error(
-                    to_py_error(VirtualMachineError::NoneApTrackingData),
+                    PyValueError::new_err(VirtualMachineError::NoneApTrackingData.to_string()),
                     py
                 ))
             );
@@ -1112,7 +1130,7 @@ memory[fp] = ids.ok_ref
             assert_eq!(
                 py_result.map_err(|err| to_vm_error(err, py)),
                 Err(to_vm_error(
-                    to_py_error(VirtualMachineError::NoRegisterInReference),
+                    PyValueError::new_err(VirtualMachineError::NoRegisterInReference.to_string()),
                     py
                 ))
             );
