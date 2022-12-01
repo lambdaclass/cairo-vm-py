@@ -425,7 +425,7 @@ impl PyCairoRunner {
             stack
         };
 
-        let return_fp = MaybeRelocatable::from(bigint!(1));
+        let return_fp = MaybeRelocatable::from(bigint!(0));
 
         let end = self
             .inner
