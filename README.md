@@ -30,7 +30,7 @@ To run the test suite:
 make full-test
 ```
 
-## Quick and dirty script to try out `cairo-rs-py`
+## Quick script to try out `cairo-rs-py`
 
 The `build_envs.sh` script will build two Python virtual environments:
 - `cairo-lang` containing a pristine install of `cairo-lang==0.10.1`;
