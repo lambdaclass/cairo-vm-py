@@ -6,6 +6,7 @@ mod memory;
 mod memory_segments;
 mod range_check;
 mod relocatable;
+mod run_context;
 mod scope_manager;
 mod to_felt_or_relocatable;
 mod utils;
