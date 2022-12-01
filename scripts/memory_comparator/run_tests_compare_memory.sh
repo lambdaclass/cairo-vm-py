@@ -16,17 +16,21 @@ for file in test/test_*.py; do
         class_hash_path="memory_files/class_hash"
         execute_entry_point_path="memory_files/execute_entry_point"
         memory_comparator_path="../scripts/memory_comparator/memory_comparator.py"
-        if ! $memory_comparator_path $class_hash_path.memory $class_hash_path.rs.memory; then
-            echo "Memory differs for last class_hash on test $file"
-            exit_code=1
-        else
-            echo "Memory comparison successful"
+        # Some tests do not use class_hash and dont generate memory files there
+        if ! ([ "$file" = "test/test_dump.py" ]); then
+            if ! $memory_comparator_path $class_hash_path.memory $class_hash_path.rs.memory; then
+                echo "Memory differs for last class_hash on test $file"
+                exit_code=1
+            else
+                echo "Memory comparison successful"
         fi
         # Some tests do not use execute_entry_point and dont generate memory files there
         if ! ([ "$file" = "test/test_account_predeployed.py" ]); then
             if ! $memory_comparator_path $execute_entry_point_path.memory $execute_entry_point_path.rs.memory; then
                 echo "Memory differs for last execute_entry_point on test $file"
                 exit_code=1
+            else
+                echo "Memory comparison successful"
             fi
         fi
         # Cleanup memory files
