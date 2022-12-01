@@ -1036,6 +1036,7 @@ memory[fp] = ids.ok_ref
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -1124,6 +1125,7 @@ memory[fp] = ids.ok_ref
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
