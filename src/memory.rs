@@ -17,6 +17,8 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc};
 const MEMORY_GET_ERROR_MSG: &str = "Failed to get value from Cairo memory";
 const MEMORY_SET_ERROR_MSG: &str = "Failed to set value to Cairo memory";
 const MEMORY_GET_RANGE_ERROR_MSG: &str = "Failed to call get_range method from Cairo memory";
+const MEMORY_ADD_RELOCATION_RULE_ERROR_MSG: &str =
+    "Failed to call add_relocation_rule method from Cairo memory";
 
 #[pyclass(unsendable)]
 #[derive(Clone)]
@@ -72,6 +74,17 @@ impl PyMemory {
             .to_object(py))
     }
 
+    pub fn add_relocation_rule(
+        &self,
+        src_ptr: PyRelocatable,
+        dest_ptr: PyRelocatable,
+    ) -> Result<(), PyErr> {
+        self.vm
+            .borrow_mut()
+            .add_relocation_rule(Relocatable::from(&src_ptr), Relocatable::from(&dest_ptr))
+            .map_err(|_| PyTypeError::new_err(MEMORY_ADD_RELOCATION_RULE_ERROR_MSG))
+    }
+
     /// Return a continuous section of memory as a vector of integers.
     pub fn get_range_as_ints(&self, addr: PyRelocatable, size: usize) -> PyResult<Vec<BigInt>> {
         Ok(self
@@ -124,7 +137,7 @@ mod test {
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
         });
     }
 
@@ -193,7 +206,7 @@ assert memory[ap] == fp
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(to_vm_error), Ok(()));
+            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
         });
     }
 
@@ -287,10 +300,10 @@ assert memory[ap] == fp
 
             let range = memory
                 .get_range(maybe_relocatable.into(), size, py)
-                .map_err(to_vm_error);
+                .map_err(|err| to_vm_error(err, py));
 
             let expected_error = VirtualMachineError::CustomHint(String::from(
-                "TypeError: Failed to call get_range method from Cairo memory",
+                "TypeError('Failed to call get_range method from Cairo memory')",
             ));
             assert!(range.is_err());
             assert_eq!(range.unwrap_err(), expected_error);
