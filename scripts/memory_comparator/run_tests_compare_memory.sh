@@ -22,9 +22,11 @@ for file in test/test_*.py; do
         else
             echo "Memory comparison successful"
         fi
-        if ! $memory_comparator_path $execute_entry_point_path.memory $execute_entry_point_path.rs.memory; then
-            echo "Memory differs for last execute_entry_point on test $file"
-            exit_code=1
+        if ! ([ "$file" = "test/test_account_predeployed.py" ]); then
+            if ! $memory_comparator_path $execute_entry_point_path.memory $execute_entry_point_path.rs.memory; then
+                echo "Memory differs for last execute_entry_point on test $file"
+                exit_code=1
+            fi
         fi
         # Cleanup memory files
         rm memory_files/*.memory
