@@ -1,47 +1,20 @@
-From f6f5dcf795418a0820f4f83d1573647edef5dc67 Mon Sep 17 00:00:00 2001
+From f56283d4fd9be8d098443acc8d55afd8f4858d61 Mon Sep 17 00:00:00 2001
 From: Mariano Nicolini <mariano.nicolini.91@gmail.com>
 Date: Wed, 9 Nov 2022 18:58:33 -0300
-Subject: [PATCH] First changes in runner
+Subject: [PATCH] Use cairo-rs-py
 
-Add some changes for testing
-
-Some more changes
-
-Comment isinstance assertion
-
-Replace CairoFunctionRunner::run for run_function_runner
-
-Add program as function argument
-
-Fix format
-
-Comment a type check
-
-Changes for test to pass
-
-Add cairo_rs_py runner to class_hash_inner
-
-Fix entrypoint
-
-Add hash_ptr
-
-Fix program input
-
-Add try-except code blocks so that the code can run y protostar environment tests
-
-Remove prints from execute_entry_point.py
 ---
- .../execution/execute_entry_point.py          |  30 +++--
+ .../execution/execute_entry_point.py          |  26 ++--
  .../business_logic/transaction/fee.py         |   6 +-
  .../starknet/business_logic/utils.py          |   9 +-
  src/starkware/starknet/core/os/class_hash.py  | 123 ++++++++++++++++--
  src/starkware/starknet/core/os/os_utils.py    |  64 ++++++---
  .../starknet/core/os/segment_utils.py         |  32 ++++-
  .../starknet/core/os/syscall_utils.py         |  37 ++++--
- 7 files changed, 237 insertions(+), 64 deletions(-)
+ 7 files changed, 235 insertions(+), 62 deletions(-)
 
 diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-index 62d4290..6cd0abc 100644
+index 62d4290..7da31ec 100644
 --- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 +++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 @@ -41,6 +41,7 @@ from starkware.starkware_utils.error_handling import (
@@ -97,12 +70,7 @@ index 62d4290..6cd0abc 100644
                  verify_secure=True,
              )
          except VmException as exception:
-@@ -267,11 +269,11 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
-         )
- 
-         # When execution starts the stack holds entry_points_args + [ret_fp, ret_pc].
--        args_ptr = runner.initial_fp - (len(entry_points_args) + 2)
-+        args_ptr = runner.get_initial_fp() - (len(entry_points_args) + 2)
+@@ -271,7 +273,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
  
          # The arguments are touched by the OS and should not be counted as holes, mark them
          # as accessed.
@@ -111,13 +79,6 @@ index 62d4290..6cd0abc 100644
          runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
  
          return runner, syscall_handler
-@@ -355,4 +357,4 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
-             raise NotImplementedError(f"Call type {self.call_type} not implemented.")
- 
-         # Extract pre-fetched contract code from carried state.
--        return get_deployed_class_hash_at_address(state=state, contract_address=code_address)
-+        return get_deployed_class_hash_at_address(state=state, contract_address=code_address)
-\ No newline at end of file
 diff --git a/src/starkware/starknet/business_logic/transaction/fee.py b/src/starkware/starknet/business_logic/transaction/fee.py
 index 9acaa73..9bbb9f5 100644
 --- a/src/starkware/starknet/business_logic/transaction/fee.py
@@ -551,5 +512,5 @@ index e44635b..c129e50 100644
 +        next(self.tx_execution_info_iterator)
 \ No newline at end of file
 -- 
-2.37.1 (Apple Git-137.1)
+2.38.1
 
