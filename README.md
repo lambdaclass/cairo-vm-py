@@ -30,20 +30,34 @@ To run the test suite:
 make full-test
 ```
 
-## Quick script to try out `cairo-rs-py`
+## Script to try out `cairo-rs-py`
 
 The `build_envs.sh` script will build two Python virtual environments:
 - `cairo-lang` containing a pristine install of `cairo-lang==0.10.1`;
-- `cairo-rs-py` containing a patched install of `cairo-lang==0.10.1` that uses `cairo-rs-py`, as well as said dependency.
+- `cairo-rs-py` containing a patched install of `cairo-lang==0.10.1` that uses `cairo-rs-py` as dependency.
+It will also install the required dependencies automatically in Debian-based distributions, CentOs, Fedora and OSX. 
+If you use another OS you can check how to install them manually below.
 
-To use it, go to the `scripts` directory and run:
+To run the script:
 ```shell
 ./scripts/build_envs.sh
 ```
 
-The script assumes you have a Rust toolchain, Python 3.9 and the `venv` program installed.
-`cairo-lang` requires the `gmp` library to build.
+Both virtualenvs will be created under the `/scripts` directory.
 
+To actually any of the implementations you would have to activate the environment you want. For example to use the cairo-rs-py integration you need to run:
+
+```shell
+source activate scripts/cairo-rs-py/bin/activate
+```
+
+After activating the cairo-rs-py virtualenv you can try out any Cairo project and it will use cairo-rs.
+
+Note that the script assumes you have a Rust toolchain, Python 3.9 and the `venv` program installed.
+
+### How to manually install the script dependencies
+
+`cairo-lang` requires the `gmp` library to build.
 You can install it on Debian-based GNU/Linux distributions with:
 ```shell
 sudo apt install -y libgmp3-dev
@@ -59,12 +73,3 @@ In Mac you'll also need to tell the script where to find the gmp lib:
 export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib
 sh build_envs.sh
 ```
-
-The venvs will be created under said directory.
-
-To actually use both implementations you would have to activate the environment you want. For example to use the cairo-rs-py integration:
-
-```shell
-source activate cairo-rs-py/bin/activate
-```
-
