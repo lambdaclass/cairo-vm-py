@@ -89,7 +89,7 @@ run-python-test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 
 run-comparer-tracer: 
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	maturin develop && \
+	maturin develop --release && \
 	make compare_trace_memory && \
 	deactivate
 
