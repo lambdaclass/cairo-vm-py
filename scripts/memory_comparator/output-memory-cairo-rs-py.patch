@@ -1,5 +1,5 @@
 diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-index 62d4290..719208f 100644
+index 62d4290..fe04404 100644
 --- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 +++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 @@ -41,6 +41,7 @@ from starkware.starkware_utils.error_handling import (
@@ -55,7 +55,7 @@ index 62d4290..719208f 100644
                  verify_secure=True,
              )
          except VmException as exception:
-@@ -271,9 +273,10 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -271,9 +273,11 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
  
          # The arguments are touched by the OS and should not be counted as holes, mark them
          # as accessed.
@@ -65,16 +65,10 @@ index 62d4290..719208f 100644
 -
 +        runner.relocate()
 +        runner.write_binary_memory("memory_files/execute_entry_point.rs.memory")
++        runner.write_binary_trace("trace_files/execute_entry_point.rs.trace")
          return runner, syscall_handler
  
      def _get_selected_entry_point(
-@@ -355,4 +358,4 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
-             raise NotImplementedError(f"Call type {self.call_type} not implemented.")
- 
-         # Extract pre-fetched contract code from carried state.
--        return get_deployed_class_hash_at_address(state=state, contract_address=code_address)
-+        return get_deployed_class_hash_at_address(state=state, contract_address=code_address)
-\ No newline at end of file
 diff --git a/src/starkware/starknet/business_logic/transaction/fee.py b/src/starkware/starknet/business_logic/transaction/fee.py
 index 9acaa73..9bbb9f5 100644
 --- a/src/starkware/starknet/business_logic/transaction/fee.py
@@ -113,7 +107,7 @@ index f63bc9f..15660fe 100644
      stark_assert(
          all(isinstance(value, int) for value in values),
 diff --git a/src/starkware/starknet/core/os/class_hash.py b/src/starkware/starknet/core/os/class_hash.py
-index 132fb21..3cf48a8 100644
+index 132fb21..00b769c 100644
 --- a/src/starkware/starknet/core/os/class_hash.py
 +++ b/src/starkware/starknet/core/os/class_hash.py
 @@ -5,9 +5,10 @@ import json
@@ -139,7 +133,7 @@ index 132fb21..3cf48a8 100644
  
  CAIRO_FILE = os.path.join(os.path.dirname(__file__), "contracts.cairo")
  
-@@ -77,22 +82,24 @@ def compute_class_hash_inner(
+@@ -77,22 +82,25 @@ def compute_class_hash_inner(
      contract_class_struct = get_contract_class_struct(
          identifiers=program.identifiers, contract_class=contract_class
      )
@@ -169,10 +163,11 @@ index 132fb21..3cf48a8 100644
      _, class_hash = runner.get_return_values(2)
 +    runner.relocate()
 +    runner.write_binary_memory("memory_files/class_hash.rs.memory")
++    runner.write_binary_trace("trace_files/class_hash.rs.trace")
      return class_hash
  
  
-@@ -194,3 +201,103 @@ def get_contract_class_struct(
+@@ -194,3 +202,103 @@ def get_contract_class_struct(
          bytecode_length=len(contract_class.program.data),
          bytecode_ptr=contract_class.program.data,
      )
