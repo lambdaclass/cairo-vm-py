@@ -1262,8 +1262,43 @@ mod test {
 
     #[test]
     fn run_from_entrypoint_with_one_typed_arg() {
-        // One arg (typed)
-        //   value
+        let test_fails_with_zero = |value: usize, py: &Python| {
+            let path = "cairo_programs/assert_not_zero.json".to_string();
+            let program = fs::read_to_string(path).unwrap();
+            let mut runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("plain".to_string()),
+                false,
+            )
+            .unwrap();
+
+            runner.initialize_segments();
+
+            let args = MyIterator {
+                iter: Box::new(
+                    vec![PyMaybeRelocatable::from(bigint!(value)).to_object(*py)].into_iter(),
+                ),
+                types: vec![PyType::TypeFelt],
+            };
+            runner.run_from_entrypoint(
+                *py,
+                py.eval("0", None, None).unwrap(),
+                args.into_py(*py),
+                None,
+                None,
+                Some(true),
+                None,
+                None,
+            )
+        };
+        Python::with_gil(|py| {
+            // program fails if argument is zero
+            assert!(test_fails_with_zero(0, &py).is_err());
+            // but doesn't with nonzero argument
+            assert!(test_fails_with_zero(1, &py).is_ok());
+            assert!(test_fails_with_zero(2, &py).is_ok());
+        });
     }
 
     #[test]
