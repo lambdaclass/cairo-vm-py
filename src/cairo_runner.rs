@@ -227,7 +227,9 @@ impl PyCairoRunner {
 
     pub fn write_binary_trace(&mut self, name: String) -> PyResult<()> {
         write_binary_trace(
-            &self.inner.relocated_trace.as_ref().unwrap(),
+            self.inner.relocated_trace.as_ref().ok_or_else(|| {
+                PyTypeError::new_err("Cant write binary trace if trace is not enabled")
+            })?,
             Path::new(&name),
         )
         .map_err(to_py_error)
