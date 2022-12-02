@@ -1302,12 +1302,6 @@ mod test {
     }
 
     #[test]
-    fn run_from_entrypoint_with_one_typed_vec_arg() {
-        // One arg (typed)
-        //   vec
-    }
-
-    #[test]
     fn run_from_entrypoint_with_multiple_untyped_args() {
         // Multiple args (no typed)
         // Test that `PyCairoRunner::insert()` inserts values correctly.
