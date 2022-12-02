@@ -26,8 +26,6 @@ for file in test/test_*.py; do
         # Compare trace outputs 
         trace_dir="trace_files"
         for trace_file in $(ls $trace_dir | grep .rs.trace$ | sed -E 's/\.rs.trace$//'); do
-            echo $trace_file 
-            ls trace_files
             if ! diff -q $trace_dir/$trace_file.trace $trace_dir/$trace_file.rs.trace; then
                 echo "Traces differs for $trace_file on test $file"
                 exit_code=1
