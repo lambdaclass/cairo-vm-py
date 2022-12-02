@@ -1993,6 +1993,7 @@ mod test {
 
         let exec_res = runner.get_execution_resources().unwrap();
 
+        // n_steps is 0 because trace is disabled when trace_file is None
         assert_eq!(exec_res.n_steps(), 0);
         assert_eq!(exec_res.n_memory_holes(), 0);
         assert_eq!(
