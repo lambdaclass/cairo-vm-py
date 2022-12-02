@@ -4,7 +4,7 @@ exit_code=0
 # We need to be inside starknet-devnet in order to run poetry
 cd starknet-devnet
 for file in test/test_*.py; do
-    # Skip files that dont run entrypoints and dont produce memory outputs
+    # Skip files that dont run entrypoints and dont produce memory and trace outputs
     if !  ([ "$file" = "test/test_estimate_fee.py" ] || [ "$file" = "test/test_postman.py" ] || [ "$file" = "test/testnet_deployment.py" ] || [ "$file" = "test/testnet_deploy.py" ] || [ "$file" = "test/test_api_specifications.py" ] || [ "$file" = "test/test_fork_cli_params.py" ]); then
         # Run tests in cairo-rs-py env
         . ../scripts/memory_comparator/cairo-rs-py/bin/activate
@@ -13,29 +13,49 @@ for file in test/test_*.py; do
         . ../scripts/memory_comparator/cairo-lang/bin/activate
         poetry run pytest $file
         # Compare memory outputs
-        class_hash_path="memory_files/class_hash"
-        execute_entry_point_path="memory_files/execute_entry_point"
+        class_hash_memory_path="memory_files/class_hash"
+        execute_entry_point_memory_path="memory_files/execute_entry_point"
+        class_hash_trace_path="trace_files/class_hash"
+        execute_entry_point_trace_path="trace_files/execute_entry_point"
         memory_comparator_path="../scripts/memory_comparator/memory_comparator.py"
-        # Some tests do not use class_hash and dont generate memory files there
+        # Some tests do not use class_hash and dont generate memory and trace files there
         if ! ([ "$file" = "test/test_dump.py" ]); then
-            if ! $memory_comparator_path $class_hash_path.memory $class_hash_path.rs.memory; then
+            # Compare memory outputs for class_hash
+            if ! $memory_comparator_path $class_hash_memory_path.memory $class_hash_memory_path.rs.memory; then
                 echo "Memory differs for last class_hash on test $file"
                 exit_code=1
             else
                 echo "Memory comparison successful"
             fi
+            # Compare trace outputs for class_hash
+            if ! diff -q $class_hash_trace_path.trace $class_hash_trace_path.rs.trace; then
+                echo "Traces differ for last class_hash on test $file"
+                exit_code=1
+            else
+                echo "Trace comparison successful"
+            fi
         fi
         # Some tests do not use execute_entry_point and dont generate memory files there
         if ! ([ "$file" = "test/test_account_predeployed.py" ]); then
-            if ! $memory_comparator_path $execute_entry_point_path.memory $execute_entry_point_path.rs.memory; then
+            # Compare memory outputs for execute_entry_point
+            if ! $memory_comparator_path $execute_entry_point_memory_path.memory $execute_entry_point_memory_path.rs.memory; then
                 echo "Memory differs for last execute_entry_point on test $file"
                 exit_code=1
             else
                 echo "Memory comparison successful"
             fi
+            # Compare trace outputs for execute_entry_point
+            if ! diff -q $execute_entry_point_trace_path.trace $execute_entry_point_trace_path.rs.trace; then
+                echo "Traces differ for last execute_entry_point on test $file"
+                exit_code=1
+            else
+                echo "Trace comparison successful"
+            fi
         fi
         # Cleanup memory files
         rm memory_files/*.memory
+        # Cleanup trace files
+        rm trace_files/*.trace
     fi
 done
 exit "${exit_code}"
