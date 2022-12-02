@@ -1,29 +1,32 @@
 diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-index 62d4290..f4a0d8b 100644
+index 62d4290..e0395c4 100644
 --- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 +++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 @@ -9,6 +9,8 @@ from starkware.cairo.lang.vm.relocatable import RelocatableValue
  from starkware.cairo.lang.vm.security import SecurityError
  from starkware.cairo.lang.vm.utils import ResourcesError
  from starkware.cairo.lang.vm.vm_exceptions import HintException, VmException, VmExceptionBase
-+from starkware.cairo.lang.vm.cairo_run import write_binary_memory
++from starkware.cairo.lang.vm.cairo_run import write_binary_memory, write_binary_trace
 +import math
  from starkware.starknet.business_logic.execution.execute_entry_point_base import (
      ExecuteEntryPointBase,
  )
-@@ -274,6 +276,10 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -274,6 +276,13 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
          assert isinstance(args_ptr, RelocatableValue)  # Downcast.
          runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
  
-+        f = open("memory_files/execute_entry_point.memory", "wb")
++        memory_file = open("memory_files/execute_entry_point.memory", "wb")
++        trace_file = open("trace_files/execute_entry_point.trace", "wb")
 +        field_bytes = math.ceil(contract_class.program.prime.bit_length() / 8)
 +        runner.relocate()
-+        write_binary_memory(f, runner.relocated_memory, field_bytes)
++        write_binary_memory(memory_file, runner.relocated_memory, field_bytes)
++        write_binary_trace(trace_file, runner.relocated_trace)
++
          return runner, syscall_handler
  
      def _get_selected_entry_point(
 diff --git a/src/starkware/starknet/core/os/class_hash.py b/src/starkware/starknet/core/os/class_hash.py
-index 132fb21..321c63a 100644
+index 132fb21..aa20ed8 100644
 --- a/src/starkware/starknet/core/os/class_hash.py
 +++ b/src/starkware/starknet/core/os/class_hash.py
 @@ -3,9 +3,11 @@ import dataclasses
@@ -34,18 +37,22 @@ index 132fb21..321c63a 100644
  from contextvars import ContextVar
  from functools import lru_cache
  from typing import Callable, List, Optional
-+from starkware.cairo.lang.vm.cairo_run import write_binary_memory
++from starkware.cairo.lang.vm.cairo_run import write_binary_memory, write_binary_trace
  
  import cachetools
  
-@@ -92,6 +94,10 @@ def compute_class_hash_inner(
-         use_full_name=True,
+@@ -93,6 +95,14 @@ def compute_class_hash_inner(
          verify_secure=False,
      )
-+    f = open("memory_files/class_hash.memory", "wb")
+     _, class_hash = runner.get_return_values(2)
++
++    memory_file = open("memory_files/class_hash.memory", "wb")
++    trace_file = open("trace_files/class_hash.trace", "wb")
 +    field_bytes = math.ceil(program.prime.bit_length() / 8)
 +    runner.relocate()
-+    write_binary_memory(f, runner.relocated_memory, field_bytes)
-     _, class_hash = runner.get_return_values(2)
++    write_binary_memory(memory_file, runner.relocated_memory, field_bytes)
++    write_binary_trace(trace_file, runner.relocated_trace)
++    
      return class_hash
+ 
  
