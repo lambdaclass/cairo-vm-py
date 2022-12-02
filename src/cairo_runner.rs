@@ -1976,6 +1976,32 @@ mod test {
     }
 
     #[test]
+    fn get_execution_resources() {
+        let path = String::from("cairo_programs/array_sum.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let result = runner.cairo_run_py(false, None, None, None, None, None);
+
+        assert!(result.is_ok());
+
+        let exec_res = runner.get_execution_resources().unwrap();
+
+        assert_eq!(exec_res.n_steps(), 0);
+        assert_eq!(exec_res.n_memory_holes(), 0);
+        assert_eq!(
+            exec_res.builtin_instance_counter(),
+            HashMap::from([("output_builtin".to_string(), 1)])
+        );
+    }
+
+    #[test]
     fn mark_as_accessed_run_not_finished() {
         let path = String::from("cairo_programs/fibonacci.json");
         let program = fs::read_to_string(path).unwrap();
