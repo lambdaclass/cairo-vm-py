@@ -654,6 +654,103 @@ mod test {
     use num_bigint::BigInt;
     use std::fs;
 
+    use type_samples::*;
+
+    pub mod type_samples {
+        use super::*;
+        /* First we need to create a structure that behaves similarly to starknet's typed args
+        This means we need:
+        A: An iterable object
+        B: An object that has an __annotations__ attribute
+        C: The __annotations__  attribute should have a values method
+        D: Values must return an iterable object containing the arg's type for each of the elements in args
+        F: This iterable object must yield the following format string when format!("{:?}") is applied to it:
+            **.Type or **.Type'>
+        Where Type can be either TypeFelt, TypePointer or TypeStruct
+        */
+
+        // We first create the iterable pyclass (A)
+        #[pyclass(unsendable)]
+        pub struct MyIterator {
+            pub iter: Box<dyn Iterator<Item = PyObject>>,
+            pub types: Vec<PyType>,
+        }
+
+        // This pyclass implements the iterator dunder methods __iter__ and __next__
+        // We then implement a __getattr__ that will allow us to call Object.__annotations__ (B)
+        // This method returns a second object, so that we can then implement the values() method
+
+        #[pymethods]
+        // This method is implemented exclusively to support arg.__annotations__
+        impl MyIterator {
+            pub fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
+                Ok(Annotations {
+                    0: self.types.clone(),
+                })
+            }
+            pub fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+                slf
+            }
+            pub fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
+                slf.iter.next()
+            }
+        }
+        #[pyclass(unsendable)]
+        pub struct Annotations(Vec<PyType>);
+
+        // We implement the values method (C), which in turn returns another object so that we can override its representation
+        #[pymethods]
+        impl Annotations {
+            pub fn values(&self) -> PyResult<Vec<PyType>> {
+                Ok(self.0.clone())
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub enum PyType {
+            TypePointer,
+            TypeFelt,
+            TypeStruct,
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct TypeFelt;
+
+        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
+        #[pymethods]
+        impl TypeFelt {
+            fn __repr__(&self) -> String {
+                format!("TypeFelt")
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct TypePointer;
+
+        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
+        #[pymethods]
+        impl TypePointer {
+            fn __repr__(&self) -> String {
+                format!("TypePointer")
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct TypeStruct;
+
+        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
+        #[pymethods]
+        impl TypeStruct {
+            fn __repr__(&self) -> String {
+                format!("TypeStruct")
+            }
+        }
+    }
+
     #[test]
     fn create_cairo_runner() {
         let path = "cairo_programs/fibonacci.json".to_string();
@@ -1647,65 +1744,7 @@ mod test {
 
     #[test]
     fn gen_typed_args_type_felt() {
-        /* First we need to create a structure that behaves similarly to starknet's typed args
-        This means we need:
-        A: An iterable object
-        B: An object that has an __annotations__ attribute
-        C: The __annotations__  attribute should have a values method
-        D: Values must return an iterable object containing the arg's type for each of the elements in args
-        F: This iterable object must yield the following format string when format!("{:?") is applied to it:
-            **.Type or **.Type'>
-        Where Type can be either TypeFelt, TypePointer or TypeStruct
-        */
-
-        // We first create the iterable pyclass (A)
-        #[pyclass(unsendable)]
-        struct MyIterator {
-            iter: Box<dyn Iterator<Item = PyObject>>,
-        }
-
-        // This pyclass implements the iterator dunder methods __iter__ and __next__
-        // We then implement a __getattr__ that will allow us to call Object.__annotations__ (B)
-        // This method returns a second object, so that we can then implement the values() method
-
-        #[pymethods]
-        // This method is implemented exclusively to support arg.__annotations__
-        impl MyIterator {
-            fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
-                Ok(Annotations {
-                    0: vec![TypeFelt, TypeFelt],
-                })
-            }
-            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-                slf
-            }
-            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
-                slf.iter.next()
-            }
-        }
-        #[pyclass(unsendable)]
-        struct Annotations(Vec<TypeFelt>);
-
-        // We implement the values method (C), which in turn returns another object so that we can override its representation
-        #[pymethods]
-        impl Annotations {
-            pub fn values(&self) -> PyResult<Vec<TypeFelt>> {
-                Ok(self.0.clone())
-            }
-        }
-
-        #[pyclass]
-        #[derive(Clone)]
-        struct TypeFelt;
-
-        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
-        #[pymethods]
-        impl TypeFelt {
-            fn __repr__(&self) -> String {
-                format!("TypeFelt")
-            }
-        }
-
+        //For documentation on how this test works see test submodule type_samples
         let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
         let runner = PyCairoRunner::new(program, None, None, false).unwrap();
         Python::with_gil(|py| {
@@ -1718,6 +1757,7 @@ mod test {
                     ]
                     .into_iter(),
                 ),
+                types: vec![PyType::TypeFelt, PyType::TypeFelt],
             };
             let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
             let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
@@ -1735,46 +1775,7 @@ mod test {
 
     #[test]
     fn gen_typed_args_type_pointer() {
-        //For documentation on how this test works see gen_typed_args_type_pointer()
-        #[pyclass(unsendable)]
-        struct MyIterator {
-            iter: Box<dyn Iterator<Item = PyObject>>,
-        }
-
-        #[pymethods]
-        // This method is implemented exclusively to support arg.__annotations__
-        impl MyIterator {
-            fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
-                Ok(Annotations {
-                    0: vec![TypePointer, TypePointer],
-                })
-            }
-            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-                slf
-            }
-            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
-                slf.iter.next()
-            }
-        }
-        #[pyclass(unsendable)]
-        struct Annotations(Vec<TypePointer>);
-
-        #[pymethods]
-        impl Annotations {
-            pub fn values(&self) -> PyResult<Vec<TypePointer>> {
-                Ok(self.0.clone())
-            }
-        }
-
-        #[pyclass]
-        #[derive(Clone)]
-        struct TypePointer;
-        #[pymethods]
-        impl TypePointer {
-            fn __repr__(&self) -> String {
-                format!("TypePointer")
-            }
-        }
+        //For documentation on how this test works see test submodule type_samples
 
         let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
         let runner = PyCairoRunner::new(program, None, None, false).unwrap();
@@ -1789,6 +1790,7 @@ mod test {
                     ]
                     .into_iter(),
                 ),
+                types: vec![PyType::TypePointer, PyType::TypePointer],
             };
             let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
             let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
