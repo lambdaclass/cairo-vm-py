@@ -446,14 +446,6 @@ impl PyCairoRunner {
             )
             .map_err(to_py_error)?;
 
-        for i in 0..10 {
-            println!(
-                "{}: {}",
-                i,
-                self.pyvm.vm.borrow().get_segment_used_size(i).unwrap_or(0)
-            );
-        }
-
         if verify_secure.unwrap_or(true) {
             verify_secure_runner(&self.inner, false, &mut (*self.pyvm.vm).borrow_mut())
                 .map_err(to_py_error)?;
@@ -1690,7 +1682,7 @@ mod test {
     #[test]
     fn set_bad_entrypoint_on_new() {
         let path = "cairo_programs/fibonacci.json".to_string();
-        eprintln!("set");
+
         let program = fs::read_to_string(path).unwrap();
         let result = PyCairoRunner::new(
             program,
@@ -2143,7 +2135,7 @@ mod test {
         .unwrap();
 
         runner
-            .cairo_run_py(false, None, None, None, None, None)
+            .cairo_run_py(true, None, None, None, None, None)
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
 
         Python::with_gil(|py| {
