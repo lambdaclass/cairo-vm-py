@@ -446,6 +446,14 @@ impl PyCairoRunner {
             )
             .map_err(to_py_error)?;
 
+        for i in 0..10 {
+            println!(
+                "{}: {}",
+                i,
+                self.pyvm.vm.borrow().get_segment_used_size(i).unwrap_or(0)
+            );
+        }
+
         if verify_secure.unwrap_or(true) {
             verify_secure_runner(&self.inner, false, &mut (*self.pyvm.vm).borrow_mut())
                 .map_err(to_py_error)?;
@@ -1303,8 +1311,50 @@ mod test {
 
     #[test]
     fn run_from_entrypoint_with_multiple_untyped_args() {
-        // Multiple args (no typed)
-        // Test that `PyCairoRunner::insert()` inserts values correctly.
+        let path = "cairo_programs/array_sum.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            let array = vec![
+                PyMaybeRelocatable::from(bigint!(1)).to_object(py),
+                PyMaybeRelocatable::from(bigint!(2)).to_object(py),
+                PyMaybeRelocatable::from(bigint!(4)).to_object(py),
+                PyMaybeRelocatable::from(bigint!(8)).to_object(py),
+            ];
+            let size = PyMaybeRelocatable::from(bigint!(array.len()));
+            let args = vec![array.into_py(py), size.to_object(py)];
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("7", None, None).unwrap(),
+                args.into_py(py),
+                None,
+                None,
+                Some(false),
+                None,
+                None,
+            );
+
+            assert!(result.is_ok());
+
+            let return_value: MaybeRelocatable = runner
+                .get_return_values(1, py)
+                .unwrap()
+                .extract::<Vec<PyMaybeRelocatable>>(py)
+                .expect("failed to get return value")
+                .first()
+                .expect("there's no return value")
+                .into();
+            assert_eq!(return_value, MaybeRelocatable::Int(bigint!(15)));
+        });
     }
 
     #[test]
