@@ -121,7 +121,7 @@ compare_memory_devnet:
 	pip install starknet-devnet && \
 	cd starknet-devnet; scripts/install_dev_tools.sh
 # Create the folder where we will store the memory outputs
-	cd starknet-devnet; mkdir memory_files
+	cd starknet-devnet; mkdir memory_files; mkdir trace_files
 # Compile test files
 	. scripts/memory_comparator/cairo-lang/bin/activate && \
 	cd starknet-devnet; scripts/compile_contracts.sh
@@ -144,7 +144,7 @@ compare_memory_devnet_ci:
 	pip install starknet-devnet && \
 	cd starknet-devnet; scripts/install_dev_tools.sh
 # Create the folder where we will store the memory outputs
-	cd starknet-devnet; mkdir memory_files
+	cd starknet-devnet; mkdir memory_files; mkdir trace_files
 # Compile test files
 	. scripts/memory_comparator/cairo-lang/bin/activate && \
 	cd starknet-devnet; scripts/compile_contracts.sh
