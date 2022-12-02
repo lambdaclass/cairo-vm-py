@@ -13,45 +13,28 @@ for file in test/test_*.py; do
         . ../scripts/memory_comparator/cairo-lang/bin/activate
         poetry run pytest $file
         # Compare memory outputs
-        class_hash_memory_path="memory_files/class_hash"
-        execute_entry_point_memory_path="memory_files/execute_entry_point"
-        class_hash_trace_path="trace_files/class_hash"
-        execute_entry_point_trace_path="trace_files/execute_entry_point"
+        memory_dir="memory_files"
         memory_comparator_path="../scripts/memory_comparator/memory_comparator.py"
-        # Some tests do not use class_hash and dont generate memory and trace files there
-        if ! ([ "$file" = "test/test_dump.py" ]); then
-            # Compare memory outputs for class_hash
-            if ! $memory_comparator_path $class_hash_memory_path.memory $class_hash_memory_path.rs.memory; then
-                echo "Memory differs for last class_hash on test $file"
+        for mem_file in $(ls $memory_dir | grep .rs.memory$ | sed -E 's/\.rs.memory$//'); do
+            if ! $memory_comparator_path $memory_dir/$mem_file.memory $memory_dir/$mem_file.rs.memory; then
+                echo "Memory differs for $mem_file on test $file"
                 exit_code=1
             else
-                echo "Memory comparison successful"
+                echo "Memory comparison successful for $mem_file on test $file"
             fi
-            # Compare trace outputs for class_hash
-            if ! diff -q $class_hash_trace_path.trace $class_hash_trace_path.rs.trace; then
-                echo "Traces differ for last class_hash on test $file"
+        done
+        # Compare trace outputs 
+        trace_dir="trace_files"
+        for trace_file in $(ls $trace_dir | grep .rs.trace$ | sed -E 's/\.rs.trace$//'); do
+            echo $trace_file 
+            ls trace_files
+            if ! diff -q $trace_dir/$trace_file.trace $trace_dir/$trace_file.rs.trace; then
+                echo "Traces differs for $trace_file on test $file"
                 exit_code=1
             else
-                echo "Trace comparison successful"
+                echo "Trace comparison successful $trace_file on test $file"
             fi
-        fi
-        # Some tests do not use execute_entry_point and dont generate memory files there
-        if ! ([ "$file" = "test/test_account_predeployed.py" ]); then
-            # Compare memory outputs for execute_entry_point
-            if ! $memory_comparator_path $execute_entry_point_memory_path.memory $execute_entry_point_memory_path.rs.memory; then
-                echo "Memory differs for last execute_entry_point on test $file"
-                exit_code=1
-            else
-                echo "Memory comparison successful"
-            fi
-            # Compare trace outputs for execute_entry_point
-            if ! diff -q $execute_entry_point_trace_path.trace $execute_entry_point_trace_path.rs.trace; then
-                echo "Traces differ for last execute_entry_point on test $file"
-                exit_code=1
-            else
-                echo "Trace comparison successful"
-            fi
-        fi
+        done
         # Cleanup memory files
         rm memory_files/*.memory
         # Cleanup trace files
