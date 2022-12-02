@@ -652,6 +652,7 @@ mod test {
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use cairo_rs::bigint;
     use num_bigint::BigInt;
+    use std::env::temp_dir;
     use std::fs;
 
     use type_samples::*;
@@ -1974,7 +1975,10 @@ mod test {
         )
         .unwrap();
 
-        let trace_path = "cairo_programs/_temp_fibonacci.trace";
+        let trace_path = temp_dir().join("fibonacci.trace");
+        let trace_path = trace_path.to_str().unwrap();
+
+        _ = fs::remove_file(trace_path);
 
         runner
             .cairo_run_py(false, Some(trace_path), None, None, None, None)
@@ -2017,7 +2021,11 @@ mod test {
         )
         .unwrap();
 
-        let memory_path = "cairo_programs/_temp_fibonacci.memory";
+        println!("{:?}", temp_dir().join("fibonacci.memory"));
+        let memory_path = temp_dir().join("fibonacci.memory");
+        let memory_path = memory_path.to_str().unwrap();
+
+        _ = fs::remove_file(memory_path);
 
         runner
             .cairo_run_py(false, None, Some(memory_path), None, None, None)
