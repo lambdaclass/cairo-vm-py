@@ -177,17 +177,15 @@ impl PyCairoRunner {
         let address = Into::<Relocatable>::into(address);
         let constants = self.inner.get_constants().clone();
         while self.pyvm.vm.borrow().get_pc() != &address {
-            self.pyvm
-                .step(
-                    &self.hint_processor,
-                    &mut self.hint_locals,
-                    &mut self.inner.exec_scopes,
-                    &hint_data_dictionary,
-                    Rc::clone(&self.struct_types),
-                    &constants,
-                    self.static_locals.as_ref(),
-                )
-                .map_err(to_py_error)?;
+            self.pyvm.step(
+                &self.hint_processor,
+                &mut self.hint_locals,
+                &mut self.inner.exec_scopes,
+                &hint_data_dictionary,
+                Rc::clone(&self.struct_types),
+                &constants,
+                self.static_locals.as_ref(),
+            )?;
         }
         Ok(())
     }

@@ -4,9 +4,10 @@ use crate::pycell;
 use crate::run_context::PyRunContext;
 use crate::scope_manager::{PyEnterScope, PyExitScope};
 use crate::to_felt_or_relocatable::ToFeltOrRelocatableFunc;
+use crate::utils::to_py_error;
 use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
-    relocatable::PyRelocatable, utils::to_vm_error,
+    relocatable::PyRelocatable,
 };
 use cairo_rs::any_box;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
@@ -18,12 +19,13 @@ use cairo_rs::{
     vm::errors::vm_errors::VirtualMachineError,
 };
 use num_bigint::BigInt;
-use pyo3::PyCell;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
+use pyo3::{PyCell, PyErr};
 use std::any::Any;
 use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
+pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
 
 const GLOBAL_NAMES: [&str; 18] = [
     "memory",
@@ -88,8 +90,8 @@ impl PyVM {
         constants: &HashMap<String, BigInt>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         static_locals: Option<&HashMap<String, PyObject>>,
-    ) -> Result<(), VirtualMachineError> {
-        Python::with_gil(|py| -> Result<(), VirtualMachineError> {
+    ) -> Result<(), PyErr> {
+        Python::with_gil(|py| -> Result<(), PyErr> {
             let memory = PyMemory::new(self);
             let segments = PySegmentManager::new(self, memory.clone());
             let ap = PyRelocatable::from((*self.vm).borrow().get_ap());
@@ -110,75 +112,49 @@ impl PyVM {
             let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
-            let globals = py
-                .import("__main__")
-                .map_err(|err| to_vm_error(err, py))?
-                .dict()
-                .copy()
-                .map_err(|err| to_vm_error(err, py))?;
+            let globals = py.import("__main__")?.dict().copy()?;
 
-            add_scope_locals(globals, exec_scopes, py)?;
+            add_scope_locals(globals, exec_scopes)?;
 
-            globals
-                .set_item("memory", pycell!(py, memory))
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("segments", pycell!(py, segments))
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("ap", pycell!(py, ap))
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("fp", pycell!(py, fp))
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("ids", pycell!(py, ids))
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("vm_enter_scope", enter_scope)
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("vm_exit_scope", exit_scope)
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("range_check_builtin", range_check_builtin)
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("ecdsa_builtin", ecdsa_builtin)
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item("PRIME", prime)
-                .map_err(|err| to_vm_error(err, py))?;
-            globals
-                .set_item(
-                    "to_felt_or_relocatable",
-                    pycell!(py, to_felt_or_relocatable),
-                )
-                .map_err(|err| to_vm_error(err, py))?;
+            globals.set_item("memory", pycell!(py, memory))?;
+            globals.set_item("segments", pycell!(py, segments))?;
+            globals.set_item("ap", pycell!(py, ap))?;
+            globals.set_item("fp", pycell!(py, fp))?;
+            globals.set_item("ids", pycell!(py, ids))?;
+            globals.set_item("vm_enter_scope", enter_scope)?;
+            globals.set_item("vm_exit_scope", exit_scope)?;
+            globals.set_item("range_check_builtin", range_check_builtin)?;
+            globals.set_item("ecdsa_builtin", ecdsa_builtin)?;
+            globals.set_item("PRIME", prime)?;
+            globals.set_item(
+                "to_felt_or_relocatable",
+                pycell!(py, to_felt_or_relocatable),
+            )?;
 
             for (name, pyobj) in hint_locals.iter() {
-                globals
-                    .set_item(name, pyobj)
-                    .map_err(|err| to_vm_error(err, py))?;
+                globals.set_item(name, pyobj)?;
             }
 
             if let Some(static_locals) = static_locals {
                 for (name, pyobj) in static_locals.iter() {
-                    globals
-                        .set_item(name, pyobj)
-                        .map_err(|err| to_vm_error(err, py))?;
+                    globals.set_item(name, pyobj)?;
                 }
             }
 
-            py.run(&hint_data.code, Some(globals), None)
-                .map_err(|err| to_vm_error(err, py))?;
+            py.run(&hint_data.code, Some(globals), None)?;
 
             update_scope_hint_locals(exec_scopes, hint_locals, static_locals, globals, py);
 
             if self.vm.borrow_mut().get_signature_builtin().is_ok() {
                 ecdsa_builtin
                     .borrow()
-                    .update_signature(self.vm.borrow_mut().get_signature_builtin()?)?;
+                    .update_signature(
+                        self.vm
+                            .borrow_mut()
+                            .get_signature_builtin()
+                            .map_err(to_py_error)?,
+                    )
+                    .map_err(to_py_error)?;
             }
             enter_scope.borrow().update_scopes(exec_scopes)?;
             exit_scope.borrow().update_scopes(exec_scopes)
@@ -197,15 +173,19 @@ impl PyVM {
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
         static_locals: Option<&HashMap<String, PyObject>>,
-    ) -> Result<(), VirtualMachineError> {
+    ) -> Result<(), PyErr> {
         let pc_offset = (*self.vm).borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
             for hint_data in hint_list.iter() {
-                if self.should_run_py_hint(hint_executor, exec_scopes, hint_data, constants)? {
+                if self
+                    .should_run_py_hint(hint_executor, exec_scopes, hint_data, constants)
+                    .map_err(to_py_error)?
+                {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
-                        .ok_or(VirtualMachineError::WrongHintData)?;
+                        .ok_or(VirtualMachineError::WrongHintData)
+                        .map_err(to_py_error)?;
 
                     self.execute_hint(
                         hint_data,
@@ -232,7 +212,7 @@ impl PyVM {
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         constants: &HashMap<String, BigInt>,
         static_locals: Option<&HashMap<String, PyObject>>,
-    ) -> Result<(), VirtualMachineError> {
+    ) -> Result<(), PyErr> {
         self.step_hint(
             hint_executor,
             hint_locals,
@@ -242,7 +222,7 @@ impl PyVM {
             constants,
             static_locals,
         )?;
-        self.vm.borrow_mut().step_instruction()
+        self.vm.borrow_mut().step_instruction().map_err(to_py_error)
     }
 
     fn should_run_py_hint(
@@ -264,13 +244,10 @@ impl PyVM {
 pub(crate) fn add_scope_locals(
     globals: &PyDict,
     exec_scopes: &ExecutionScopes,
-    py: Python,
-) -> Result<(), VirtualMachineError> {
-    for (name, elem) in exec_scopes.get_local_variables()? {
+) -> Result<(), PyErr> {
+    for (name, elem) in exec_scopes.get_local_variables().map_err(to_py_error)? {
         if let Some(pyobj) = elem.downcast_ref::<PyObject>() {
-            globals
-                .set_item(name, pyobj)
-                .map_err(|err| to_vm_error(err, py))?;
+            globals.set_item(name, pyobj)?;
         }
     }
     Ok(())
