@@ -1,8 +1,8 @@
 diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-index 62d4290..1978d9e 100644
+index 09dfd89..c5e75cb 100644
 --- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 +++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-@@ -41,9 +41,12 @@ from starkware.starkware_utils.error_handling import (
+@@ -42,9 +42,12 @@ from starkware.starkware_utils.error_handling import (
      stark_assert,
      wrap_with_stark_exception,
  )
@@ -12,10 +12,10 @@ index 62d4290..1978d9e 100644
  
 +call_number = 0
 +
+ FAULTY_CLASS_HASH = to_bytes(0x1A7820094FEAF82D53F53F214B81292D717E7BB9A92BB2488092CD306F3993F)
  
- class ExecuteEntryPoint(ExecuteEntryPointBase):
-     """
-@@ -137,6 +140,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+ 
+@@ -140,6 +143,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
          contract storage, etc.) is saved on the resources manager.
          Returns a CallInfo object that represents the execution.
          """
@@ -23,15 +23,15 @@ index 62d4290..1978d9e 100644
          previous_cairo_usage = resources_manager.cairo_usage
  
          runner, syscall_handler = self._run(
-@@ -171,6 +175,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -174,6 +178,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
          Returns the corresponding CairoFunctionRunner and BusinessLogicSysCallHandler in order to
          retrieve the execution information.
          """
 +        global call_number
          # Prepare input for Cairo function runner.
          class_hash = self._get_code_class_hash(state=state)
-         contract_class = state.get_contract_class(class_hash=class_hash)
-@@ -182,7 +187,8 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+ 
+@@ -192,7 +197,8 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
  
          # Run the specified contract entry point with given calldata.
          with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
@@ -41,7 +41,7 @@ index 62d4290..1978d9e 100644
          os_context = os_utils.prepare_os_context(runner=runner)
  
          validate_contract_deployed(state=state, contract_address=self.contract_address)
-@@ -205,24 +211,24 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -215,24 +221,24 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
              os_context,
              len(self.calldata),
              # Allocate and mark the segment as read-only (to mark every input array as read-only).
@@ -76,7 +76,7 @@ index 62d4290..1978d9e 100644
                  verify_secure=True,
              )
          except VmException as exception:
-@@ -271,9 +277,12 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+@@ -281,9 +287,12 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
  
          # The arguments are touched by the OS and should not be counted as holes, mark them
          # as accessed.
@@ -460,10 +460,10 @@ index 1d09414..33f5c26 100644
      stark_assert(
          expected_stop_ptr == segment_stop_ptr,
 diff --git a/src/starkware/starknet/core/os/syscall_utils.py b/src/starkware/starknet/core/os/syscall_utils.py
-index e44635b..c129e50 100644
+index 48645a0..c77466f 100644
 --- a/src/starkware/starknet/core/os/syscall_utils.py
 +++ b/src/starkware/starknet/core/os/syscall_utils.py
-@@ -458,7 +458,6 @@ class SysCallHandlerBase(ABC):
+@@ -461,7 +461,6 @@ class SysCallHandlerBase(ABC):
      ) -> List[int]:
          """
          Returns the call retdata.
@@ -471,7 +471,7 @@ index e44635b..c129e50 100644
          syscall_name can be "call_contract", "delegate_call", "delegate_l1_handler", "library_call"
          or "library_call_l1_handler".
          """
-@@ -589,7 +588,16 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+@@ -592,7 +591,16 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
      def _allocate_segment(
          self, segments: MemorySegmentManager, data: Iterable[MaybeRelocatable]
      ) -> RelocatableValue:
@@ -489,7 +489,7 @@ index e44635b..c129e50 100644
          segment_end = segments.write_arg(ptr=segment_start, arg=data)
          self.read_only_segments.append((segment_start, segment_end - segment_start))
          return segment_start
-@@ -631,10 +639,10 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+@@ -634,10 +642,10 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
          args_struct_def: StructDefinition = syscall_info.syscall_request_struct.struct_definition_
          for arg, (arg_name, arg_def) in safe_zip(request, args_struct_def.members.items()):
              expected_type = get_runtime_type(arg_def.cairo_type)
@@ -504,7 +504,7 @@ index e44635b..c129e50 100644
  
          return request
  
-@@ -902,10 +910,20 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+@@ -905,10 +913,20 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
          Validates that there were no out of bounds writes to read-only segments and marks
          them as accessed.
          """
@@ -527,7 +527,7 @@ index e44635b..c129e50 100644
              stark_assert(
                  used_size == segment_size,
                  code=StarknetErrorCode.SECURITY_ERROR,
-@@ -1041,7 +1059,6 @@ class OsSysCallHandler(SysCallHandlerBase):
+@@ -1044,7 +1062,6 @@ class OsSysCallHandler(SysCallHandlerBase):
      def start_tx(self, tx_info_ptr: RelocatableValue):
          """
          Called when starting the execution of a transaction.
@@ -535,7 +535,7 @@ index e44635b..c129e50 100644
          'tx_info_ptr' is a pointer to the TxInfo struct corresponding to said transaction.
          """
          assert self.tx_info_ptr is None
-@@ -1089,4 +1106,4 @@ class OsSysCallHandler(SysCallHandlerBase):
+@@ -1092,4 +1109,4 @@ class OsSysCallHandler(SysCallHandlerBase):
          Called when skipping the execution of a transaction.
          It replaces a call to start_tx and end_tx.
          """
