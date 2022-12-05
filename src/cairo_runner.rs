@@ -1210,6 +1210,44 @@ mod test {
     }
 
     #[test]
+    fn run_from_entrypoint_with_invalid_entrypoint() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        // Without `runner.initialize()`, an uninitialized error is returned.
+        // With `runner.initialize()`, an invalid memory assignment is returned...
+        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("[]", None, None).unwrap(),
+                Vec::<&PyAny>::new().to_object(py),
+                None,
+                None,
+                Some(false),
+                None,
+                None,
+            );
+            assert_eq!(
+                format!("{:?}", result),
+                format!(
+                    "{:?}",
+                    Err::<(), PyErr>(PyTypeError::new_err("entrypoint must be int or str"))
+                )
+            );
+        });
+    }
+
+    #[test]
     fn run_from_entrypoint_without_args_set_hint_locals() {
         let path = "cairo_programs/not_main.json".to_string();
         let program = fs::read_to_string(path).unwrap();
