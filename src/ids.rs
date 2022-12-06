@@ -1119,11 +1119,10 @@ memory[fp] = ids.ok_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result.unwrap_err().to_string().contains(
-                &VirtualMachineError::NoRegisterInReference
-                    .to_string()
-                    .to_string()
-            ));
+            assert!(py_result
+                .unwrap_err()
+                .to_string()
+                .contains(&VirtualMachineError::NoRegisterInReference.to_string()));
         });
     }
 
