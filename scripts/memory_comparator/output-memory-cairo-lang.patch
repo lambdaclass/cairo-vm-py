@@ -44,6 +44,19 @@ index 09dfd89..3ae7c9a 100644
          return runner, syscall_handler
  
      def _get_selected_entry_point(
+diff --git a/src/starkware/starknet/cli/starknet_cli.py b/src/starkware/starknet/cli/starknet_cli.py
+index ddca7c6..adccde5 100755
+--- a/src/starkware/starknet/cli/starknet_cli.py
++++ b/src/starkware/starknet/cli/starknet_cli.py
+@@ -844,7 +844,7 @@ def get_salt(salt: Optional[str]) -> int:
+     If salt is None, returns a random salt.
+     """
+     if salt is None:
+-        return fields.ContractAddressSalt.get_random_value()
++        return 1
+ 
+     return parse_hex_arg(arg=salt, arg_name="salt")
+ 
 diff --git a/src/starkware/starknet/core/os/class_hash.py b/src/starkware/starknet/core/os/class_hash.py
 index 132fb21..46bd820 100644
 --- a/src/starkware/starknet/core/os/class_hash.py
