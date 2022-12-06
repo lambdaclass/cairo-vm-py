@@ -13,7 +13,9 @@ elif [ ${OS} = "Linux" ] ; then
     # Fedora 
     sudo dnf -y install gmp || true
     # CentOS
-    yum install gmp-devel || true
+    sudo yum install gmp-devel || true
+    # Arch
+    sudo pacman -Sy gmp || true
 else 
     echo 'The gmp dependency is required in order to build the repository, please check out if you have it on your system'
 fi 
