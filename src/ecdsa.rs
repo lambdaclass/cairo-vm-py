@@ -100,13 +100,25 @@ mod test {
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
         );
 
+        let rel2 = PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        };
+
+        let numbers2 = (
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+        );
+
         let mut signature = PySignature::new();
+        let mut original_signature = signature.clone();
 
         signature.add_signature(rel, numbers);
+        original_signature.add_signature(rel2, numbers2);
 
         let path = "cairo_programs/ecdsa.json".to_string();
         let program = fs::read_to_string(path).unwrap();
-        let runner = PyCairoRunner::new(
+        let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
             Some("all".to_string()),
@@ -114,14 +126,14 @@ mod test {
         )
         .unwrap();
 
-        if runner.pyvm.vm.borrow_mut().get_signature_builtin().is_ok() {
-            signature
-                .update_signature(runner.pyvm.vm.borrow_mut().get_signature_builtin().unwrap());
-        }
+        runner.initialize();
+
+        signature.update_signature(runner.pyvm.vm.borrow_mut().get_signature_builtin().unwrap());
+
+        //assert_ne!(original_signature.signatures, signature.signatures);
     }
 
     #[test]
-
     fn py_signature_to_py_object() {
         let new_py_signature = PySignature::new();
 
@@ -133,5 +145,13 @@ mod test {
 
             assert_eq!(py_object, PySignature::new());
         });
+    }
+
+    #[test]
+    fn py_signature_default() {
+        let new_py_signature = PySignature::default();
+        let empty_signatures = HashMap::new();
+
+        assert_eq!(new_py_signature.signatures, empty_signatures);
     }
 }
