@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 set -o pipefail
@@ -12,18 +12,15 @@ if [ ${OS} == "Darwin" ] ; then
     export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib
 elif [ ${OS} == "Linux" ] ; then 
     # Ubuntu/Debian
-    sudo apt install -y libgmp3-dev
-    if [ $? == 0 ]; then 
+    if [ $(sudo apt install -y libgmp3-dev) == 0 ]; then 
         echo OK
     fi
     # Fedora 
-    sudo dnf -y install gmp
-    if [ $? == 0 ]; then 
+    if [ $(sudo dnf -y install gmp) == 0 ]; then 
         echo OK
     fi
     # CentOS
-    yum install gmp-devel
-    if [ $? == 0 ]; then 
+    if [ $(yum install gmp-devel) == 0 ]; then 
         echo OK
     fi
 else 
