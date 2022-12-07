@@ -300,7 +300,7 @@ pub(crate) fn update_scope_hint_locals(
 
 #[cfg(test)]
 mod test {
-    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
+    use crate::{cairo_runner::PyCairoRunner, relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{
         bigint,
         hint_processor::{
@@ -313,11 +313,14 @@ mod test {
             exec_scope::ExecutionScopes,
             relocatable::{MaybeRelocatable, Relocatable},
         },
-        vm::errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
+        vm::{
+            errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
+            runners::builtin_runner::SignatureBuiltinRunner,
+        },
     };
     use num_bigint::{BigInt, Sign};
     use pyo3::{PyObject, Python, ToPyObject};
-    use std::{collections::HashMap, rc::Rc};
+    use std::{any::Any, collections::HashMap, fs, rc::Rc};
 
     #[test]
     fn execute_print_hint() {
@@ -1102,7 +1105,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals() {
-        let mut vm = PyVM::new(
+        let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -1139,7 +1142,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_change_its_value() {
-        let mut vm = PyVM::new(
+        let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -1174,7 +1177,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_affect_scope_or_hint_locals() {
-        let mut vm = PyVM::new(
+        let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -1200,6 +1203,26 @@ lista_b = [lista_a[k] for k in range(2)]";
         );
         assert!(exec_scopes.data[0].is_empty());
         assert!(hint_locals.is_empty())
+    }
+
+    #[test]
+    fn should_run_py_hint_nonsense_data_should_fail() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+            Vec::new(),
+        );
+        let hint_data: Box<dyn Any + 'static> = Box::new("nonsense");
+        let hint_processor = BuiltinHintProcessor::new_empty();
+        assert_eq!(
+            vm.should_run_py_hint(
+                &hint_processor,
+                &mut ExecutionScopes::new(),
+                &hint_data,
+                &HashMap::new(),
+            ),
+            Err(VirtualMachineError::WrongHintData),
+        );
     }
 
     #[test]

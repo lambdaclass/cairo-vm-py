@@ -2291,4 +2291,21 @@ mod test {
             assert!(oob_error.is_err());
         });
     }
+
+    #[test]
+    fn cairo_run_with_ecdsa_builtin() {
+        let path = String::from("cairo_programs/ecdsa.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+
+        assert!(runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .is_ok());
+    }
 }
