@@ -9,9 +9,13 @@ use std::{
 
 use cairo_rs::{
     hint_processor::{
-        hint_processor_definition::HintReference, hint_processor_utils::bigint_to_usize,
+        hint_processor_definition::HintReference,
+        hint_processor_utils::{
+            bigint_to_usize, compute_addr_from_reference as compute_addr_from_reference_2,
+        },
     },
     serde::deserialize_program::{ApTracking, Member},
+    serde::deserialize_program::{OffsetValue, Reference, ValueAddress},
     types::{
         instruction::Register,
         relocatable::{MaybeRelocatable, Relocatable},
@@ -244,11 +248,15 @@ pub fn get_value_from_reference(
     hint_reference: &HintReference,
     ap_tracking: &ApTracking,
 ) -> PyResult<PyMaybeRelocatable> {
-    //First handle case on only immediate
-    if let (None, Some(num)) = (
-        hint_reference.register.as_ref(),
-        hint_reference.immediate.as_ref(),
-    ) {
+    // //First handle case on only immediate
+    // if let (None, Some(num)) = (
+    //     hint_reference.register.as_ref(),
+    //     hint_reference.immediate.as_ref(),
+    // ) {
+    //     return Ok(PyMaybeRelocatable::from(num));
+    // }
+
+    if let OffsetValue::Immediate(Some(num)) = &hint_reference.offset1 {
         return Ok(PyMaybeRelocatable::from(num));
     }
     //Then calculate address
@@ -259,22 +267,30 @@ pub fn get_value_from_reference(
     } else {
         return Ok(PyMaybeRelocatable::from(var_addr));
     };
-    match value {
-        Some(MaybeRelocatable::RelocatableValue(ref rel)) => {
-            if let Some(immediate) = &hint_reference.immediate {
-                let modified_value = rel
-                    + bigint_to_usize(immediate)
-                        .map_err(|err| PyValueError::new_err(err.to_string()))?;
-                Ok(PyMaybeRelocatable::from(modified_value))
-            } else {
-                Ok(PyMaybeRelocatable::from(rel.clone()))
-            }
-        }
-        Some(MaybeRelocatable::Int(ref num)) => Ok(PyMaybeRelocatable::Int(num.clone())),
-        None => Err(PyValueError::new_err(
+
+    if value.is_some() {
+        return Ok(PyMaybeRelocatable::from(value.unwrap()));
+    } else {
+        return Err(PyValueError::new_err(
             VirtualMachineError::FailedToGetIds.to_string(),
-        )),
+        ));
     }
+    // match value {
+    //     Some(MaybeRelocatable::RelocatableValue(ref rel)) => {
+    //         if let Some(immediate) = &hint_reference.immediate {
+    //             let modified_value = rel
+    //                 + bigint_to_usize(immediate)
+    //                     .map_err(|err| PyValueError::new_err(err.to_string()))?;
+    //             Ok(PyMaybeRelocatable::from(modified_value))
+    //         } else {
+    //             Ok(PyMaybeRelocatable::from(rel.clone()))
+    //         }
+    //     }
+    //     Some(MaybeRelocatable::Int(ref num)) => Ok(PyMaybeRelocatable::Int(num.clone())),
+    //     None => Err(PyValueError::new_err(
+    //         VirtualMachineError::FailedToGetIds.to_string(),
+    //     )),
+    // }
 }
 
 ///Computes the memory address of the ids variable indicated by the HintReference as a Relocatable
@@ -285,47 +301,50 @@ pub fn compute_addr_from_reference(
     //ApTracking of the Hint itself
     hint_ap_tracking: &ApTracking,
 ) -> PyResult<Relocatable> {
-    let base_addr = match hint_reference.register {
-        //This should never fail
-        Some(Register::FP) => vm.get_fp(),
-        Some(Register::AP) => {
-            let var_ap_trackig = hint_reference.ap_tracking_data.as_ref().ok_or_else(|| {
-                PyValueError::new_err(VirtualMachineError::NoneApTrackingData.to_string())
-            })?;
+    let x = compute_addr_from_reference_2(hint_reference, vm, hint_ap_tracking).unwrap();
+    Ok(x)
 
-            let ap = vm.get_ap();
+    // let base_addr = match hint_reference.register {
+    //     //This should never fail
+    //     Some(Register::FP) => vm.get_fp(),
+    //     Some(Register::AP) => {
+    //         let var_ap_trackig = hint_reference.ap_tracking_data.as_ref().ok_or_else(|| {
+    //             PyValueError::new_err(VirtualMachineError::NoneApTrackingData.to_string())
+    //         })?;
 
-            apply_ap_tracking_correction(&ap, var_ap_trackig, hint_ap_tracking)
-                .map_err(|err| PyValueError::new_err(err.to_string()))?
-        }
-        None => {
-            return Err(PyValueError::new_err(
-                VirtualMachineError::NoRegisterInReference.to_string(),
-            ))
-        }
-    };
-    if hint_reference.offset1.is_negative()
-        && base_addr.offset < hint_reference.offset1.unsigned_abs().try_into()?
-    {
-        return Err(PyValueError::new_err(
-            VirtualMachineError::FailedToGetIds.to_string(),
-        ));
-    }
-    if !hint_reference.inner_dereference {
-        Ok(base_addr + hint_reference.offset1 + hint_reference.offset2)
-    } else {
-        let addr = base_addr + hint_reference.offset1;
-        let dereferenced_addr = vm
-            .get_relocatable(&addr)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?
-            .into_owned();
-        if let Some(imm) = &hint_reference.immediate {
-            Ok(dereferenced_addr
-                + bigint_to_usize(imm).map_err(|err| PyValueError::new_err(err.to_string()))?)
-        } else {
-            Ok(dereferenced_addr + hint_reference.offset2)
-        }
-    }
+    //         let ap = vm.get_ap();
+
+    //         apply_ap_tracking_correction(&ap, var_ap_trackig, hint_ap_tracking)
+    //             .map_err(|err| PyValueError::new_err(err.to_string()))?
+    //     }
+    //     None => {
+    //         return Err(PyValueError::new_err(
+    //             VirtualMachineError::NoRegisterInReference.to_string(),
+    //         ))
+    //     }
+    // };
+    // if hint_reference.offset1.is_negative()
+    //     && base_addr.offset < hint_reference.offset1.unsigned_abs().try_into()?
+    // {
+    //     return Err(PyValueError::new_err(
+    //         VirtualMachineError::FailedToGetIds.to_string(),
+    //     ));
+    // }
+    // if !hint_reference.inner_dereference {
+    //     Ok(base_addr + hint_reference.offset1 + hint_reference.offset2)
+    // } else {
+    //     let addr = base_addr + hint_reference.offset1;
+    //     let dereferenced_addr = vm
+    //         .get_relocatable(&addr)
+    //         .map_err(|err| PyValueError::new_err(err.to_string()))?
+    //         .into_owned();
+    //     if let Some(imm) = &hint_reference.immediate {
+    //         Ok(dereferenced_addr
+    //             + bigint_to_usize(imm).map_err(|err| PyValueError::new_err(err.to_string()))?)
+    //     } else {
+    //         Ok(dereferenced_addr + hint_reference.offset2)
+    //     }
+    // }
 }
 
 //TODO: Make this function public and import it from cairo-rs
