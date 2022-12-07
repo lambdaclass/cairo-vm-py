@@ -1141,6 +1141,21 @@ mod test {
     }
 
     #[test]
+    fn failed_to_get_segment_used_size() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
+        Python::with_gil(|py| match runner.get_segment_used_size(100, py) {
+            Ok(v) => assert!(false, "get segment used size with invalid data: {v:?}"),
+            Err(e) => assert!(true),
+        });
+    }
+
+    #[test]
     fn run_from_entrypoint_without_args() {
         let path = "cairo_programs/not_main.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -1495,6 +1510,24 @@ mod test {
             PyRelocatable::from((1,2)),
             runner.initial_fp().unwrap()
         };
+    }
+
+    #[test]
+    fn failed_to_get_initial_fp_test() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some(String::from("all")),
+            false,
+        )
+        .unwrap();
+
+        match runner.initial_fp() {
+            Ok(v) => assert!(false, "get initial fp with invalid data error: {v:?}"),
+            Err(_e) => assert!(true),
+        }
     }
 
     #[test]
@@ -1938,6 +1971,7 @@ mod test {
                 ),
                 types: vec![PyType::TypePointer, PyType::TypePointer],
             };
+
             let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
             let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
             assert_eq!(
@@ -1945,6 +1979,37 @@ mod test {
                 vec![
                     MaybeRelocatable::from((0, 0)).into(),
                     MaybeRelocatable::from((0, 1)).into(),
+                ]
+            );
+        })
+    }
+
+    #[test]
+    fn gen_typed_args_type_struct() {
+        //For documentation on how this test works see test submodule type_samples
+
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+        Python::with_gil(|py| {
+            let arg = MyIterator {
+                iter: Box::new(
+                    vec![
+                        Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((0, 0)))
+                            .to_object(py),
+                        PyMaybeRelocatable::from(bigint!(0)).to_object(py),
+                    ]
+                    .into_iter(),
+                ),
+                types: vec![PyType::TypePointer, PyType::TypePointer],
+            };
+
+            let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
+            let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
+            assert_eq!(
+                stack,
+                vec![
+                    MaybeRelocatable::from((0, 0)).into(),
+                    PyMaybeRelocatable::from(bigint!(0)),
                 ]
             );
         })
