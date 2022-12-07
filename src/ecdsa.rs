@@ -96,25 +96,14 @@ mod test {
         };
 
         let numbers = (
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-        );
-
-        let rel2 = PyRelocatable {
-            segment_index: 2,
-            offset: 0,
-        };
-
-        let numbers2 = (
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 13421772]),
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 13421772]),
         );
 
         let mut signature = PySignature::new();
-        let mut original_signature = signature.clone();
+        let original_signature = signature.clone();
 
         signature.add_signature(rel, numbers);
-        original_signature.add_signature(rel2, numbers2);
 
         let path = "cairo_programs/ecdsa.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -126,11 +115,63 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize();
+        match runner.initialize() {
+            Ok(_v) => assert!(true),
+            Err(e) => assert!(false, "error: {e:?}"),
+        }
 
-        signature.update_signature(runner.pyvm.vm.borrow_mut().get_signature_builtin().unwrap());
+        let mut binding = runner.pyvm.vm.borrow_mut();
+        let signature_builtin = binding.get_signature_builtin().unwrap();
 
-        //assert_ne!(original_signature.signatures, signature.signatures);
+        match signature.update_signature(signature_builtin) {
+            Ok(_v) => assert!(true),
+            Err(e) => assert!(false, "error: {e:?}"),
+        }
+
+        assert_ne!(original_signature.signatures, signature.signatures);
+    }
+
+    #[test]
+    fn update_py_signature_with_invalid_vaue() {
+        let rel = PyRelocatable {
+            segment_index: 2,
+            offset: 0,
+        };
+
+        let numbers = (
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+        );
+
+        let mut signature = PySignature::new();
+
+        signature.add_signature(rel, numbers);
+
+        let path = "cairo_programs/ecdsa.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+
+        match runner.initialize() {
+            Ok(_v) => assert!(true),
+            Err(e) => assert!(false, "error: {e:?}"),
+        }
+
+        let mut binding = runner.pyvm.vm.borrow_mut();
+        let signature_builtin = binding.get_signature_builtin().unwrap();
+
+        match signature.update_signature(signature_builtin) {
+            Ok(v) => assert!(
+                false,
+                "error acept invalid signature_builtin and return Ok: {v:?}"
+            ),
+            Err(_e) => assert!(true),
+        }
     }
 
     #[test]
