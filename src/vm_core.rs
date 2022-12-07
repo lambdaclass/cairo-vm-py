@@ -300,7 +300,7 @@ pub(crate) fn update_scope_hint_locals(
 
 #[cfg(test)]
 mod test {
-    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
+    use crate::{cairo_runner::PyCairoRunner, relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_rs::{
         bigint,
         hint_processor::{
@@ -313,11 +313,14 @@ mod test {
             exec_scope::ExecutionScopes,
             relocatable::{MaybeRelocatable, Relocatable},
         },
-        vm::errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
+        vm::{
+            errors::{exec_scope_errors::ExecScopeError, vm_errors::VirtualMachineError},
+            runners::builtin_runner::SignatureBuiltinRunner,
+        },
     };
     use num_bigint::{BigInt, Sign};
     use pyo3::{PyObject, Python, ToPyObject};
-    use std::{any::Any, collections::HashMap, rc::Rc};
+    use std::{any::Any, collections::HashMap, fs, rc::Rc};
 
     #[test]
     fn execute_print_hint() {
