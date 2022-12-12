@@ -2093,7 +2093,6 @@ mod test {
         )
         .unwrap();
 
-        println!("{:?}", temp_dir().join("fibonacci.memory"));
         let memory_path = temp_dir().join("fibonacci.memory");
         let memory_path = memory_path.to_str().unwrap();
 
