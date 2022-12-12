@@ -2031,18 +2031,21 @@ mod test {
                     ]
                     .into_iter(),
                 ),
-                types: vec![PyType::TypePointer, PyType::TypePointer],
+                types: vec![PyType::TypeStruct, PyType::TypeStruct],
             };
 
             let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
-            let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
-            assert_eq!(
-                stack,
-                vec![
-                    MaybeRelocatable::from((0, 0)).into(),
-                    MaybeRelocatable::from((1, 0)).into(),
-                ]
-            );
+            let stack = stack.extract::<Vec<Py<PyAny>>>(py).unwrap();
+            for value in stack.iter() {
+                let stack = value.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
+                assert_eq!(
+                    stack,
+                    vec![
+                        MaybeRelocatable::from((0, 0)).into(),
+                        MaybeRelocatable::from((0, 1)).into(),
+                    ]
+                );
+            }
         })
     }
 
