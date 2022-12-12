@@ -182,6 +182,15 @@ impl From<Relocatable> for PyMaybeRelocatable {
     }
 }
 
+impl From<&Relocatable> for PyMaybeRelocatable {
+    fn from(val: &Relocatable) -> Self {
+        PyMaybeRelocatable::RelocatableValue(PyRelocatable {
+            segment_index: val.segment_index,
+            offset: val.offset,
+        })
+    }
+}
+
 impl From<PyRelocatable> for PyMaybeRelocatable {
     fn from(val: PyRelocatable) -> Self {
         PyMaybeRelocatable::RelocatableValue(val)

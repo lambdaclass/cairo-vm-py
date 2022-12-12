@@ -1,5 +1,6 @@
 pub mod cairo_run;
 pub mod cairo_runner;
+mod dict_manager;
 mod ecdsa;
 pub mod ids;
 mod memory;
