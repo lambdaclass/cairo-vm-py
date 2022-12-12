@@ -1994,9 +1994,40 @@ mod test {
             let arg = MyIterator {
                 iter: Box::new(
                     vec![
-                        Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((0, 0)))
-                            .to_object(py),
-                        PyMaybeRelocatable::from(bigint!(0)).to_object(py),
+                        MyIterator {
+                            iter: Box::new(
+                                vec![
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 0,
+                                    )))
+                                    .to_object(py),
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 1,
+                                    )))
+                                    .to_object(py),
+                                ]
+                                .into_iter(),
+                            ),
+                            types: vec![PyType::TypePointer, PyType::TypePointer],
+                        }
+                        .into_py(py),
+                        MyIterator {
+                            iter: Box::new(
+                                vec![
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 0,
+                                    )))
+                                    .to_object(py),
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 1,
+                                    )))
+                                    .to_object(py),
+                                ]
+                                .into_iter(),
+                            ),
+                            types: vec![PyType::TypePointer, PyType::TypePointer],
+                        }
+                        .into_py(py),
                     ]
                     .into_iter(),
                 ),
@@ -2009,7 +2040,7 @@ mod test {
                 stack,
                 vec![
                     MaybeRelocatable::from((0, 0)).into(),
-                    PyMaybeRelocatable::from(bigint!(0)),
+                    MaybeRelocatable::from((1, 0)).into(),
                 ]
             );
         })
