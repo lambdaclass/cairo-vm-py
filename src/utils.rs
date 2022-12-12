@@ -1,6 +1,5 @@
-use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use num_bigint::BigInt;
-use pyo3::{PyErr, Python};
+use pyo3::PyErr;
 use std::{collections::HashMap, fmt::Display};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
@@ -8,13 +7,8 @@ pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
 #[macro_export]
 macro_rules! pycell {
     ($py:expr, $val:expr) => {
-        PyCell::new($py, $val).map_err(|err| to_vm_error(err, $py))?
+        PyCell::new($py, $val)?
     };
-}
-
-pub fn to_vm_error(pyerror: PyErr, py: Python) -> VirtualMachineError {
-    let value = pyerror.value(py);
-    VirtualMachineError::CustomHint(format!("{:?}", value))
 }
 
 pub fn to_py_error<T: Display>(error: T) -> PyErr {

@@ -1,9 +1,9 @@
 use std::{any::Any, collections::HashMap};
 
-use cairo_rs::{
-    any_box, types::exec_scope::ExecutionScopes, vm::errors::vm_errors::VirtualMachineError,
-};
-use pyo3::{pyclass, pymethods, PyObject};
+use cairo_rs::{any_box, types::exec_scope::ExecutionScopes};
+use pyo3::{pyclass, pymethods, PyErr, PyObject};
+
+use crate::utils::to_py_error;
 
 #[pyclass(unsendable)]
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ impl PyEnterScope {
         }
     }
 
-    pub fn update_scopes(&self, scopes: &mut ExecutionScopes) -> Result<(), VirtualMachineError> {
+    pub fn update_scopes(&self, scopes: &mut ExecutionScopes) -> Result<(), PyErr> {
         for scope_variables in self.new_scopes.iter() {
             let mut new_scope = HashMap::<String, Box<dyn Any>>::new();
             for (name, pyobj) in scope_variables {
@@ -57,9 +57,9 @@ impl PyExitScope {
         PyExitScope { num: 0 }
     }
 
-    pub fn update_scopes(&self, scopes: &mut ExecutionScopes) -> Result<(), VirtualMachineError> {
+    pub fn update_scopes(&self, scopes: &mut ExecutionScopes) -> Result<(), PyErr> {
         for _ in 0..self.num {
-            scopes.exit_scope()?
+            scopes.exit_scope().map_err(to_py_error)?
         }
         Ok(())
     }
