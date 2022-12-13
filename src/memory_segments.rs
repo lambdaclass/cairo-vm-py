@@ -115,6 +115,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
         assert!(segments.add().is_ok());
@@ -126,6 +127,7 @@ mod test {
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
 
@@ -231,6 +233,7 @@ mod test {
         let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let memory = PyMemory::new(&vm);
         let mut segments = PySegmentManager::new(&mut vm, memory);
@@ -242,6 +245,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
 
         let memory = PyMemory::new(&vm);

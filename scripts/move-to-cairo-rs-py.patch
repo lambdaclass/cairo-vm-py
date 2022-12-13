@@ -1,0 +1,557 @@
+From ce5fb341d27e3c9fb0041721ab39882bf66b39cf Mon Sep 17 00:00:00 2001
+From: Mariano Nicolini <mariano.nicolini.91@gmail.com>
+Date: Wed, 9 Nov 2022 18:58:33 -0300
+Subject: [PATCH] First changes in runner
+
+Add some changes for testing
+
+Some more changes
+
+Comment isinstance assertion
+
+Replace CairoFunctionRunner::run for run_function_runner
+
+Add program as function argument
+
+Fix format
+
+Comment a type check
+
+Changes for test to pass
+
+Add cairo_rs_py runner to class_hash_inner
+
+Fix entrypoint
+
+Add hash_ptr
+
+Fix program input
+
+Add try-except code blocks so that the code can run y protostar environment tests
+
+Remove prints from execute_entry_point.py
+
+Use initial_fp
+
+Handle HandlerException errors
+---
+ .../execution/execute_entry_point.py          |  30 +++--
+ .../business_logic/transaction/fee.py         |   6 +-
+ .../starknet/business_logic/utils.py          |   9 +-
+ src/starkware/starknet/core/os/class_hash.py  | 123 ++++++++++++++++--
+ src/starkware/starknet/core/os/os_utils.py    |  64 ++++++---
+ .../starknet/core/os/segment_utils.py         |  32 ++++-
+ .../starknet/core/os/syscall_utils.py         |  37 ++++--
+ 7 files changed, 239 insertions(+), 62 deletions(-)
+
+diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
+index 09dfd89..ed255bd 100644
+--- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
++++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
+@@ -43,6 +43,9 @@ from starkware.starkware_utils.error_handling import (
+     wrap_with_stark_exception,
+ )
+ 
++from starkware.starknet.core.os.syscall_utils import HandlerException
++import cairo_rs_py
++
+ logger = logging.getLogger(__name__)
+ 
+ FAULTY_CLASS_HASH = to_bytes(0x1A7820094FEAF82D53F53F214B81292D717E7BB9A92BB2488092CD306F3993F)
+@@ -192,7 +195,8 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+ 
+         # Run the specified contract entry point with given calldata.
+         with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
+-            runner = CairoFunctionRunner(program=contract_class.program, layout="all")
++            runner = cairo_rs_py.CairoRunner(program=contract_class.program.dumps(), entrypoint=None, layout="all", proof_mode=False)
++            runner.initialize_function_runner()
+         os_context = os_utils.prepare_os_context(runner=runner)
+ 
+         validate_contract_deployed(state=state, contract_address=self.contract_address)
+@@ -215,24 +219,24 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+             os_context,
+             len(self.calldata),
+             # Allocate and mark the segment as read-only (to mark every input array as read-only).
+-            syscall_handler._allocate_segment(segments=runner.segments, data=self.calldata),
++            syscall_handler._allocate_segment(segments=runner, data=self.calldata),
+         ]
+ 
+         try:
+             runner.run_from_entrypoint(
+                 entry_point.offset,
+-                *entry_points_args,
++                entry_points_args,
+                 hint_locals={
+                     "syscall_handler": syscall_handler,
+                 },
+-                static_locals={
+-                    "__find_element_max_size": 2**20,
+-                    "__squash_dict_max_size": 2**20,
+-                    "__keccak_max_size": 2**20,
+-                    "__usort_max_size": 2**20,
+-                    "__chained_ec_op_max_len": 1000,
+-                },
+-                run_resources=tx_execution_context.run_resources,
++                # static_locals={
++                #     "__find_element_max_size": 2**20,
++                #     "__squash_dict_max_size": 2**20,
++                #     "__keccak_max_size": 2**20,
++                #     "__usort_max_size": 2**20,
++                #     "__chained_ec_op_max_len": 1000,
++                # },
++                # run_resources=tx_execution_context.run_resources,
+                 verify_secure=True,
+             )
+         except VmException as exception:
+@@ -268,6 +272,8 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+                 code=StarknetErrorCode.UNEXPECTED_FAILURE,
+                 message="Got an unexpected exception during the execution of the transaction.",
+             ) from exception
++        except HandlerException as exception:
++            raise StarkException(code=exception.stark_exception.code, message=str(exception.stark_exception.message)) from exception
+ 
+         # Complete handler validations.
+         os_utils.validate_and_process_os_context(
+@@ -281,7 +287,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+ 
+         # The arguments are touched by the OS and should not be counted as holes, mark them
+         # as accessed.
+-        assert isinstance(args_ptr, RelocatableValue)  # Downcast.
++        # assert isinstance(args_ptr, RelocatableValue)  # Downcast.
+         runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
+ 
+         return runner, syscall_handler
+diff --git a/src/starkware/starknet/business_logic/transaction/fee.py b/src/starkware/starknet/business_logic/transaction/fee.py
+index 9acaa73..9bbb9f5 100644
+--- a/src/starkware/starknet/business_logic/transaction/fee.py
++++ b/src/starkware/starknet/business_logic/transaction/fee.py
+@@ -67,9 +67,9 @@ def calculate_l1_gas_by_cairo_usage(
+     """
+     cairo_resource_fee_weights = general_config.cairo_resource_fee_weights
+     cairo_resource_names = set(cairo_resource_usage.keys())
+-    assert cairo_resource_names.issubset(
+-        cairo_resource_fee_weights.keys()
+-    ), "Cairo resource names must be contained in fee weights dict."
++    # assert cairo_resource_names.issubset(
++    #     cairo_resource_fee_weights.keys()
++    # ), "Cairo resource names must be contained in fee weights dict."
+ 
+     # Convert Cairo usage to L1 gas usage.
+     cairo_l1_gas_usage = max(
+diff --git a/src/starkware/starknet/business_logic/utils.py b/src/starkware/starknet/business_logic/utils.py
+index f63bc9f..15660fe 100644
+--- a/src/starkware/starknet/business_logic/utils.py
++++ b/src/starkware/starknet/business_logic/utils.py
+@@ -48,7 +48,14 @@ def get_return_values(runner: CairoFunctionRunner) -> List[int]:
+         exception_types=[Exception],
+     ):
+         ret_data_size, ret_data_ptr = runner.get_return_values(2)
+-        values = runner.memory.get_range(ret_data_ptr, ret_data_size)
++
++        try: 
++            # CAIRO-RS VERSION
++            values = runner.get_range(ret_data_ptr, ret_data_size)
++        except:
++            # ORIGINAL VERSION
++            values = runner.memory.get_range(ret_data_ptr, ret_data_size)
++
+ 
+     stark_assert(
+         all(isinstance(value, int) for value in values),
+diff --git a/src/starkware/starknet/core/os/class_hash.py b/src/starkware/starknet/core/os/class_hash.py
+index 132fb21..2e4b817 100644
+--- a/src/starkware/starknet/core/os/class_hash.py
++++ b/src/starkware/starknet/core/os/class_hash.py
+@@ -5,9 +5,10 @@ import json
+ import os
+ from contextvars import ContextVar
+ from functools import lru_cache
+-from typing import Callable, List, Optional
++from typing import Any, Callable, Dict, List, Optional, Tuple
+ 
+ import cachetools
++import cairo_rs_py
+ 
+ from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
+ from starkware.cairo.common.structs import CairoStructFactory, CairoStructProxy
+@@ -23,6 +24,10 @@ from starkware.cairo.lang.vm.crypto import pedersen_hash
+ from starkware.python.utils import from_bytes
+ from starkware.starknet.public.abi import starknet_keccak
+ from starkware.starknet.services.api.contract_class import ContractClass, EntryPointType
++# Added Imports
++from starkware.cairo.lang.vm.relocatable import MaybeRelocatable, RelocatableValue
++from starkware.cairo.lang.vm.vm_exceptions import SecurityError, VmException
++from starkware.python.utils import safe_zip
+ 
+ CAIRO_FILE = os.path.join(os.path.dirname(__file__), "contracts.cairo")
+ 
+@@ -77,17 +82,17 @@ def compute_class_hash_inner(
+     contract_class_struct = get_contract_class_struct(
+         identifiers=program.identifiers, contract_class=contract_class
+     )
+-    runner = CairoFunctionRunner(program)
+ 
+-    hash_builtin = HashBuiltinRunner(
+-        name="custom_hasher", included=True, ratio=32, hash_func=hash_func
+-    )
+-    runner.builtin_runners["hash_builtin"] = hash_builtin
+-    hash_builtin.initialize_segments(runner)
++    runner = cairo_rs_py.CairoRunner(program=program.dumps(), entrypoint=None, layout="all", proof_mode=False)
++    runner.initialize_function_runner()
++    hash_ptr = runner.add_additional_hash_builtin()
++
+ 
+-    runner.run(
++    run_function_runner(
++        runner,
++        program,
+         "starkware.starknet.core.os.contracts.class_hash",
+-        hash_ptr=hash_builtin.base,
++        hash_ptr=hash_ptr,
+         contract_class=contract_class_struct,
+         use_full_name=True,
+         verify_secure=False,
+@@ -194,3 +199,103 @@ def get_contract_class_struct(
+         bytecode_length=len(contract_class.program.data),
+         bytecode_ptr=contract_class.program.data,
+     )
++
++def run_function_runner(
++        runner,
++        program,
++        func_name: str,
++        *args,
++        hint_locals: Optional[Dict[str, Any]] = None,
++        static_locals: Optional[Dict[str, Any]] = None,
++        verify_secure: Optional[bool] = None,
++        trace_on_failure: bool = False,
++        apply_modulo_to_args: Optional[bool] = None,
++        use_full_name: bool = False,
++        verify_implicit_args_segment: bool = False,
++        **kwargs,
++    ) -> Tuple[Tuple[MaybeRelocatable, ...], Tuple[MaybeRelocatable, ...]]:
++        """
++        Runs func_name(*args).
++        args are converted to Cairo-friendly ones using gen_arg.
++
++        Returns the return values of the function, splitted into 2 tuples of implicit values and
++        explicit values. Structs will be flattened to a sequence of felts as part of the returned
++        tuple.
++
++        Additional params:
++        verify_secure - Run verify_secure_runner to do extra verifications.
++        trace_on_failure - Run the tracer in case of failure to help debugging.
++        apply_modulo_to_args - Apply modulo operation on integer arguments.
++        use_full_name - Treat 'func_name' as a fully qualified identifier name, rather than a
++          relative one.
++        verify_implicit_args_segment - For each implicit argument, verify that the argument and the
++          return value are in the same segment.
++        """
++        assert isinstance(program, Program)
++        entrypoint = program.get_label(func_name, full_name_lookup=use_full_name)
++
++        #Construct Fu
++        structs_factory = CairoStructFactory.from_program(program=program)
++        func = ScopedName.from_string(scope=func_name)
++
++        full_args_struct = structs_factory.build_func_args(func=func)
++        all_args = full_args_struct(*args, **kwargs)
++
++        try:
++            runner.run_from_entrypoint(
++                entrypoint,
++                all_args,
++                typed_args=True,
++                hint_locals=hint_locals,
++                static_locals=static_locals,
++                verify_secure=verify_secure,
++                apply_modulo_to_args=apply_modulo_to_args,
++            )
++        except (VmException, SecurityError, AssertionError) as ex:
++            if trace_on_failure:
++                print(
++                    f"""\
++Got {type(ex).__name__} exception during the execution of {func_name}:
++{str(ex)}
++"""
++                )
++                #trace_runner(runner=runner)
++            raise
++
++        # The number of implicit arguments is identical to the number of implicit return values.
++        n_implicit_ret_vals = structs_factory.get_implicit_args_length(func=func)
++        n_explicit_ret_vals = structs_factory.get_explicit_return_values_length(func=func)
++        n_ret_vals = n_explicit_ret_vals + n_implicit_ret_vals
++        implicit_retvals = tuple(
++            runner.get_range(
++                runner.get_ap() - n_ret_vals, n_implicit_ret_vals
++            )
++        )
++
++        explicit_retvals = tuple(
++            runner.get_range(
++                runner.get_ap() - n_explicit_ret_vals, n_explicit_ret_vals
++            )
++        )
++
++        # Verify the memory segments of the implicit arguments.
++        if verify_implicit_args_segment:
++            implicit_args = all_args[:n_implicit_ret_vals]
++            for implicit_arg, implicit_retval in safe_zip(implicit_args, implicit_retvals):
++                assert isinstance(
++                    implicit_arg, RelocatableValue
++                ), f"Implicit arguments must be RelocatableValues, {implicit_arg} is not."
++                assert isinstance(implicit_retval, RelocatableValue), (
++                    f"Argument {implicit_arg} is a RelocatableValue, but the returned value "
++                    f"{implicit_retval} is not."
++                )
++                assert implicit_arg.segment_index == implicit_retval.segment_index, (
++                    f"Implicit argument {implicit_arg} is not on the same segment as the returned "
++                    f"{implicit_retval}."
++                )
++                assert implicit_retval.offset >= implicit_arg.offset, (
++                    f"The offset of the returned implicit argument {implicit_retval} is less than "
++                    f"the offset of the input {implicit_arg}."
++                )
++
++        return implicit_retvals, explicit_retvals
+diff --git a/src/starkware/starknet/core/os/os_utils.py b/src/starkware/starknet/core/os/os_utils.py
+index 20bd521..0ea99f4 100644
+--- a/src/starkware/starknet/core/os/os_utils.py
++++ b/src/starkware/starknet/core/os/os_utils.py
+@@ -43,18 +43,23 @@ def update_builtin_pointers(
+ 
+     return return_builtins
+ 
+-
+ def prepare_os_context(runner: CairoFunctionRunner) -> List[MaybeRelocatable]:
+-    syscall_segment = runner.segments.add()
+-    os_context: List[MaybeRelocatable] = [syscall_segment]
+-
+-    for builtin in runner.program.builtins:
+-        builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
+-        os_context.extend(builtin_runner.initial_stack())
++    # CAIRO-RS VERSION
++    try: 
++        syscall_segment = runner.add_segment()
++        os_context: List[MaybeRelocatable] = [syscall_segment]
++        os_context.extend(runner.get_program_builtins_initial_stack())
++    # ORIGINAL VERSION
++    except:
++        syscall_segment = runner.segments.add()
++        os_context: List[MaybeRelocatable] = [syscall_segment]
++
++        for builtin in runner.program.builtins:
++            builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
++            os_context.extend(builtin_runner.initial_stack())
+ 
+     return os_context
+ 
+-
+ def validate_and_process_os_context(
+     runner: CairoFunctionRunner,
+     syscall_handler: syscall_utils.BusinessLogicSysCallHandler,
+@@ -64,14 +69,23 @@ def validate_and_process_os_context(
+     Validates and processes an OS context that was returned by a transaction.
+     Returns the syscall processor object containing the accumulated syscall information.
+     """
+-    # The returned values are os_context, retdata_size, retdata_ptr.
+-    os_context_end = runner.vm.run_context.ap - 2
+-    stack_ptr = os_context_end
+-    for builtin in runner.program.builtins[::-1]:
+-        builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
++    # CAIRO-RS VERSION
++    try:
++        os_context_end = runner.get_ap() - 2
++        stack_ptr = os_context_end
++        # The returned values are os_context, retdata_size, retdata_ptr.
++        stack_ptr = runner.get_builtins_final_stack(stack_ptr)
++    # ORIGINAL VERSION
++    except:
++        os_context_end = runner.vm.run_context.ap - 2
++
++        stack_ptr = os_context_end
+ 
+-        with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
+-            stack_ptr = builtin_runner.final_stack(runner=runner, pointer=stack_ptr)
++        for builtin in runner.program.builtins[::-1]:
++            builtin_runner = runner.builtin_runners[f"{builtin}_builtin"]
++
++            with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
++                stack_ptr = builtin_runner.final_stack(runner=runner, pointer=stack_ptr)
+ 
+     final_os_context_ptr = stack_ptr - 1
+     assert final_os_context_ptr + len(initial_os_context) == os_context_end
+@@ -81,9 +95,19 @@ def validate_and_process_os_context(
+         runner=runner, ptr_offset=SYSCALL_PTR_OFFSET, os_context=initial_os_context
+     )
+ 
+-    segment_utils.validate_segment_pointers(
+-        segments=runner.segments,
+-        segment_base_ptr=syscall_base_ptr,
+-        segment_stop_ptr=syscall_stop_ptr,
+-    )
++    # ORIGINAL VERSION
++    try: 
++        segment_utils.validate_segment_pointers(
++            segments=runner,
++            segment_base_ptr=syscall_base_ptr,
++            segment_stop_ptr=syscall_stop_ptr,
++        )
++    # CAIRO-RS VERSION
++    except:
++        segment_utils.validate_segment_pointers(
++            segments=runner.segments,
++            segment_base_ptr=syscall_base_ptr,
++            segment_stop_ptr=syscall_stop_ptr,
++        )
++
+     syscall_handler.post_run(runner=runner, syscall_stop_ptr=syscall_stop_ptr)
+diff --git a/src/starkware/starknet/core/os/segment_utils.py b/src/starkware/starknet/core/os/segment_utils.py
+index 1d09414..33f5c26 100644
+--- a/src/starkware/starknet/core/os/segment_utils.py
++++ b/src/starkware/starknet/core/os/segment_utils.py
+@@ -8,7 +8,7 @@ from starkware.starknet.definitions.error_codes import StarknetErrorCode
+ from starkware.starknet.public.abi import SYSCALL_PTR_OFFSET
+ from starkware.starkware_utils.error_handling import stark_assert, wrap_with_stark_exception
+ 
+-
++# LAMBDA MODIFIED
+ def get_os_segment_ptr_range(
+     runner: CairoFunctionRunner, ptr_offset: int, os_context: List[MaybeRelocatable]
+ ) -> Tuple[MaybeRelocatable, MaybeRelocatable]:
+@@ -21,10 +21,23 @@ def get_os_segment_ptr_range(
+     ), f"Illegal OS ptr offset; must be one of: {allowed_offsets}."
+ 
+     # The returned values are os_context, retdata_size, retdata_ptr.
+-    os_context_end = runner.vm.run_context.ap - 2
++    # CAIRO-RS VERSION
++    try:
++        os_context_end = runner.get_ap() - 2
++    except:
++    # ORIGINAL VERSION
++        os_context_end = runner.vm.run_context.ap - 2
++
+     final_os_context_ptr = os_context_end - len(os_context)
+ 
+-    return os_context[ptr_offset], runner.vm_memory[final_os_context_ptr + ptr_offset]
++    # CAIRO-RS VERSION
++    try:
++        return os_context[ptr_offset], runner.get(final_os_context_ptr + ptr_offset)
++    # ORIGINAL VERSION
++    except:
++        return os_context[ptr_offset], runner.vm_memory[final_os_context_ptr + ptr_offset]
++
++
+ 
+ 
+ def get_os_segment_stop_ptr(
+@@ -61,14 +74,19 @@ def validate_segment_pointers(
+     segment_base_ptr: MaybeRelocatable,
+     segment_stop_ptr: MaybeRelocatable,
+ ):
+-    assert isinstance(segment_base_ptr, RelocatableValue)
++    # assert isinstance(segment_base_ptr, RelocatableValue)
+     assert (
+         segment_base_ptr.offset == 0
+     ), f"Segment base pointer must be zero; got {segment_base_ptr.offset}."
+ 
+-    expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
+-        segment_index=segment_base_ptr.segment_index
+-    )
++    # CAIRO-RS VERSION
++    try: 
++        expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
++            index=segment_base_ptr.segment_index)
++   # ORIGINAL VERSION 
++    except:
++        expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
++            segment_index=segment_base_ptr.segment_index)
+ 
+     stark_assert(
+         expected_stop_ptr == segment_stop_ptr,
+diff --git a/src/starkware/starknet/core/os/syscall_utils.py b/src/starkware/starknet/core/os/syscall_utils.py
+index 48645a0..c77466f 100644
+--- a/src/starkware/starknet/core/os/syscall_utils.py
++++ b/src/starkware/starknet/core/os/syscall_utils.py
+@@ -461,7 +461,6 @@ class SysCallHandlerBase(ABC):
+     ) -> List[int]:
+         """
+         Returns the call retdata.
+-
+         syscall_name can be "call_contract", "delegate_call", "delegate_l1_handler", "library_call"
+         or "library_call_l1_handler".
+         """
+@@ -592,7 +591,16 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+     def _allocate_segment(
+         self, segments: MemorySegmentManager, data: Iterable[MaybeRelocatable]
+     ) -> RelocatableValue:
+-        segment_start = segments.add()
++        # FIXME: Here "segments" in really a Runner under the hood.
++        # May want to change the variable names.
++
++        # CAIRO-RS VERSION
++        try: 
++            segment_start = segments.add_segment()
++        # ORIGINAL VERSION
++        except:
++            segment_start = segments.add()
++
+         segment_end = segments.write_arg(ptr=segment_start, arg=data)
+         self.read_only_segments.append((segment_start, segment_end - segment_start))
+         return segment_start
+@@ -634,10 +642,10 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+         args_struct_def: StructDefinition = syscall_info.syscall_request_struct.struct_definition_
+         for arg, (arg_name, arg_def) in safe_zip(request, args_struct_def.members.items()):
+             expected_type = get_runtime_type(arg_def.cairo_type)
+-            assert isinstance(arg, expected_type), (
+-                f"Argument {arg_name} to syscall {syscall_name} is of unexpected type. "
+-                f"Expected: value of type {expected_type}; got: {arg}."
+-            )
++            # assert isinstance(arg, expected_type), (
++            #     f"Argument {arg_name} to syscall {syscall_name} is of unexpected type. "
++            #     f"Expected: value of type {expected_type}; got: {arg}."
++            # )
+ 
+         return request
+ 
+@@ -905,10 +913,20 @@ class BusinessLogicSysCallHandler(SysCallHandlerBase):
+         Validates that there were no out of bounds writes to read-only segments and marks
+         them as accessed.
+         """
+-        segments = runner.segments
++        # ORIGINAL VERSION
++        try: 
++            segments = runner.segments
++        # CAIRO-RS VERSION
++        except:
++            segments = runner
+ 
+         for segment_ptr, segment_size in self.read_only_segments:
+-            used_size = segments.get_segment_used_size(segment_index=segment_ptr.segment_index)
++            # CAIRO-RS VERSION
++            try:
++                used_size = segments.get_segment_used_size(index=segment_ptr.segment_index)
++            # ORIGINAL VERSION
++            except: 
++                used_size = segments.get_segment_used_size(segment_index=segment_ptr.segment_index)
+             stark_assert(
+                 used_size == segment_size,
+                 code=StarknetErrorCode.SECURITY_ERROR,
+@@ -1044,7 +1062,6 @@ class OsSysCallHandler(SysCallHandlerBase):
+     def start_tx(self, tx_info_ptr: RelocatableValue):
+         """
+         Called when starting the execution of a transaction.
+-
+         'tx_info_ptr' is a pointer to the TxInfo struct corresponding to said transaction.
+         """
+         assert self.tx_info_ptr is None
+@@ -1092,4 +1109,4 @@ class OsSysCallHandler(SysCallHandlerBase):
+         Called when skipping the execution of a transaction.
+         It replaces a call to start_tx and end_tx.
+         """
+-        next(self.tx_execution_info_iterator)
++        next(self.tx_execution_info_iterator)
+\ No newline at end of file
+-- 
+2.37.1 (Apple Git-137.1)

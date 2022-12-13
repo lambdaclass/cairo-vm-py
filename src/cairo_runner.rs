@@ -6,6 +6,7 @@ use crate::{
     vm_core::PyVM,
 };
 use cairo_rs::{
+    bigint,
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
@@ -21,6 +22,7 @@ use cairo_rs::{
         security::verify_secure_runner,
     },
 };
+use num_bigint::BigInt;
 use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError, PyValueError},
     prelude::*,
@@ -39,6 +41,7 @@ pub struct PyCairoRunner {
     hint_processor: BuiltinHintProcessor,
     hint_locals: HashMap<String, PyObject>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
+    static_locals: Option<HashMap<String, PyObject>>,
 }
 
 #[pymethods]
@@ -70,10 +73,11 @@ impl PyCairoRunner {
 
         Ok(PyCairoRunner {
             inner: cairo_runner,
-            pyvm: PyVM::new(program.prime, true),
+            pyvm: PyVM::new(program.prime, true, program.error_message_attributes),
             hint_processor: BuiltinHintProcessor::new_empty(),
             hint_locals: HashMap::new(),
             struct_types: Rc::new(struct_types),
+            static_locals: None,
         })
     }
 
@@ -99,7 +103,7 @@ impl PyCairoRunner {
             self.hint_locals = locals
         }
 
-        self.pyvm.static_locals = static_locals;
+        self.static_locals = static_locals;
 
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
@@ -174,16 +178,15 @@ impl PyCairoRunner {
         let address = Into::<Relocatable>::into(address);
         let constants = self.inner.get_constants().clone();
         while self.pyvm.vm.borrow().get_pc() != &address {
-            self.pyvm
-                .step(
-                    &self.hint_processor,
-                    &mut self.hint_locals,
-                    &mut self.inner.exec_scopes,
-                    &hint_data_dictionary,
-                    Rc::clone(&self.struct_types),
-                    &constants,
-                )
-                .map_err(to_py_error)?;
+            self.pyvm.step(
+                &self.hint_processor,
+                &mut self.hint_locals,
+                &mut self.inner.exec_scopes,
+                &hint_data_dictionary,
+                Rc::clone(&self.struct_types),
+                &constants,
+                self.static_locals.as_ref(),
+            )?;
         }
         Ok(())
     }
@@ -292,7 +295,8 @@ impl PyCairoRunner {
         Ok(PyRelocatable::from(self.pyvm.vm.borrow().get_ap()))
     }
 
-    pub fn get_initial_fp(&self) -> PyResult<PyRelocatable> {
+    #[getter]
+    pub fn initial_fp(&self) -> PyResult<PyRelocatable> {
         Ok(PyRelocatable::from(
             self.inner
                 .get_initial_fp()
@@ -354,7 +358,7 @@ impl PyCairoRunner {
             self.hint_locals = locals
         }
 
-        self.pyvm.static_locals = static_locals;
+        self.static_locals = static_locals;
         let apply_modulo_to_args = apply_modulo_to_args.unwrap_or(true);
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
@@ -414,7 +418,7 @@ impl PyCairoRunner {
             stack
         };
 
-        let return_fp = (*self.pyvm.vm).borrow_mut().add_memory_segment();
+        let return_fp = MaybeRelocatable::from(bigint!(0));
 
         let end = self
             .inner
@@ -422,7 +426,7 @@ impl PyCairoRunner {
                 &mut (*self.pyvm.vm).borrow_mut(),
                 entrypoint,
                 stack,
-                return_fp.into(),
+                return_fp,
             )
             .map_err(to_py_error)?;
 
@@ -597,6 +601,21 @@ impl PyCairoRunner {
     #[getter]
     fn segments(&self) -> PySegmentManager {
         PySegmentManager::new(&self.pyvm, PyMemory::new(&self.pyvm))
+    }
+
+    #[getter]
+    pub fn memory(&self) -> PyMemory {
+        PyMemory::new(&self.pyvm)
+    }
+
+    #[getter]
+    pub fn vm(&self) -> PyVM {
+        self.pyvm.clone()
+    }
+
+    #[getter]
+    pub fn vm_memory(&self) -> PyMemory {
+        PyMemory::new(&self.pyvm)
     }
 }
 
@@ -1134,10 +1153,9 @@ mod test {
                     None,
                 )
                 .unwrap();
-            assert!(!runner.pyvm.static_locals.as_ref().unwrap().is_empty());
+            assert!(!runner.static_locals.as_ref().unwrap().is_empty());
             assert_eq!(
                 runner
-                    .pyvm
                     .static_locals
                     .as_ref()
                     .unwrap()
@@ -1237,7 +1255,7 @@ mod test {
             .unwrap();
         assert_eq! {
             PyRelocatable::from((1,2)),
-            runner.get_initial_fp().unwrap()
+            runner.initial_fp().unwrap()
         };
     }
 
@@ -1278,6 +1296,10 @@ mod test {
             })],
             vec![RelocatableValue(PyRelocatable {
                 segment_index: 7,
+                offset: 0,
+            })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 8,
                 offset: 0,
             })],
         ];
@@ -1803,6 +1825,93 @@ mod test {
                     .transpose()
                     .expect("Could not convert value to a BigInt")
             };
+            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
+            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
+            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
+            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 4), None);
+        });
+    }
+
+    #[test]
+    fn memory() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+
+        let memory = runner.memory();
+
+        Python::with_gil(|py| {
+            let segment = runner.add_segment();
+
+            let set_value = |addr: &PyRelocatable, offset, value: BigInt| {
+                let addr = addr.__add__(offset);
+                memory
+                    .__setitem__(&addr, PyMaybeRelocatable::Int(value))
+                    .expect("Could not insert value into memory.");
+            };
+            let get_value = |addr: &PyRelocatable, offset| {
+                let addr = addr.__add__(offset);
+                memory
+                    .__getitem__(&addr, py)
+                    .expect("Could not get value from memory.")
+                    .map(|x| x.extract::<BigInt>(py))
+                    .transpose()
+                    .expect("Could not convert value to a BigInt")
+            };
+
+            set_value(&segment, 0, bigint!(1));
+            set_value(&segment, 1, bigint!(2));
+            set_value(&segment, 2, bigint!(3));
+            set_value(&segment, 3, bigint!(4));
+
+            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
+            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
+            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
+            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 4), None);
+        });
+    }
+
+    #[test]
+    fn vm() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+
+        let vm = runner.vm();
+        assert_eq!(vm.vm.as_ptr(), runner.pyvm.vm.as_ptr());
+    }
+
+    #[test]
+    fn vm_memory() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+
+        let memory = runner.vm_memory();
+
+        Python::with_gil(|py| {
+            let segment = runner.add_segment();
+
+            let set_value = |addr: &PyRelocatable, offset, value: BigInt| {
+                let addr = addr.__add__(offset);
+                memory
+                    .__setitem__(&addr, PyMaybeRelocatable::Int(value))
+                    .expect("Could not insert value into memory.");
+            };
+            let get_value = |addr: &PyRelocatable, offset| {
+                let addr = addr.__add__(offset);
+                memory
+                    .__getitem__(&addr, py)
+                    .expect("Could not get value from memory.")
+                    .map(|x| x.extract::<BigInt>(py))
+                    .transpose()
+                    .expect("Could not convert value to a BigInt")
+            };
+
+            set_value(&segment, 0, bigint!(1));
+            set_value(&segment, 1, bigint!(2));
+            set_value(&segment, 2, bigint!(3));
+            set_value(&segment, 3, bigint!(4));
+
             assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
             assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
             assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
