@@ -278,15 +278,13 @@ pub fn compute_addr_from_reference(
 }
 #[cfg(test)]
 mod tests {
-    use crate::{memory::PyMemory, relocatable::PyRelocatable, utils::to_vm_error};
+    use crate::{memory::PyMemory, relocatable::PyRelocatable};
     use cairo_rs::{
         bigint,
         types::{instruction::Register, relocatable::MaybeRelocatable},
     };
     use num_bigint::{BigInt, Sign};
     use pyo3::{types::PyDict, PyCell};
-
-    use crate::{memory::PyMemory, relocatable::PyRelocatable};
 
     use super::*;
 
