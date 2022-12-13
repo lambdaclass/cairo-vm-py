@@ -14,10 +14,7 @@ use cairo_rs::{
     },
     serde::deserialize_program::OffsetValue,
     serde::deserialize_program::{ApTracking, Member},
-    types::{
-        instruction::Register,
-        relocatable::{MaybeRelocatable, Relocatable},
-    },
+    types::relocatable::Relocatable,
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
 };
 use pyo3::{
@@ -281,11 +278,13 @@ pub fn compute_addr_from_reference(
 }
 #[cfg(test)]
 mod tests {
-    use cairo_rs::bigint;
+    use crate::{memory::PyMemory, relocatable::PyRelocatable, utils::to_vm_error};
+    use cairo_rs::{
+        bigint,
+        types::{instruction::Register, relocatable::MaybeRelocatable},
+    };
     use num_bigint::{BigInt, Sign};
     use pyo3::{types::PyDict, PyCell};
-
-    use crate::{memory::PyMemory, relocatable::PyRelocatable, utils::to_vm_error};
 
     use super::*;
 
