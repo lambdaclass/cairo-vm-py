@@ -1153,10 +1153,8 @@ mod test {
         runner
             .cairo_run_py(false, None, None, None, None, None)
             .unwrap();
-        Python::with_gil(|py| match runner.get_segment_used_size(100, py) {
-            Ok(v) => assert!(false, "get valid result with invalid data: {v:?}"),
-            Err(_e) => assert!(true),
-        });
+
+        Python::with_gil(|py| assert!(runner.get_segment_used_size(100, py).is_err()));
     }
 
     #[test]
@@ -1174,10 +1172,7 @@ mod test {
             .cairo_run_py(false, None, None, hint_locals, None, None)
             .unwrap();
 
-        Python::with_gil(|py| match runner.get_segment_used_size(100, py) {
-            Ok(v) => assert!(false, "get valid result with invalid data: {v:?}"),
-            Err(_e) => assert!(true),
-        });
+        Python::with_gil(|py| assert!(runner.get_segment_used_size(100, py).is_err()));
     }
 
     #[test]
@@ -1321,19 +1316,18 @@ mod test {
                 .to_object(py)]
                 .to_object(py);
 
-            match runner.run_from_entrypoint(
-                py,
-                py.eval("0", None, None).unwrap(),
-                args,
-                None,
-                None,
-                Some(false),
-                None,
-                Some(false),
-            ) {
-                Ok(v) => assert!(false, "get valid result with invalid data: {v:?}"),
-                Err(_e) => assert!(true),
-            }
+            assert!(runner
+                .run_from_entrypoint(
+                    py,
+                    py.eval("0", None, None).unwrap(),
+                    args,
+                    None,
+                    None,
+                    Some(false),
+                    None,
+                    Some(false),
+                )
+                .is_err());
         });
     }
 
@@ -1673,10 +1667,7 @@ mod test {
         )
         .unwrap();
 
-        match runner.initial_fp() {
-            Ok(v) => assert!(false, "get initial fp with invalid data error: {v:?}"),
-            Err(_e) => assert!(true),
-        }
+        assert!(runner.initial_fp().is_err());
     }
 
     #[test]
@@ -2216,10 +2207,7 @@ mod test {
                 types: vec![PyType::BigInt, PyType::BigInt],
             };
 
-            match runner.gen_typed_args(py, arg.into_py(py)) {
-                Ok(v) => assert!(false, "return a valid value with invalid data: {v:?}"),
-                Err(_e) => assert!(true),
-            }
+            assert!(runner.gen_typed_args(py, arg.into_py(py)).is_err());
         })
     }
 

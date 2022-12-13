@@ -115,18 +115,12 @@ mod test {
         )
         .unwrap();
 
-        match runner.initialize() {
-            Ok(_v) => assert!(true),
-            Err(e) => assert!(false, "error: {e:?}"),
-        }
+        runner.initialize().expect("Failed to initialize VM");
 
         let mut binding = runner.pyvm.vm.borrow_mut();
         let signature_builtin = binding.get_signature_builtin().unwrap();
 
-        match signature.update_signature(signature_builtin) {
-            Ok(_v) => assert!(true),
-            Err(e) => assert!(false, "error: {e:?}"),
-        }
+        assert_eq!(signature.update_signature(signature_builtin), Ok(()));
 
         assert_ne!(original_signature.signatures, signature.signatures);
     }
@@ -157,21 +151,12 @@ mod test {
         )
         .unwrap();
 
-        match runner.initialize() {
-            Ok(_v) => assert!(true),
-            Err(e) => assert!(false, "error: {e:?}"),
-        }
+        runner.initialize().expect("Failed to initialize VM");
 
         let mut binding = runner.pyvm.vm.borrow_mut();
         let signature_builtin = binding.get_signature_builtin().unwrap();
 
-        match signature.update_signature(signature_builtin) {
-            Ok(v) => assert!(
-                false,
-                "error acept invalid signature_builtin and return Ok: {v:?}"
-            ),
-            Err(_e) => assert!(true),
-        }
+        assert!(signature.update_signature(signature_builtin).is_err());
     }
 
     #[test]
