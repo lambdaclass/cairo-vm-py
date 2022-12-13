@@ -244,7 +244,7 @@ pub fn get_value_from_reference(
     ap_tracking: &ApTracking,
 ) -> PyResult<PyMaybeRelocatable> {
     // //First handle case on only immediate
-    if let OffsetValue::Immediate(Some(num)) = &hint_reference.offset1 {
+    if let OffsetValue::Immediate(num) = &hint_reference.offset1 {
         return Ok(PyMaybeRelocatable::from(num));
     }
     //Then calculate address
@@ -967,8 +967,8 @@ memory[fp] = ids.ok_ref
             references.insert(
                 String::from("imm_ref"),
                 HintReference {
-                    offset1: OffsetValue::Immediate(Some(bigint!(imm))),
-                    offset2: OffsetValue::Immediate(Some(bigint!(0))),
+                    offset1: OffsetValue::Immediate(bigint!(imm)),
+                    offset2: OffsetValue::Immediate(bigint!(0)),
                     dereference: true,
                     ap_tracking_data: None,
                     cairo_type: None,
