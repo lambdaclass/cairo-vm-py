@@ -33,8 +33,8 @@ make full-test
 ## Script to try out `cairo-rs-py`
 
 The `build_envs.sh` script will build two Python virtual environments:
-- `cairo-lang` containing a pristine install of `cairo-lang==0.10.1`;
-- `cairo-rs-py` containing a patched install of `cairo-lang==0.10.1` that uses `cairo-rs-py` as dependency.
+- `cairo-lang` containing a pristine install of `cairo-lang==0.10.3`;
+- `cairo-rs-py` containing a patched install of `cairo-lang==0.10.3` that uses `cairo-rs-py` as dependency.
 It will also install the required dependencies automatically in Debian-based distributions, CentOs, Fedora and OSX. 
 If you use another OS you can check how to install them manually below.
 

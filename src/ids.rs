@@ -286,6 +286,8 @@ mod tests {
     use num_bigint::{BigInt, Sign};
     use pyo3::{types::PyDict, PyCell};
 
+    use crate::{memory::PyMemory, relocatable::PyRelocatable};
+
     use super::*;
 
     fn create_simple_struct_type() -> (String, HashMap<String, Member>) {
@@ -367,7 +369,7 @@ memory[fp+2] = ids.CONST
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -454,7 +456,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.a.x is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -577,7 +579,7 @@ memory[fp + 1] = ids.ns.struct.address_
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
 
             //Check ids.Struct.SIZE is now at memory[fp]
             assert_eq!(
@@ -654,7 +656,7 @@ assert ids.ssp_x_ptr == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
         });
     }
 
@@ -695,10 +697,10 @@ assert ids.ssp_x_ptr == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(
-                py_result.map_err(|err| to_vm_error(err, py)),
-                Err(to_vm_error(PyValueError::new_err(IDS_GET_ERROR_MSG), py))
-            );
+            assert!(py_result
+                .unwrap_err()
+                .to_string()
+                .contains(IDS_GET_ERROR_MSG));
         });
     }
 
@@ -755,7 +757,7 @@ assert ids.ssp_x_ptr == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.a now contains memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
@@ -767,10 +769,10 @@ assert ids.ssp_x_ptr == 5
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(
-                py_result.map_err(|err| to_vm_error(err, py)),
-                Err(to_vm_error(PyValueError::new_err(IDS_SET_ERROR_MSG), py))
-            );
+            assert!(py_result
+                .unwrap_err()
+                .to_string()
+                .contains(&PyValueError::new_err(IDS_SET_ERROR_MSG).to_string()));
         });
     }
 
@@ -838,7 +840,7 @@ ids.struct.ptr = ids.fp
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.struct.x now contains 5
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -946,7 +948,7 @@ memory[fp] = ids.ok_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -957,27 +959,19 @@ memory[fp] = ids.ok_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(
-                py_result.map_err(|err| to_vm_error(err, py)),
-                Err(to_vm_error(
-                    PyValueError::new_err(
-                        VirtualMachineError::InvalidTrackingGroup(1, 0).to_string()
-                    ),
-                    py
-                ))
-            );
+            assert!(py_result
+                .unwrap_err()
+                .to_string()
+                .contains(&VirtualMachineError::InvalidTrackingGroup(1, 0).to_string()));
 
             let code = r"ids.none_ref";
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(
-                py_result.map_err(|err| to_vm_error(err, py)),
-                Err(to_vm_error(
-                    PyValueError::new_err(VirtualMachineError::NoneApTrackingData.to_string()),
-                    py
-                ))
-            );
+            assert!(py_result.unwrap_err().to_string().contains(
+                &PyValueError::new_err(VirtualMachineError::NoneApTrackingData.to_string())
+                    .to_string()
+            ));
         });
     }
 
@@ -1050,7 +1044,7 @@ memory[fp] = ids.ok_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
@@ -1061,13 +1055,10 @@ memory[fp] = ids.ok_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(
-                py_result.map_err(|err| to_vm_error(err, py)),
-                Err(to_vm_error(
-                    PyValueError::new_err(VirtualMachineError::NoRegisterInReference.to_string()),
-                    py
-                ))
-            );
+            assert!(py_result
+                .unwrap_err()
+                .to_string()
+                .contains(&VirtualMachineError::NoRegisterInReference.to_string()));
         });
     }
 
@@ -1153,7 +1144,7 @@ memory[fp] = ids.inner_imm_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
             //Check ids.inner_imm_ref is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 5))),
