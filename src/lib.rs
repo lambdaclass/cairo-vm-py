@@ -30,11 +30,7 @@ mod test {
     fn cairo_rs_py_test() {
         Python::with_gil(|py| {
             let module = PyModule::new(py, "My Module");
-            let result = crate::cairo_rs_py(py, module.unwrap());
-            match result {
-                Ok(_v) => assert!(true),
-                Err(e) => assert!(false, "error: {e:?}"),
-            }
+            assert!(crate::cairo_rs_py(py, module.unwrap()).is_ok());
         });
     }
 }
