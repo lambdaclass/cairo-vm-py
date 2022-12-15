@@ -11,6 +11,7 @@ mod scope_manager;
 mod to_felt_or_relocatable;
 mod utils;
 mod vm_core;
+mod vm_exception;
 
 use cairo_runner::PyCairoRunner;
 use pyo3::prelude::*;

@@ -1,9 +1,12 @@
+use crate::vm_exception::VmException;
 use crate::{
     memory::PyMemory,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
 };
+use cairo_rs::vm::errors::vm_exception::get_error_attr_value;
+use cairo_rs::vm::errors::vm_exception::get_location;
 use cairo_rs::{
     bigint,
     cairo_run::write_output,
@@ -610,6 +613,18 @@ impl PyCairoRunner {
     #[getter]
     pub fn vm_memory(&self) -> PyMemory {
         PyMemory::new(&self.pyvm)
+    }
+}
+
+impl PyCairoRunner {
+    fn as_vm_exception(&self, error: PyErr) -> VmException {
+        let pc = self.pyvm.vm.borrow().get_pc().offset;
+        VmException {
+            pc,
+            inst_location: get_location(&pc, &self.inner),
+            inner_exc: error,
+            error_attr_value: get_error_attr_value(pc, &self.inner),
+        }
     }
 }
 
