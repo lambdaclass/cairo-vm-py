@@ -16,8 +16,10 @@ use cairo_rs::{
     },
     vm::{
         errors::{
-            cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
-            vm_exception::get_location,
+            cairo_run_errors::CairoRunError,
+            runner_errors::RunnerError,
+            trace_errors::TraceError,
+            vm_exception::{get_error_attr_value, get_location},
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
         security::verify_secure_runner,
@@ -625,7 +627,15 @@ impl PyCairoRunner {
     fn as_vm_exception(&self, error: PyErr) -> PyErr {
         let pc = self.pyvm.vm.borrow().get_pc().offset;
         let instruction_location = get_location(&pc, &self.inner).map(InstructionLocation::from);
-        VmException::new_err((pc, instruction_location, 2, 3, 4, [error.to_string()]))
+        let error_attribute = get_error_attr_value(pc, &self.inner);
+        VmException::new_err((
+            pc,
+            instruction_location,
+            error_attribute,
+            None::<i32>,
+            None::<i32>,
+            [error.to_string()],
+        ))
     }
 }
 
