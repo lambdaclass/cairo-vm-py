@@ -34,7 +34,7 @@ impl From<Location> for PyLocation {
             input_file: loc.input_file,
             parent_location: loc
                 .parent_location
-                .and_then(|(loc, string)| Some((loc.into(), string))),
+                .map(|(loc, string)| (loc.into(), string)),
             start_line: loc.start_line,
             start_col: loc.end_line,
         }
@@ -49,7 +49,7 @@ impl From<Box<Location>> for Box<PyLocation> {
             input_file: loc.input_file,
             parent_location: loc
                 .parent_location
-                .and_then(|(loc, string)| Some((loc.into(), string))),
+                .map(|(loc, string)| (loc.into(), string)),
             start_line: loc.start_line,
             start_col: loc.end_line,
         })
