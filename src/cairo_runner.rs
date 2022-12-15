@@ -1,12 +1,9 @@
-use crate::vm_exception::VmException;
 use crate::{
     memory::PyMemory,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_rs::vm::errors::vm_exception::get_error_attr_value;
-use cairo_rs::vm::errors::vm_exception::get_location;
 use cairo_rs::{
     bigint,
     cairo_run::write_output,
@@ -110,7 +107,9 @@ impl PyCairoRunner {
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
         }
-        self.run_until_pc(&end)?;
+        if let Err(error) = self.run_until_pc(&end) {
+            return Err(self.as_vm_exception(error));
+        }
 
         self.inner
             .end_run(
@@ -436,7 +435,9 @@ impl PyCairoRunner {
             .initialize_vm(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
-        self.run_until_pc(&PyRelocatable::from(end))?;
+        if let Err(error) = self.run_until_pc(&end.into()) {
+            return Err(self.as_vm_exception(error));
+        }
 
         self.inner
             .end_run(
@@ -616,15 +617,12 @@ impl PyCairoRunner {
     }
 }
 
+pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
+
 impl PyCairoRunner {
-    fn as_vm_exception(&self, error: PyErr) -> VmException {
+    fn as_vm_exception(&self, error: PyErr) -> PyErr {
         let pc = self.pyvm.vm.borrow().get_pc().offset;
-        VmException {
-            pc,
-            inst_location: get_location(&pc, &self.inner),
-            inner_exc: error,
-            error_attr_value: get_error_attr_value(pc, &self.inner),
-        }
+        VmException::new_err((pc, 1, 2, 3, 4, [error.to_string()]))
     }
 }
 
