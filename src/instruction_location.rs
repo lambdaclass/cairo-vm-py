@@ -37,7 +37,7 @@ impl From<Location> for PyLocation {
                 .parent_location
                 .map(|(loc, string)| (loc.into(), string)),
             start_line: loc.start_line,
-            start_col: loc.end_line,
+            start_col: loc.start_col,
         }
     }
 }
@@ -52,7 +52,7 @@ impl From<Box<Location>> for Box<PyLocation> {
                 .parent_location
                 .map(|(loc, string)| (loc.into(), string)),
             start_line: loc.start_line,
-            start_col: loc.end_line,
+            start_col: loc.start_col,
         })
     }
 }
