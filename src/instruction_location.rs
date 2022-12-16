@@ -12,7 +12,7 @@ pub struct InstructionLocation {
 }
 #[pyclass]
 #[pyo3(name = "Location")]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PyLocation {
     #[pyo3(get)]
     pub end_line: u32,
@@ -62,5 +62,109 @@ impl From<Location> for InstructionLocation {
             hints: Vec::new(),
             accesible_scopes: Vec::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn pylocation_from_location() {
+        let loc = Location {
+            end_line: 1,
+            end_col: 2,
+            input_file: InputFile {
+                filename: String::from("file.cairo"),
+            },
+            parent_location: None,
+            start_line: 4,
+            start_col: 5,
+        };
+        let pyloc = PyLocation {
+            end_line: 1,
+            end_col: 2,
+            input_file: InputFile {
+                filename: String::from("file.cairo"),
+            },
+            parent_location: None,
+            start_line: 4,
+            start_col: 5,
+        };
+        assert_eq!(pyloc, PyLocation::from(loc))
+    }
+
+    #[test]
+    fn box_pylocation_from_box_location() {
+        let loc = Box::new(Location {
+            end_line: 1,
+            end_col: 2,
+            input_file: InputFile {
+                filename: String::from("file.cairo"),
+            },
+            parent_location: None,
+            start_line: 4,
+            start_col: 5,
+        });
+        let pyloc = Box::new(PyLocation {
+            end_line: 1,
+            end_col: 2,
+            input_file: InputFile {
+                filename: String::from("file.cairo"),
+            },
+            parent_location: None,
+            start_line: 4,
+            start_col: 5,
+        });
+        assert_eq!(pyloc, Box::<PyLocation>::from(loc))
+    }
+
+    #[test]
+    fn pylocation_from_locatio_with_parent() {
+        let loc = Location {
+            end_line: 1,
+            end_col: 2,
+            input_file: InputFile {
+                filename: String::from("file_a.cairo"),
+            },
+            parent_location: Some((
+                Box::new(Location {
+                    end_line: 6,
+                    end_col: 7,
+                    input_file: InputFile {
+                        filename: String::from("file_b.cairo"),
+                    },
+                    parent_location: None,
+                    start_line: 8,
+                    start_col: 9,
+                }),
+                String::from("Unexpected exception"),
+            )),
+            start_line: 4,
+            start_col: 5,
+        };
+        let pyloc = PyLocation {
+            end_line: 1,
+            end_col: 2,
+            input_file: InputFile {
+                filename: String::from("file_a.cairo"),
+            },
+            parent_location: Some((
+                Box::new(PyLocation {
+                    end_line: 6,
+                    end_col: 7,
+                    input_file: InputFile {
+                        filename: String::from("file_b.cairo"),
+                    },
+                    parent_location: None,
+                    start_line: 8,
+                    start_col: 9,
+                }),
+                String::from("Unexpected exception"),
+            )),
+            start_line: 4,
+            start_col: 5,
+        };
+        assert_eq!(pyloc, PyLocation::from(loc))
     }
 }
