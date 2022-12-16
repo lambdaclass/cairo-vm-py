@@ -2,6 +2,7 @@ use cairo_rs::serde::deserialize_program::{InputFile, Location};
 use pyo3::prelude::*;
 
 #[pyclass]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InstructionLocation {
     #[pyo3(get)]
     inst: PyLocation,
@@ -166,5 +167,35 @@ mod test {
             start_col: 5,
         };
         assert_eq!(pyloc, PyLocation::from(loc))
+    }
+
+    #[test]
+    fn instruction_location_from_location() {
+        let loc = Location {
+            end_line: 1,
+            end_col: 2,
+            input_file: InputFile {
+                filename: String::from("file.cairo"),
+            },
+            parent_location: None,
+            start_line: 4,
+            start_col: 5,
+        };
+
+        let inst_location = InstructionLocation {
+            inst: PyLocation {
+                end_line: 1,
+                end_col: 2,
+                input_file: InputFile {
+                    filename: String::from("file.cairo"),
+                },
+                parent_location: None,
+                start_line: 4,
+                start_col: 5,
+            },
+            hints: Vec::new(),
+            accesible_scopes: Vec::new(),
+        };
+        assert_eq!(inst_location, InstructionLocation::from(loc))
     }
 }
