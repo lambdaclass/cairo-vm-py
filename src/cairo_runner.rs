@@ -631,10 +631,10 @@ impl PyCairoRunner {
         VmException::new_err((
             pc,
             instruction_location,
+            error,
             error_attribute,
             None::<i32>,
             None::<i32>,
-            [error.to_string()],
         ))
     }
 }
