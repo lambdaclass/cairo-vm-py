@@ -42,6 +42,21 @@ impl From<Location> for PyLocation {
     }
 }
 
+impl From<PyLocation> for Location {
+    fn from(loc: PyLocation) -> Self {
+        Location {
+            end_line: loc.end_line,
+            end_col: loc.end_col,
+            input_file: loc.input_file,
+            parent_location: loc
+                .parent_location
+                .map(|(loc, string)| (loc.into(), string)),
+            start_line: loc.start_line,
+            start_col: loc.start_col,
+        }
+    }
+}
+
 impl From<Box<Location>> for Box<PyLocation> {
     fn from(loc: Box<Location>) -> Self {
         Box::new(PyLocation {
@@ -56,6 +71,22 @@ impl From<Box<Location>> for Box<PyLocation> {
         })
     }
 }
+
+impl From<Box<PyLocation>> for Box<Location> {
+    fn from(loc: Box<PyLocation>) -> Self {
+        Box::new(Location {
+            end_line: loc.end_line,
+            end_col: loc.end_col,
+            input_file: loc.input_file,
+            parent_location: loc
+                .parent_location
+                .map(|(loc, string)| (loc.into(), string)),
+            start_line: loc.start_line,
+            start_col: loc.start_col,
+        })
+    }
+}
+
 impl From<Location> for InstructionLocation {
     fn from(loc: Location) -> Self {
         InstructionLocation {
@@ -63,6 +94,14 @@ impl From<Location> for InstructionLocation {
             hints: Vec::new(),
             accesible_scopes: Vec::new(),
         }
+    }
+}
+
+#[pymethods]
+impl PyLocation {
+    pub fn to_string_with_content(&self, message: String) -> String {
+        let loc = Into::<Location>::into(self.clone());
+        loc.to_string(&message)
     }
 }
 
