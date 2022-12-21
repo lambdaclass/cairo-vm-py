@@ -65,7 +65,7 @@ coverage:
 	deactivate
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
-	cargo test
+	cargo test --no-default-features --features embedded-python
 
 clippy:
 	cargo clippy  -- -D warnings
