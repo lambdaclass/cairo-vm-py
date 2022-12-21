@@ -103,7 +103,7 @@ impl PyLocation {
     pub fn parent_location(&self) -> Option<(PyLocation, String)> {
         self.parent_location
             .as_ref()
-            .and_then(|(loc, str)| Some((*(loc.clone()), str.clone())))
+            .map(|(loc, str)| (*(loc.clone()), str.clone()))
     }
     pub fn to_string_with_content(&self, message: String) -> String {
         let loc = Into::<Location>::into(self.clone());
