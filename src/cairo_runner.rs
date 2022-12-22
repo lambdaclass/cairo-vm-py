@@ -1,4 +1,5 @@
 use crate::{
+    instruction_location::InstructionLocation,
     memory::PyMemory,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
@@ -15,7 +16,10 @@ use cairo_rs::{
     },
     vm::{
         errors::{
-            cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
+            cairo_run_errors::CairoRunError,
+            runner_errors::RunnerError,
+            trace_errors::TraceError,
+            vm_exception::{get_error_attr_value, get_location},
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
         security::verify_secure_runner,
@@ -107,7 +111,9 @@ impl PyCairoRunner {
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
         }
-        self.run_until_pc(&end)?;
+        if let Err(error) = self.run_until_pc(&end) {
+            return Err(self.as_vm_exception(error));
+        }
 
         self.inner
             .end_run(
@@ -433,7 +439,9 @@ impl PyCairoRunner {
             .initialize_vm(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
-        self.run_until_pc(&PyRelocatable::from(end))?;
+        if let Err(error) = self.run_until_pc(&end.into()) {
+            return Err(self.as_vm_exception(error));
+        }
 
         self.inner
             .end_run(
@@ -610,6 +618,24 @@ impl PyCairoRunner {
     #[getter]
     pub fn vm_memory(&self) -> PyMemory {
         PyMemory::new(&self.pyvm)
+    }
+}
+
+pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
+
+impl PyCairoRunner {
+    fn as_vm_exception(&self, error: PyErr) -> PyErr {
+        let pc = self.pyvm.vm.borrow().get_pc().offset;
+        let instruction_location = get_location(&pc, &self.inner).map(InstructionLocation::from);
+        let error_attribute = get_error_attr_value(pc, &self.inner);
+        VmException::new_err((
+            pc,
+            instruction_location,
+            error,
+            error_attribute,
+            None::<i32>,
+            None::<i32>,
+        ))
     }
 }
 

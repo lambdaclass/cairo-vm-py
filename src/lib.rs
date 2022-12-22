@@ -2,6 +2,7 @@ pub mod cairo_run;
 pub mod cairo_runner;
 mod ecdsa;
 pub mod ids;
+mod instruction_location;
 mod memory;
 mod memory_segments;
 mod range_check;
