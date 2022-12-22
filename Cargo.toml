@@ -3,19 +3,24 @@ name = "cairo-rs-py"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "cairo_rs_py"
-crate-type = ["cdylib"]
-
-[features]
-extension = ["pyo3/num-bigint", "pyo3/extension-module"]
-default = ["pyo3/num-bigint", "pyo3/auto-initialize"]
-
 [dependencies]
-pyo3 = { version = "0.16.5" }
+pyo3 = { version = "0.16.5", features = ["num-bigint"] }
 cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "42dadd1631c9196e39d91b77f130a78f73d83f5f" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
 
 [dev-dependencies.rusty-hook]
 version = "0.11"
+
+[features]
+extension-module = ["pyo3/extension-module"]
+embedded-python = ["pyo3/auto-initialize"]
+default = ["extension-module"]
+
+[lib]
+name = "cairo_rs_py"
+crate-type = ["cdylib"]
+required-features = ["extension-module"]
+
+[profile.release]
+debug = 1

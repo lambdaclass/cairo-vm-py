@@ -61,11 +61,11 @@ check:
 
 coverage:
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	cargo tarpaulin --out Xml && \
+	cargo tarpaulin --no-default-features --features embedded-python --out Xml && \
 	deactivate
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
-	cargo test
+	cargo test --no-default-features --features embedded-python
 
 clippy:
 	cargo clippy  -- -D warnings
