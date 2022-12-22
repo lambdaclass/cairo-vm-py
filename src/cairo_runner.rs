@@ -682,9 +682,9 @@ mod test {
         // This method returns a second object, so that we can then implement the values() method
 
         #[pymethods]
-        // This method is implemented exclusively to support arg.__annotations__
         impl MyIterator {
-            pub fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
+            #[getter]
+            pub fn __annotations__(&self) -> PyResult<Annotations> {
                 Ok(Annotations {
                     0: self.types.clone(),
                 })
