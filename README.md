@@ -48,7 +48,7 @@ Both virtualenvs will be created under the `/scripts` directory.
 To actually use any of the implementations you would have to activate the environment you want. For example to use the cairo-rs-py integration you need to run:
 
 ```shell
-source activate scripts/cairo-rs-py/bin/activate
+source scripts/cairo-rs-py/bin/activate
 ```
 
 After activating the cairo-rs-py virtualenv you can try out any Cairo project and it will use cairo-rs.
