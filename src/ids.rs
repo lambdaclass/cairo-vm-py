@@ -9,13 +9,12 @@ use std::{
 
 use cairo_rs::{
     hint_processor::{
-        hint_processor_definition::HintReference, hint_processor_utils::bigint_to_usize,
+        hint_processor_definition::HintReference,
+        hint_processor_utils::compute_addr_from_reference as cairo_rs_compute_addr_from_reference,
     },
+    serde::deserialize_program::OffsetValue,
     serde::deserialize_program::{ApTracking, Member},
-    types::{
-        instruction::Register,
-        relocatable::{MaybeRelocatable, Relocatable},
-    },
+    types::relocatable::Relocatable,
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
 };
 use pyo3::{
@@ -243,11 +242,8 @@ pub fn get_value_from_reference(
     hint_reference: &HintReference,
     ap_tracking: &ApTracking,
 ) -> PyResult<PyMaybeRelocatable> {
-    //First handle case on only immediate
-    if let (None, Some(num)) = (
-        hint_reference.register.as_ref(),
-        hint_reference.immediate.as_ref(),
-    ) {
+    // //First handle case on only immediate
+    if let OffsetValue::Immediate(num) = &hint_reference.offset1 {
         return Ok(PyMaybeRelocatable::from(num));
     }
     //Then calculate address
@@ -343,14 +339,15 @@ fn apply_ap_tracking_correction(
     let ap_diff = hint_ap_tracking.offset - ref_ap_tracking.offset;
     ap.sub(ap_diff)
 }
-
 #[cfg(test)]
 mod tests {
-    use cairo_rs::bigint;
+    use crate::{memory::PyMemory, relocatable::PyRelocatable};
+    use cairo_rs::{
+        bigint,
+        types::{instruction::Register, relocatable::MaybeRelocatable},
+    };
     use num_bigint::{BigInt, Sign};
     use pyo3::{types::PyDict, PyCell};
-
-    use crate::{memory::PyMemory, relocatable::PyRelocatable};
 
     use super::*;
 
@@ -462,13 +459,10 @@ memory[fp+2] = ids.CONST
             references.insert(
                 String::from("a"),
                 HintReference {
-                    register: Some(Register::FP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::FP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: None,
                     cairo_type: Some(String::from("SimpleStruct")),
                 },
             );
@@ -562,13 +556,10 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             references.insert(
                 String::from("ns"),
                 HintReference {
-                    register: Some(Register::FP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::FP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: None,
                     cairo_type: Some(String::from("NestedStruct")),
                 },
             );
@@ -675,13 +666,10 @@ memory[fp + 1] = ids.ns.struct.address_
             references.insert(
                 String::from("ssp"),
                 HintReference {
-                    register: Some(Register::FP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::FP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: None,
                     cairo_type: Some(String::from("SimpleStruct*")),
                 },
             );
@@ -856,13 +844,10 @@ assert ids.ssp_x_ptr == 5
             references.insert(
                 String::from("struct"),
                 HintReference {
-                    register: Some(Register::FP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::FP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: None,
                     cairo_type: Some(String::from("SimpleStruct")),
                 },
             );
@@ -870,13 +855,10 @@ assert ids.ssp_x_ptr == 5
             references.insert(
                 String::from("fp"),
                 HintReference {
-                    register: Some(Register::FP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::FP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: false,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: None,
                     cairo_type: None,
                 },
             );
@@ -942,13 +924,10 @@ ids.struct.ptr = ids.fp
             references.insert(
                 String::from("ok_ref"),
                 HintReference {
-                    register: Some(Register::AP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::FP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: Some(ApTracking::default()),
-                    immediate: None,
                     cairo_type: None,
                 },
             );
@@ -956,16 +935,13 @@ ids.struct.ptr = ids.fp
             references.insert(
                 String::from("bad_ref"),
                 HintReference {
-                    register: Some(Register::AP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::AP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: Some(ApTracking {
                         group: 1,
                         offset: 0,
                     }),
-                    immediate: None,
                     cairo_type: None,
                 },
             );
@@ -973,13 +949,10 @@ ids.struct.ptr = ids.fp
             references.insert(
                 String::from("none_ref"),
                 HintReference {
-                    register: Some(Register::AP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::AP, 0, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: None,
                     cairo_type: None,
                 },
             );
@@ -1057,13 +1030,10 @@ memory[fp] = ids.ok_ref
             references.insert(
                 String::from("imm_ref"),
                 HintReference {
-                    register: None,
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Immediate(bigint!(imm)),
+                    offset2: OffsetValue::Immediate(bigint!(0)),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: Some(bigint!(imm)),
                     cairo_type: None,
                 },
             );
@@ -1071,13 +1041,10 @@ memory[fp] = ids.ok_ref
             references.insert(
                 String::from("no_reg_ref"),
                 HintReference {
-                    register: None,
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Value(0),
+                    offset2: OffsetValue::Value(0),
                     dereference: true,
-                    inner_dereference: false,
                     ap_tracking_data: None,
-                    immediate: None,
                     cairo_type: None,
                 },
             );
@@ -1144,13 +1111,10 @@ memory[fp] = ids.ok_ref
             references.insert(
                 String::from("inner_imm_ref"),
                 HintReference {
-                    register: Some(Register::FP),
-                    offset1: 0,
-                    offset2: 0,
+                    offset1: OffsetValue::Reference(Register::FP, imm_offset, false),
+                    offset2: OffsetValue::Value(0),
                     dereference: false,
-                    inner_dereference: true,
                     ap_tracking_data: None,
-                    immediate: Some(bigint!(imm_offset)),
                     cairo_type: None,
                 },
             );
@@ -1158,18 +1122,15 @@ memory[fp] = ids.ok_ref
             references.insert(
                 String::from("imm_ref"),
                 HintReference {
-                    register: Some(Register::FP),
-                    offset1: 0,
-                    offset2: 0,
-                    dereference: true,
-                    inner_dereference: false,
+                    offset1: OffsetValue::Reference(Register::FP, imm_offset, false),
+                    offset2: OffsetValue::Value(0),
+                    dereference: false,
                     ap_tracking_data: None,
-                    immediate: Some(bigint!(imm_offset)),
                     cairo_type: None,
                 },
             );
 
-            let relocatable = Relocatable::from((1, 3));
+            let relocatable = Relocatable::from((1, 0));
             vm.vm
                 .borrow_mut()
                 .insert_value(

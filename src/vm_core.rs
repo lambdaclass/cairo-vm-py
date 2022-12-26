@@ -946,8 +946,7 @@ lista_b = [lista_a[k] for k in range(2)]";
             vm.vm
                 .borrow()
                 .get_relocatable(&Relocatable::from((1, 1)))
-                .unwrap()
-                .into_owned(),
+                .unwrap(),
             Relocatable::from((2, 0))
         );
     }
