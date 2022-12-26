@@ -19,7 +19,7 @@ default = ["extension-module"]
 
 [lib]
 name = "cairo_rs_py"
-crate-type = ["cdylib"]
+crate-type = ["dylib"]
 required-features = ["extension-module"]
 
 [profile.release]
