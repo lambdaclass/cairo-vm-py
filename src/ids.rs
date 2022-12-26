@@ -7,6 +7,7 @@ use std::{
     rc::Rc,
 };
 
+use cairo_rs::serde::deserialize_program::OffsetValue;
 use cairo_rs::{
     hint_processor::{
         hint_processor_definition::HintReference,
@@ -16,7 +17,6 @@ use cairo_rs::{
     types::relocatable::Relocatable,
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
 };
-use cairo_rs::serde::deserialize_program::OffsetValue;
 use pyo3::{
     exceptions::PyAttributeError, pyclass, pymethods, IntoPy, PyObject, PyResult, Python,
     ToPyObject,
