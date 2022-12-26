@@ -58,7 +58,7 @@ impl PyVM {
     #[getter]
     fn run_context(&self) -> PyRunContext {
         let vm = self.vm.borrow();
-        PyRunContext::new(vm.get_pc().clone(), vm.get_ap(), vm.get_fp())
+        PyRunContext::new(*vm.get_pc(), vm.get_ap(), vm.get_fp())
     }
 }
 
@@ -946,8 +946,7 @@ lista_b = [lista_a[k] for k in range(2)]";
             vm.vm
                 .borrow()
                 .get_relocatable(&Relocatable::from((1, 1)))
-                .unwrap()
-                .into_owned(),
+                .unwrap(),
             Relocatable::from((2, 0))
         );
     }
