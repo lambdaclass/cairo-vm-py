@@ -58,7 +58,7 @@ impl PyVM {
     #[getter]
     fn run_context(&self) -> PyRunContext {
         let vm = self.vm.borrow();
-        PyRunContext::new(vm.get_pc().clone(), vm.get_ap(), vm.get_fp())
+        PyRunContext::new(*vm.get_pc(), vm.get_ap(), vm.get_fp())
     }
 }
 
@@ -165,7 +165,7 @@ impl PyVM {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step_hint(
         &self,
-        hint_executor: &dyn HintProcessor,
+        hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
@@ -204,7 +204,7 @@ impl PyVM {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step(
         &self,
-        hint_executor: &dyn HintProcessor,
+        hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
@@ -226,7 +226,7 @@ impl PyVM {
 
     fn should_run_py_hint(
         &self,
-        hint_executor: &dyn HintProcessor,
+        hint_executor: &mut dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
         constants: &HashMap<String, BigInt>,

@@ -112,8 +112,7 @@ impl PyIds {
                     .vm
                     .borrow()
                     .get_relocatable(&addr)
-                    .map_err(|err| PyValueError::new_err(err.to_string()))?
-                    .into_owned();
+                    .map_err(|err| PyValueError::new_err(err.to_string()))?;
 
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
@@ -183,7 +182,7 @@ impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
         if name == "address_" {
-            return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
+            return Ok(PyMaybeRelocatable::from(self.hint_value).to_object(py));
         }
         let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
 
@@ -192,14 +191,14 @@ impl PyTypedId {
                 let vm = self.vm.borrow();
                 Ok(match member.cairo_type.as_str() {
                     "felt" | "felt*" => vm
-                        .get_maybe(&(&self.hint_value + member.offset))
+                        .get_maybe(&(self.hint_value + member.offset))
                         .map_err(|err| PyValueError::new_err(err.to_string()))?
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
 
                     cairo_type => PyTypedId {
                         vm: self.vm.clone(),
-                        hint_value: (&self.hint_value + member.offset),
+                        hint_value: (self.hint_value + member.offset),
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }
@@ -229,7 +228,7 @@ impl PyTypedId {
         let mut vm = self.vm.borrow_mut();
         match member.cairo_type.as_str() {
             "felt" | "felt*" => {
-                let field_addr = &self.hint_value + member.offset;
+                let field_addr = self.hint_value + member.offset;
                 vm.insert_value(&field_addr, val).map_err(|err| PyValueError::new_err(err.to_string()))
             }
 
@@ -267,7 +266,7 @@ pub fn get_value_from_reference(
                         .map_err(|err| PyValueError::new_err(err.to_string()))?;
                 Ok(PyMaybeRelocatable::from(modified_value))
             } else {
-                Ok(PyMaybeRelocatable::from(rel.clone()))
+                Ok(PyMaybeRelocatable::from(*rel))
             }
         }
         Some(MaybeRelocatable::Int(ref num)) => Ok(PyMaybeRelocatable::Int(num.clone())),
@@ -317,8 +316,8 @@ pub fn compute_addr_from_reference(
         let addr = base_addr + hint_reference.offset1;
         let dereferenced_addr = vm
             .get_relocatable(&addr)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?
-            .into_owned();
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+
         if let Some(imm) = &hint_reference.immediate {
             Ok(dereferenced_addr
                 + bigint_to_usize(imm).map_err(|err| PyValueError::new_err(err.to_string()))?)
