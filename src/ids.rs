@@ -255,13 +255,11 @@ pub fn get_value_from_reference(
         return Ok(PyMaybeRelocatable::from(var_addr));
     };
 
-    if let Some(v) = value {
-        Ok(PyMaybeRelocatable::from(v))
-    } else {
-        Err(PyValueError::new_err(
+    value
+        .ok_or(PyValueError::new_err(
             VirtualMachineError::FailedToGetIds.to_string(),
         ))
-    }
+        .map(PyMaybeRelocatable::from)
 }
 
 ///Computes the memory address of the ids variable indicated by the HintReference as a Relocatable
