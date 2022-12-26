@@ -111,8 +111,7 @@ impl PyIds {
                     .vm
                     .borrow()
                     .get_relocatable(&addr)
-                    .map_err(|err| PyValueError::new_err(err.to_string()))?
-                    .into_owned();
+                    .map_err(|err| PyValueError::new_err(err.to_string()))?;
 
                 return Ok(PyTypedId {
                     vm: self.vm.clone(),
