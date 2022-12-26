@@ -58,7 +58,7 @@ impl PyVM {
     #[getter]
     fn run_context(&self) -> PyRunContext {
         let vm = self.vm.borrow();
-        PyRunContext::new(vm.get_pc().clone(), vm.get_ap(), vm.get_fp())
+        PyRunContext::new(*vm.get_pc(), vm.get_ap(), vm.get_fp())
     }
 }
 

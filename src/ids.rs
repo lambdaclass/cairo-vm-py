@@ -181,7 +181,7 @@ impl PyTypedId {
     #[getter]
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
         if name == "address_" {
-            return Ok(PyMaybeRelocatable::from(self.hint_value.clone()).to_object(py));
+            return Ok(PyMaybeRelocatable::from(self.hint_value).to_object(py));
         }
         let struct_type = self.struct_types.get(&self.cairo_type).unwrap();
 
@@ -190,14 +190,14 @@ impl PyTypedId {
                 let vm = self.vm.borrow();
                 Ok(match member.cairo_type.as_str() {
                     "felt" | "felt*" => vm
-                        .get_maybe(&(&self.hint_value + member.offset))
+                        .get_maybe(&(self.hint_value + member.offset))
                         .map_err(|err| PyValueError::new_err(err.to_string()))?
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
 
                     cairo_type => PyTypedId {
                         vm: self.vm.clone(),
-                        hint_value: (&self.hint_value + member.offset),
+                        hint_value: (self.hint_value + member.offset),
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }
@@ -227,7 +227,7 @@ impl PyTypedId {
         let mut vm = self.vm.borrow_mut();
         match member.cairo_type.as_str() {
             "felt" | "felt*" => {
-                let field_addr = &self.hint_value + member.offset;
+                let field_addr = self.hint_value + member.offset;
                 vm.insert_value(&field_addr, val).map_err(|err| PyValueError::new_err(err.to_string()))
             }
 
@@ -256,9 +256,7 @@ pub fn get_value_from_reference(
     };
 
     value
-        .ok_or(PyValueError::new_err(
-            VirtualMachineError::FailedToGetIds.to_string(),
-        ))
+        .ok_or_else(|| PyValueError::new_err(VirtualMachineError::FailedToGetIds.to_string()))
         .map(PyMaybeRelocatable::from)
 }
 

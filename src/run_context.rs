@@ -19,17 +19,17 @@ impl PyRunContext {
 impl PyRunContext {
     #[getter]
     pub fn pc(&self) -> PyRelocatable {
-        self.pc.clone().into()
+        self.pc.into()
     }
 
     #[getter]
     pub fn ap(&self) -> PyRelocatable {
-        self.ap.clone().into()
+        self.ap.into()
     }
 
     #[getter]
     pub fn fp(&self) -> PyRelocatable {
-        self.fp.clone().into()
+        self.fp.into()
     }
 }
 
