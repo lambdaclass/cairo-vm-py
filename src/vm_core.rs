@@ -429,7 +429,7 @@ mod test {
             vm.vm.borrow_mut().add_memory_segment();
         }
 
-        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
 
         vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
         vm.vm.borrow_mut().set_ap(2);
@@ -450,7 +450,7 @@ mod test {
 
         assert!(vm
             .step(
-                &hint_processor,
+                &mut hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
@@ -473,7 +473,7 @@ mod test {
             vm.vm.borrow_mut().add_memory_segment();
         }
 
-        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
 
         vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
         vm.vm.borrow_mut().set_ap(2);
@@ -500,7 +500,7 @@ mod test {
 
         assert!(vm
             .step(
-                &hint_processor,
+                &mut hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
