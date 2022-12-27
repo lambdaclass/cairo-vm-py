@@ -73,3 +73,12 @@ In Mac you'll also need to tell the script where to find the gmp lib:
 export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib
 sh build_envs.sh
 ```
+
+## Related Projects
+
+- [cairo-rs](https://github.com/lambdaclass/cairo-rs): A fast implementation of the Cairo VM in Rust.
+- [starknet_in_rust](https://github.com/lambdaclass/starknet_in_rust): implementation of Starknet in Rust, powered by the cairo-rs VM.
+
+## License
+
+[MIT](/LICENSE)
