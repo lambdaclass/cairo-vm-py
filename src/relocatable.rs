@@ -101,7 +101,7 @@ impl PyRelocatable {
     }
 
     pub fn __repr__(&self) -> String {
-        format!("({}, {})", self.segment_index, self.offset)
+        format!("{}:{}", self.segment_index, self.offset)
     }
 }
 
