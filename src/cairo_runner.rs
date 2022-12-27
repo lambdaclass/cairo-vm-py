@@ -120,7 +120,7 @@ impl PyCairoRunner {
                 false,
                 false,
                 &mut (*self.pyvm.vm).borrow_mut(),
-                &self.hint_processor,
+                &mut self.hint_processor,
             )
             .map_err(to_py_error)?;
 
@@ -177,14 +177,14 @@ impl PyCairoRunner {
         let references = self.inner.get_reference_list();
         let hint_data_dictionary = self
             .inner
-            .get_hint_data_dictionary(&references, &self.hint_processor)
+            .get_hint_data_dictionary(&references, &mut self.hint_processor)
             .map_err(to_py_error)?;
 
         let address = Into::<Relocatable>::into(address);
         let constants = self.inner.get_constants().clone();
         while self.pyvm.vm.borrow().get_pc() != &address {
             self.pyvm.step(
-                &self.hint_processor,
+                &mut self.hint_processor,
                 &mut self.hint_locals,
                 &mut self.inner.exec_scopes,
                 &hint_data_dictionary,
@@ -448,7 +448,7 @@ impl PyCairoRunner {
                 true,
                 false,
                 &mut (*self.pyvm.vm).borrow_mut(),
-                &self.hint_processor,
+                &mut self.hint_processor,
             )
             .map_err(to_py_error)?;
 

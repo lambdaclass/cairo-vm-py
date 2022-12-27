@@ -7,12 +7,12 @@ use std::{
     rc::Rc,
 };
 
+use cairo_rs::serde::deserialize_program::OffsetValue;
 use cairo_rs::{
     hint_processor::{
         hint_processor_definition::HintReference,
         hint_processor_utils::compute_addr_from_reference as cairo_rs_compute_addr_from_reference,
     },
-    serde::deserialize_program::OffsetValue,
     serde::deserialize_program::{ApTracking, Member},
     types::relocatable::Relocatable,
     vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
