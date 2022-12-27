@@ -17,7 +17,7 @@ pub enum PyMaybeRelocatable {
     RelocatableValue(PyRelocatable),
 }
 
-#[pyclass(name = "Relocatable")]
+#[pyclass(name = "RelocatableValue")]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyRelocatable {
     #[pyo3(get)]

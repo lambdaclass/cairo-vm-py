@@ -18,9 +18,11 @@ compile_error!("\"extension-module\" is incompatible with \"embedded-python\" as
 
 use cairo_runner::PyCairoRunner;
 use pyo3::prelude::*;
+use relocatable::PyRelocatable;
 
 #[pymodule]
 fn cairo_rs_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCairoRunner>()?;
+    m.add_class::<PyRelocatable>()?;
     Ok(())
 }
