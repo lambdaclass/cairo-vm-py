@@ -233,10 +233,7 @@ mod test {
 
         assert_eq!(
             py_relocatable.__repr__(),
-            format!(
-                "({}, {})",
-                py_relocatable.segment_index, py_relocatable.offset
-            )
+            format!("{}:{}", py_relocatable.segment_index, py_relocatable.offset)
         );
     }
 

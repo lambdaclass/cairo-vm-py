@@ -365,7 +365,7 @@ mod test {
         });
         assert_eq!(
             pyloc.to_string_with_content(String::from("Message")),
-            String::from("file.cairo:1:1:Message")
+            String::from("file.cairo:1:1: Message")
         )
     }
 }
