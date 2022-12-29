@@ -292,7 +292,7 @@ mod test {
     };
     use num_bigint::{BigInt, Sign};
     use pyo3::{PyObject, Python, ToPyObject};
-    use std::{collections::HashMap, rc::Rc};
+    use std::{any::Any, collections::HashMap, rc::Rc};
 
     #[test]
     fn execute_print_hint() {
@@ -1140,6 +1140,25 @@ lista_b = [lista_a[k] for k in range(2)]";
             .is_ok());
         assert!(exec_scopes.data[0].is_empty());
         assert!(hint_locals.is_empty())
+    }
+
+    #[test]
+    fn should_run_py_hint_nonsense_data_should_fail() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+            Vec::new(),
+        );
+        let hint_data: Box<dyn Any + 'static> = Box::new("nonsense");
+        let hint_processor = BuiltinHintProcessor::new_empty();
+        assert!(vm
+            .should_run_py_hint(
+                &hint_processor,
+                &mut ExecutionScopes::new(),
+                &hint_data,
+                &HashMap::new(),
+            )
+            .is_err());
     }
 
     #[test]
