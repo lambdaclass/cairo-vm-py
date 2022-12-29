@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 pyo3 = { version = "0.16.5", features = ["num-bigint"] }
-cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "7d0f69b145c0386ec50a4ff92a322e3aca93358f" }
+cairo-rs = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "40d06cb2b05c7e2fc00e0cfab157779a097d8d02" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
 

@@ -1150,10 +1150,10 @@ lista_b = [lista_a[k] for k in range(2)]";
             Vec::new(),
         );
         let hint_data: Box<dyn Any + 'static> = Box::new("nonsense");
-        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
         assert!(vm
             .should_run_py_hint(
-                &hint_processor,
+                &mut hint_processor,
                 &mut ExecutionScopes::new(),
                 &hint_data,
                 &HashMap::new(),

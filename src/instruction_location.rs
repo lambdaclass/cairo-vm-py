@@ -107,7 +107,7 @@ impl PyLocation {
     }
     pub fn to_string_with_content(&self, message: String) -> String {
         let loc = Into::<Location>::into(self.clone());
-        loc.to_string(&message)
+        loc.to_string_with_content(&message)
     }
 }
 
