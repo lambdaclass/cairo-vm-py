@@ -17,7 +17,7 @@ pub enum PyMaybeRelocatable {
     RelocatableValue(PyRelocatable),
 }
 
-#[pyclass(name = "Relocatable")]
+#[pyclass(name = "RelocatableValue")]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyRelocatable {
     #[pyo3(get)]
@@ -101,7 +101,7 @@ impl PyRelocatable {
     }
 
     pub fn __repr__(&self) -> String {
-        format!("({}, {})", self.segment_index, self.offset)
+        format!("{}:{}", self.segment_index, self.offset)
     }
 }
 
@@ -233,10 +233,7 @@ mod test {
 
         assert_eq!(
             py_relocatable.__repr__(),
-            format!(
-                "({}, {})",
-                py_relocatable.segment_index, py_relocatable.offset
-            )
+            format!("{}:{}", py_relocatable.segment_index, py_relocatable.offset)
         );
     }
 

@@ -19,7 +19,7 @@ use cairo_rs::{
             cairo_run_errors::CairoRunError,
             runner_errors::RunnerError,
             trace_errors::TraceError,
-            vm_exception::{get_error_attr_value, get_location},
+            vm_exception::{get_error_attr_value, get_location, get_traceback},
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
         security::verify_secure_runner,
@@ -626,15 +626,15 @@ pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
 impl PyCairoRunner {
     fn as_vm_exception(&self, error: PyErr) -> PyErr {
         let pc = self.pyvm.vm.borrow().get_pc().offset;
-        let instruction_location = get_location(&pc, &self.inner).map(InstructionLocation::from);
+        let instruction_location = get_location(pc, &self.inner).map(InstructionLocation::from);
         let error_attribute = get_error_attr_value(pc, &self.inner);
+        let traceback = get_traceback(&self.pyvm.vm.borrow(), &self.inner);
         VmException::new_err((
-            pc,
+            PyRelocatable::from((0, pc)),
             instruction_location,
             error,
             error_attribute,
-            None::<i32>,
-            None::<i32>,
+            traceback,
         ))
     }
 }
