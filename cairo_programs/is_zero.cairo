@@ -14,7 +14,7 @@ func is_zero{range_check_ptr}(x: BigInt3) -> (res: felt) {
     %}
     if (nondet %{
             # TEST
-                           x == 0
+            x == 0
         %} != 0) {
         verify_zero(UnreducedBigInt3(d0=x.d0, d1=x.d1, d2=x.d2));
         return (res=1);
