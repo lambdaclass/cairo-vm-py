@@ -51,6 +51,7 @@ const GLOBAL_NAMES: [&str; 18] = [
 #[pyclass(unsendable)]
 pub struct PyVM {
     pub(crate) vm: Rc<RefCell<VirtualMachine>>,
+    pub(crate) failed_hint_index: Option<usize>,
 }
 
 #[pymethods]
@@ -74,6 +75,7 @@ impl PyVM {
                 trace_enabled,
                 error_message_attributes,
             ))),
+            failed_hint_index: None,
         }
     }
 
@@ -82,7 +84,7 @@ impl PyVM {
     }
 
     pub(crate) fn execute_hint(
-        &self,
+        &mut self,
         hint_data: &HintProcessorData,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
@@ -164,7 +166,7 @@ impl PyVM {
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step_hint(
-        &self,
+        &mut self,
         hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
@@ -176,7 +178,7 @@ impl PyVM {
         let pc_offset = (*self.vm).borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
-            for hint_data in hint_list.iter() {
+            for (hint_index, hint_data) in hint_list.iter().enumerate() {
                 if self
                     .should_run_py_hint(hint_executor, exec_scopes, hint_data, constants)
                     .map_err(to_py_error)?
@@ -186,14 +188,17 @@ impl PyVM {
                         .ok_or(VirtualMachineError::WrongHintData)
                         .map_err(to_py_error)?;
 
-                    self.execute_hint(
+                    if let Err(hint_error) = self.execute_hint(
                         hint_data,
                         hint_locals,
                         exec_scopes,
                         constants,
                         Rc::clone(&struct_types),
                         static_locals,
-                    )?;
+                    ) {
+                        self.failed_hint_index = Some(hint_index);
+                        return Err(hint_error);
+                    }
                 }
             }
         }
@@ -203,7 +208,7 @@ impl PyVM {
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step(
-        &self,
+        &mut self,
         hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
@@ -296,7 +301,7 @@ mod test {
 
     #[test]
     fn execute_print_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -317,7 +322,7 @@ mod test {
 
     #[test]
     fn set_memory_item_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -338,7 +343,7 @@ mod test {
 
     #[test]
     fn ids_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -378,7 +383,7 @@ mod test {
     #[test]
     // Test the availability of cairo constants in ids
     fn const_ids() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -419,7 +424,7 @@ mod test {
     #[test]
     // This test is analogous to the `test_step_for_preset_memory` unit test in the cairo-rs crate.
     fn test_step_with_no_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -463,7 +468,7 @@ mod test {
 
     #[test]
     fn test_step_with_print_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -513,7 +518,7 @@ mod test {
 
     #[test]
     fn scopes_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -552,7 +557,7 @@ mod test {
 
     #[test]
     fn scopes_hint_modify() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -614,7 +619,7 @@ mod test {
 
     #[test]
     fn modify_hint_locals() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -646,7 +651,7 @@ print(word)";
 
     #[test]
     fn exit_main_scope_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -667,7 +672,7 @@ print(word)";
 
     #[test]
     fn enter_scope_empty_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -690,7 +695,7 @@ print(word)";
 
     #[test]
     fn enter_exit_scope_same_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -714,7 +719,7 @@ vm_exit_scope()";
 
     #[test]
     fn enter_exit_scope_separate_hints() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -750,7 +755,7 @@ vm_exit_scope()";
 
     #[test]
     fn enter_exit_enter_scope_same_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -775,7 +780,7 @@ vm_enter_scope()";
 
     #[test]
     fn list_comprehension() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -798,7 +803,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn enter_scope_non_empty_hint() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -834,7 +839,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn access_relocatable_segment_index() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -856,7 +861,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_number() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -890,7 +895,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_list_should_fail() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -912,7 +917,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_relocatable() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -953,7 +958,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn test_get_range() {
-        let pyvm = PyVM::new(
+        let mut pyvm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -1002,7 +1007,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn test_segments_memory_get_range() {
-        let pyvm = PyVM::new(
+        let mut pyvm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -1045,7 +1050,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -1081,7 +1086,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_change_its_value() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
@@ -1115,7 +1120,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_affect_scope_or_hint_locals() {
-        let vm = PyVM::new(
+        let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
             Vec::new(),
