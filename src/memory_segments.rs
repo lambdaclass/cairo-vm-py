@@ -96,6 +96,10 @@ impl PySegmentManager {
             self.vm.borrow_mut().add_temporary_segment(),
         ))
     }
+
+    pub fn get_segment_used_size(&self, segment_index: usize) -> Option<usize> {
+        (*self.vm).borrow().get_segment_used_size(segment_index)
+    }
 }
 
 #[cfg(test)]
@@ -111,6 +115,7 @@ mod test {
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
         assert!(segments.add().is_ok());
@@ -122,6 +127,7 @@ mod test {
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
 
@@ -227,9 +233,42 @@ mod test {
         let mut vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let memory = PyMemory::new(&vm);
         let mut segments = PySegmentManager::new(&mut vm, memory);
         assert!(segments.add_temp_segment().is_ok());
+    }
+
+    #[test]
+    fn get_segment_used_size() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+            Vec::new(),
+        );
+
+        let memory = PyMemory::new(&vm);
+        let segments = PySegmentManager::new(&vm, memory);
+
+        let segment = segments.add().expect("Unable to add a new segment.");
+        assert!(vm
+            .vm
+            .borrow_mut()
+            .load_data(
+                &Relocatable::from(&segment).into(),
+                vec![
+                    bigint!(1).into(),
+                    bigint!(2).into(),
+                    bigint!(3).into(),
+                    bigint!(4).into(),
+                ],
+            )
+            .is_ok());
+        vm.vm.borrow_mut().compute_effective_sizes();
+        assert_eq!(
+            segments.get_segment_used_size(segment.segment_index as _),
+            Some(4),
+        );
     }
 }

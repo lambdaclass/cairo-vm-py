@@ -102,12 +102,10 @@ impl PyMemory {
 mod test {
     use crate::relocatable::PyMaybeRelocatable;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
-    use crate::utils::to_vm_error;
     use crate::vm_core::PyVM;
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
     use cairo_rs::bigint;
     use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
-    use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
     use num_bigint::{BigInt, Sign};
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};
@@ -118,6 +116,7 @@ mod test {
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -137,7 +136,7 @@ mod test {
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
         });
     }
 
@@ -147,6 +146,7 @@ mod test {
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -180,6 +180,7 @@ memory[ap] = 3
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -206,7 +207,7 @@ assert memory[ap] == fp
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert_eq!(py_result.map_err(|err| to_vm_error(err, py)), Ok(()));
+            assert!(py_result.is_ok());
         });
     }
 
@@ -216,6 +217,7 @@ assert memory[ap] == fp
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
 
             for _ in 0..2 {
@@ -271,6 +273,7 @@ assert memory[ap] == fp
             let vm = PyVM::new(
                 BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
                 false,
+                Vec::new(),
             );
 
             for _ in 0..2 {
@@ -298,15 +301,13 @@ assert memory[ap] == fp
             let size = 2;
             let memory = PyMemory::new(&vm);
 
-            let range = memory
-                .get_range(maybe_relocatable.into(), size, py)
-                .map_err(|err| to_vm_error(err, py));
+            let range = memory.get_range(maybe_relocatable.into(), size, py);
 
-            let expected_error = VirtualMachineError::CustomHint(String::from(
-                "TypeError('Failed to call get_range method from Cairo memory')",
-            ));
             assert!(range.is_err());
-            assert_eq!(range.unwrap_err(), expected_error);
+            assert!(range
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to call get_range method from Cairo memory"));
         });
     }
 
@@ -316,6 +317,7 @@ assert memory[ap] == fp
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let memory = PyMemory::new(&vm);
 
@@ -351,6 +353,7 @@ assert memory[ap] == fp
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let memory = PyMemory::new(&vm);
 
@@ -384,6 +387,7 @@ assert memory[ap] == fp
         let vm = PyVM::new(
             BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
             false,
+            Vec::new(),
         );
         let memory = PyMemory::new(&vm);
 

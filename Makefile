@@ -61,11 +61,11 @@ check:
 
 coverage:
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	cargo tarpaulin --out Xml && \
+	cargo tarpaulin --no-default-features --features embedded-python --out Xml && \
 	deactivate
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
-	cargo test
+	cargo test --no-default-features --features embedded-python
 
 clippy:
 	cargo clippy  -- -D warnings
@@ -74,18 +74,22 @@ clean:
 	rm -f $(TEST_DIR)/*.json
 	rm -f $(TEST_DIR)/*.memory
 	rm -f $(TEST_DIR)/*.trace
+	rm -f $(BAD_TEST_DIR)/*.json
+	rm -f $(BAD_TEST_DIR)/*.memory
+	rm -f $(BAD_TEST_DIR)/*.trace
 	rm -rf cairo-rs-py-env
 
-run-python-test: $(COMPILED_TESTS)
+run-python-test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	maturin develop && \
+	maturin develop --release && \
 	python3 hints_tests.py && \
+	python3 errors_tests.py && \
 	python3 get_builtins_initial_stack.py && \
 	deactivate
 
 run-comparer-tracer:
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	maturin develop && \
+	maturin develop --release && \
 	make compare_trace_memory && \
 	deactivate
 
