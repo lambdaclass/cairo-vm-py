@@ -2187,7 +2187,9 @@ mod test {
             assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
             assert_eq!(get_value(&segment, 4), None);
         });
-        
+    }
+
+    #[test]
     fn gen_typed_args_type_struct() {
         //For documentation on how this test works see test submodule type_samples
 
