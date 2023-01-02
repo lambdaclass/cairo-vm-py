@@ -58,7 +58,7 @@ impl PyVM {
     #[getter]
     fn run_context(&self) -> PyRunContext {
         let vm = self.vm.borrow();
-        PyRunContext::new(vm.get_pc().clone(), vm.get_ap(), vm.get_fp())
+        PyRunContext::new(*vm.get_pc(), vm.get_ap(), vm.get_fp())
     }
 }
 
@@ -165,7 +165,7 @@ impl PyVM {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step_hint(
         &self,
-        hint_executor: &dyn HintProcessor,
+        hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
@@ -204,7 +204,7 @@ impl PyVM {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step(
         &self,
-        hint_executor: &dyn HintProcessor,
+        hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
@@ -226,7 +226,7 @@ impl PyVM {
 
     fn should_run_py_hint(
         &self,
-        hint_executor: &dyn HintProcessor,
+        hint_executor: &mut dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
         constants: &HashMap<String, BigInt>,
@@ -292,7 +292,7 @@ mod test {
     };
     use num_bigint::{BigInt, Sign};
     use pyo3::{PyObject, Python, ToPyObject};
-    use std::{collections::HashMap, rc::Rc};
+    use std::{any::Any, collections::HashMap, rc::Rc};
 
     #[test]
     fn execute_print_hint() {
@@ -429,7 +429,7 @@ mod test {
             vm.vm.borrow_mut().add_memory_segment();
         }
 
-        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
 
         vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
         vm.vm.borrow_mut().set_ap(2);
@@ -450,7 +450,7 @@ mod test {
 
         assert!(vm
             .step(
-                &hint_processor,
+                &mut hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
@@ -473,7 +473,7 @@ mod test {
             vm.vm.borrow_mut().add_memory_segment();
         }
 
-        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
 
         vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
         vm.vm.borrow_mut().set_ap(2);
@@ -500,7 +500,7 @@ mod test {
 
         assert!(vm
             .step(
-                &hint_processor,
+                &mut hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
@@ -946,8 +946,7 @@ lista_b = [lista_a[k] for k in range(2)]";
             vm.vm
                 .borrow()
                 .get_relocatable(&Relocatable::from((1, 1)))
-                .unwrap()
-                .into_owned(),
+                .unwrap(),
             Relocatable::from((2, 0))
         );
     }
@@ -1141,6 +1140,25 @@ lista_b = [lista_a[k] for k in range(2)]";
             .is_ok());
         assert!(exec_scopes.data[0].is_empty());
         assert!(hint_locals.is_empty())
+    }
+
+    #[test]
+    fn should_run_py_hint_nonsense_data_should_fail() {
+        let vm = PyVM::new(
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            false,
+            Vec::new(),
+        );
+        let hint_data: Box<dyn Any + 'static> = Box::new("nonsense");
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
+        assert!(vm
+            .should_run_py_hint(
+                &mut hint_processor,
+                &mut ExecutionScopes::new(),
+                &hint_data,
+                &HashMap::new(),
+            )
+            .is_err());
     }
 
     #[test]
