@@ -1,6 +1,7 @@
 use crate::{
     instruction_location::InstructionLocation,
     memory::PyMemory,
+    memory_segments::PySegmentManager,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
@@ -198,8 +199,9 @@ impl PyCairoRunner {
     }
 
     pub fn mark_as_accessed(&mut self, address: PyRelocatable, size: usize) -> PyResult<()> {
-        self.inner
-            .mark_as_accessed((&address).into(), size)
+        (*self.pyvm.vm)
+            .borrow_mut()
+            .mark_address_range_as_accessed((&address).into(), size)
             .map_err(to_py_error)
     }
 
@@ -605,6 +607,11 @@ impl PyCairoRunner {
     pub fn add_additional_hash_builtin(&self) -> PyRelocatable {
         let mut vm = (*self.pyvm.vm).borrow_mut();
         self.inner.add_additional_hash_builtin(&mut vm).into()
+    }
+
+    #[getter]
+    fn segments(&self) -> PySegmentManager {
+        PySegmentManager::new(&self.pyvm, PyMemory::new(&self.pyvm))
     }
 
     #[getter]
@@ -2147,6 +2154,41 @@ mod test {
                 ]
             );
         })
+    }
+
+    #[test]
+    fn segments() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+
+        let segments = runner.segments();
+
+        Python::with_gil(|py| {
+            let segment = segments.add().expect("Could not add segemnt.");
+            segments
+                .write_arg(
+                    py,
+                    segment.clone().into(),
+                    py.eval("[1, 2, 3, 4]", None, None).unwrap().to_object(py),
+                    false,
+                )
+                .unwrap();
+
+            let get_value = |addr: &PyRelocatable, offset| {
+                let addr = addr.__add__(offset);
+                runner
+                    .get(py, &addr)
+                    .expect("Could not get value")
+                    .map(|x| x.extract::<BigInt>(py))
+                    .transpose()
+                    .expect("Could not convert value to a BigInt")
+            };
+            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
+            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
+            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
+            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 4), None);
+        });
     }
 
     #[test]
