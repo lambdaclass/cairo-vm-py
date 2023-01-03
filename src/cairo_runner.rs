@@ -346,6 +346,7 @@ impl PyCairoRunner {
         static_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
+        run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
         enum Either {
@@ -647,6 +648,11 @@ impl PyCairoRunner {
             traceback,
         ))
     }
+}
+
+#[derive(Clone, FromPyObject)]
+pub struct PyRunResources {
+    n_steps: Option<usize>,
 }
 
 #[pyclass]
@@ -1235,6 +1241,7 @@ mod test {
                     Some(false),
                     None,
                     None,
+                    None,
                 )
                 .unwrap();
         });
@@ -1272,6 +1279,7 @@ mod test {
                     None,
                     None,
                     Some(false),
+                    None,
                     None,
                     Some(false),
                 )
@@ -1318,6 +1326,7 @@ mod test {
                     None,
                     Some(true),
                     None,
+                    None,
                     Some(false),
                 )
                 .unwrap();
@@ -1355,9 +1364,10 @@ mod test {
                     args,
                     None,
                     None,
-                    Some(false),
                     None,
                     Some(false),
+                    None,
+                    None,
                 )
                 .is_err());
         });
@@ -1388,6 +1398,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
             );
@@ -1424,6 +1435,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
             );
@@ -1463,6 +1475,7 @@ mod test {
                     )])),
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                 )
@@ -1506,6 +1519,7 @@ mod test {
                         100.to_object(py),
                     )])),
                     Some(false),
+                    None,
                     None,
                     None,
                 )
@@ -1555,6 +1569,7 @@ mod test {
                 Some(true),
                 None,
                 None,
+                None,
             )
         };
         Python::with_gil(|py| {
@@ -1596,6 +1611,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
             );
