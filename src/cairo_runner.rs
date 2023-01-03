@@ -113,7 +113,7 @@ impl PyCairoRunner {
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
         }
-        if let Err(error) = self.run_until_pc(&end) {
+        if let Err(error) = self.run_until_pc(&end, None) {
             return Err(self.as_vm_exception(error));
         }
 
@@ -175,7 +175,11 @@ impl PyCairoRunner {
             .initialize_segments(&mut (*self.pyvm.vm).borrow_mut(), None)
     }
 
-    pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
+    pub fn run_until_pc(
+        &mut self,
+        address: &PyRelocatable,
+        run_resources_n_steps: Option<usize>,
+    ) -> PyResult<()> {
         let references = self.inner.get_reference_list();
         let hint_data_dictionary = self
             .inner
@@ -184,7 +188,8 @@ impl PyCairoRunner {
 
         let address = Into::<Relocatable>::into(address);
         let constants = self.inner.get_constants().clone();
-        while self.pyvm.vm.borrow().get_pc() != &address {
+        let mut steps_left = run_resources_n_steps.unwrap_or(1); // default value
+        while self.pyvm.vm.borrow().get_pc() != &address && steps_left > 0 {
             self.pyvm.step(
                 &mut self.hint_processor,
                 &mut self.hint_locals,
@@ -194,6 +199,10 @@ impl PyCairoRunner {
                 &constants,
                 self.static_locals.as_ref(),
             )?;
+            // Consume step
+            if run_resources_n_steps.is_some() {
+                steps_left -= 1;
+            }
         }
         Ok(())
     }
@@ -444,7 +453,10 @@ impl PyCairoRunner {
             .initialize_vm(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
-        if let Err(error) = self.run_until_pc(&end.into()) {
+        if let Err(error) = self.run_until_pc(
+            &end.into(),
+            run_resources.and_then(|resource| resource.n_steps),
+        ) {
             return Err(self.as_vm_exception(error));
         }
 
