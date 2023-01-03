@@ -1423,6 +1423,44 @@ mod test {
     }
 
     #[test]
+    fn run_from_entrypoint_limited_resources() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_function_runner().unwrap();
+        let pc_before_run = runner.pyvm.vm.borrow().get_pc().clone();
+
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py,
+                    py.eval("'not_main'", None, None).unwrap(),
+                    Vec::<&PyAny>::new().to_object(py),
+                    None,
+                    None,
+                    Some(false),
+                    None,
+                    Some(PyRunResources { n_steps: Some(0) }),
+                    None,
+                )
+                .expect("Failed to run program");
+        });
+
+        let pc_after_run = runner.pyvm.vm.borrow().get_pc().clone();
+
+        // As the run_resurces provide 0 steps, no steps should have been run
+        // To check this, we check that the pc hasnt changed after "running" the vm
+        assert_eq!(pc_before_run, pc_after_run);
+    }
+
+    #[test]
     fn run_from_entrypoint_with_invalid_entrypoint() {
         let path = "cairo_programs/not_main.json".to_string();
         let program = fs::read_to_string(path).unwrap();
