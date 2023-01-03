@@ -113,7 +113,7 @@ impl PyCairoRunner {
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
         }
-        if let Err(error) = self.run_until_pc(&end) {
+        if let Err(error) = self.run_until_pc(&end, None) {
             return Err(self.as_vm_exception(error));
         }
 
@@ -175,7 +175,11 @@ impl PyCairoRunner {
             .initialize_segments(&mut (*self.pyvm.vm).borrow_mut(), None)
     }
 
-    pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
+    pub fn run_until_pc(
+        &mut self,
+        address: &PyRelocatable,
+        run_resources_n_steps: Option<usize>,
+    ) -> PyResult<()> {
         let references = self.inner.get_reference_list();
         let hint_data_dictionary = self
             .inner
@@ -184,7 +188,8 @@ impl PyCairoRunner {
 
         let address = Into::<Relocatable>::into(address);
         let constants = self.inner.get_constants().clone();
-        while self.pyvm.vm.borrow().get_pc() != &address {
+        let mut steps_left = run_resources_n_steps.unwrap_or(1); // default value
+        while self.pyvm.vm.borrow().get_pc() != &address && steps_left > 0 {
             self.pyvm.step(
                 &mut self.hint_processor,
                 &mut self.hint_locals,
@@ -194,6 +199,10 @@ impl PyCairoRunner {
                 &constants,
                 self.static_locals.as_ref(),
             )?;
+            // Consume step
+            if run_resources_n_steps.is_some() {
+                steps_left -= 1;
+            }
         }
         Ok(())
     }
@@ -346,6 +355,7 @@ impl PyCairoRunner {
         static_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
+        run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
         enum Either {
@@ -443,7 +453,10 @@ impl PyCairoRunner {
             .initialize_vm(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
-        if let Err(error) = self.run_until_pc(&end.into()) {
+        if let Err(error) = self.run_until_pc(
+            &end.into(),
+            run_resources.and_then(|resource| resource.n_steps),
+        ) {
             return Err(self.as_vm_exception(error));
         }
 
@@ -647,6 +660,11 @@ impl PyCairoRunner {
             traceback,
         ))
     }
+}
+
+#[derive(Clone, FromPyObject)]
+pub struct PyRunResources {
+    n_steps: Option<usize>,
 }
 
 #[pyclass]
@@ -1219,10 +1237,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             runner
@@ -1233,6 +1250,7 @@ mod test {
                     None,
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                 )
@@ -1252,10 +1270,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let args = vec![
@@ -1272,6 +1289,7 @@ mod test {
                     None,
                     None,
                     Some(false),
+                    None,
                     None,
                     Some(false),
                 )
@@ -1291,10 +1309,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let args = MyIterator {
@@ -1318,6 +1335,7 @@ mod test {
                     None,
                     Some(true),
                     None,
+                    None,
                     Some(false),
                 )
                 .unwrap();
@@ -1336,7 +1354,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             // invalid arguments
@@ -1357,7 +1377,8 @@ mod test {
                     None,
                     Some(false),
                     None,
-                    Some(false),
+                    None,
+                    None,
                 )
                 .is_err());
         });
@@ -1375,10 +1396,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let result = runner.run_from_entrypoint(
@@ -1390,6 +1410,7 @@ mod test {
                 Some(false),
                 None,
                 None,
+                None,
             );
             // using a named entrypoint in run_from_entrypoint is not implemented yet
             assert_eq!(
@@ -1397,6 +1418,46 @@ mod test {
                 format!("{:?}", Err::<(), PyErr>(PyNotImplementedError::new_err(())))
             );
         });
+    }
+
+    #[test]
+    fn run_from_entrypoint_limited_resources() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
+        let pc_before_run = runner.pyvm.vm.borrow().get_pc().clone();
+
+        Python::with_gil(|py| {
+            runner
+                .run_from_entrypoint(
+                    py,
+                    py.eval("0", None, None).unwrap(),
+                    Vec::<&PyAny>::new().to_object(py),
+                    None,
+                    None,
+                    Some(false),
+                    None,
+                    Some(PyRunResources { n_steps: Some(0) }),
+                    None,
+                )
+                .expect("Failed to run program");
+        });
+
+        let pc_after_run = runner.pyvm.vm.borrow().get_pc().clone();
+
+        // As the run_resurces provide 0 steps, no steps should have been run
+        // To check this, we check that the pc hasnt changed after "running" the vm
+        assert_eq!(pc_before_run, pc_after_run);
     }
 
     #[test]
@@ -1411,10 +1472,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let result = runner.run_from_entrypoint(
@@ -1424,6 +1484,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
             );
@@ -1463,6 +1524,7 @@ mod test {
                     )])),
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                 )
@@ -1506,6 +1568,7 @@ mod test {
                         100.to_object(py),
                     )])),
                     Some(false),
+                    None,
                     None,
                     None,
                 )
@@ -1555,6 +1618,7 @@ mod test {
                 Some(true),
                 None,
                 None,
+                None,
             )
         };
         Python::with_gil(|py| {
@@ -1596,6 +1660,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
             );
@@ -1714,7 +1779,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_function_runner().unwrap();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
             vec![RelocatableValue(PyRelocatable {
@@ -1770,7 +1837,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_function_runner().unwrap();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
 
