@@ -1237,10 +1237,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             runner
@@ -1271,10 +1270,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let args = vec![
@@ -1311,10 +1309,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let args = MyIterator {
@@ -1357,7 +1354,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             // invalid arguments
@@ -1397,10 +1396,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let result = runner.run_from_entrypoint(
@@ -1434,7 +1432,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_function_runner().unwrap();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
         let pc_before_run = runner.pyvm.vm.borrow().get_pc().clone();
 
         Python::with_gil(|py| {
@@ -1472,10 +1472,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             let result = runner.run_from_entrypoint(
@@ -1780,7 +1779,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_function_runner().unwrap();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
             vec![RelocatableValue(PyRelocatable {
@@ -1836,7 +1837,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_function_runner().unwrap();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
 
