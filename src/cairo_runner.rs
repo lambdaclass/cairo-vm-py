@@ -1441,7 +1441,7 @@ mod test {
             runner
                 .run_from_entrypoint(
                     py,
-                    py.eval("'not_main'", None, None).unwrap(),
+                    py.eval("0", None, None).unwrap(),
                     Vec::<&PyAny>::new().to_object(py),
                     None,
                     None,
