@@ -635,8 +635,8 @@ pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
 impl PyCairoRunner {
     fn as_vm_exception(&self, error: PyErr) -> PyErr {
         let pc = self.pyvm.vm.borrow().get_pc().offset;
-        let instruction_location =
-            get_location(pc, &self.inner, None).map(InstructionLocation::from);
+        let instruction_location = get_location(pc, &self.inner, self.pyvm.failed_hint_index)
+            .map(InstructionLocation::from);
         let error_attribute = get_error_attr_value(pc, &self.inner);
         let traceback = get_traceback(&self.pyvm.vm.borrow(), &self.inner);
         VmException::new_err((
