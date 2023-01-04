@@ -1445,19 +1445,26 @@ mod test {
         let pc_before_run = runner.pyvm.vm.borrow().get_pc().clone();
 
         Python::with_gil(|py| {
-            runner
-                .run_from_entrypoint(
-                    py,
-                    py.eval("0", None, None).unwrap(),
-                    Vec::<&PyAny>::new().to_object(py),
-                    None,
-                    None,
-                    Some(false),
-                    None,
-                    Some(PyRunResources { n_steps: Some(0) }),
-                    None,
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("0", None, None).unwrap(),
+                Vec::<&PyAny>::new().to_object(py),
+                None,
+                None,
+                Some(false),
+                None,
+                Some(PyRunResources { n_steps: Some(0) }),
+                None,
+            );
+            assert_eq!(
+                format!("{:?}", result),
+                format!(
+                    "{:?}",
+                    Err::<(), PyErr>(ResourcesError::new_err(
+                        "Execution reached the end of the program."
+                    ))
                 )
-                .expect("Execution reached the end of the program.");
+            );
         });
 
         let pc_after_run = runner.pyvm.vm.borrow().get_pc().clone();
