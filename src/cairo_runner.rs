@@ -1457,7 +1457,7 @@ mod test {
                     Some(PyRunResources { n_steps: Some(0) }),
                     None,
                 )
-                .expect("Failed to run program");
+                .expect("Execution reached the end of the program.");
         });
 
         let pc_after_run = runner.pyvm.vm.borrow().get_pc().clone();
