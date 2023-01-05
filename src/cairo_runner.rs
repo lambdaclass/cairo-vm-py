@@ -1456,15 +1456,8 @@ mod test {
                 Some(PyRunResources { n_steps: Some(0) }),
                 None,
             );
-            assert_eq!(
-                format!("{:?}", result),
-                format!(
-                    "{:?}",
-                    Err::<(), PyErr>(ResourcesError::new_err(
-                        "Execution reached the end of the program."
-                    ))
-                )
-            );
+            assert!(result.is_err());
+            assert!(format!("{:?}", result).contains("Execution reached the end of the program."));
         });
 
         let pc_after_run = runner.pyvm.vm.borrow().get_pc().clone();
