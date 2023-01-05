@@ -274,7 +274,7 @@ index 1d09414..ce21f92 100644
  from starkware.starknet.public.abi import SYSCALL_PTR_OFFSET
  from starkware.starkware_utils.error_handling import stark_assert, wrap_with_stark_exception
 diff --git a/src/starkware/starknet/core/os/syscall_utils.py b/src/starkware/starknet/core/os/syscall_utils.py
-index 48645a0..2932192 100644
+index 48645a0..43c507d 100644
 --- a/src/starkware/starknet/core/os/syscall_utils.py
 +++ b/src/starkware/starknet/core/os/syscall_utils.py
 @@ -25,7 +25,8 @@ from starkware.cairo.lang.compiler.ast.cairo_types import CairoType, TypeFelt, T
@@ -287,3 +287,13 @@ index 48645a0..2932192 100644
  from starkware.python.utils import assert_exhausted, camel_to_snake_case, safe_zip, to_bytes
  from starkware.starknet.business_logic.execution.execute_entry_point_base import (
      ExecuteEntryPointBase,
+@@ -178,6 +179,9 @@ class HandlerException(Exception):
+ 
+     called_contract_address: int
+     stark_exception: StarkException
++    
++    def __str__(self) -> str:
++        return self.stark_exception.message
+ 
+ 
+ class SysCallHandlerBase(ABC):
