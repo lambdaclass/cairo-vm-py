@@ -34,6 +34,8 @@ use pyo3::{
 };
 use std::{any::Any, borrow::BorrowMut, collections::HashMap, iter::zip, path::PathBuf, rc::Rc};
 
+pyo3::import_exception!(starkware.cairo.lang.vm.utils, ResourcesError);
+
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
 
@@ -203,6 +205,11 @@ impl PyCairoRunner {
             if run_resources_n_steps.is_some() {
                 steps_left -= 1;
             }
+        }
+        if self.pyvm.vm.borrow().get_pc() != &address {
+            return Err(ResourcesError::new_err(PyValueError::new_err(
+                "Error: Execution reached the end of the program.",
+            )));
         }
         Ok(())
     }
@@ -1438,19 +1445,19 @@ mod test {
         let pc_before_run = runner.pyvm.vm.borrow().get_pc().clone();
 
         Python::with_gil(|py| {
-            runner
-                .run_from_entrypoint(
-                    py,
-                    py.eval("0", None, None).unwrap(),
-                    Vec::<&PyAny>::new().to_object(py),
-                    None,
-                    None,
-                    Some(false),
-                    None,
-                    Some(PyRunResources { n_steps: Some(0) }),
-                    None,
-                )
-                .expect("Failed to run program");
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("0", None, None).unwrap(),
+                Vec::<&PyAny>::new().to_object(py),
+                None,
+                None,
+                Some(false),
+                None,
+                Some(PyRunResources { n_steps: Some(0) }),
+                None,
+            );
+            assert!(result.is_err());
+            assert!(format!("{:?}", result).contains("Execution reached the end of the program."));
         });
 
         let pc_after_run = runner.pyvm.vm.borrow().get_pc().clone();
