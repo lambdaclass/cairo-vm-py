@@ -5,6 +5,7 @@ use cairo_rs::{
     vm::{errors::vm_errors::VirtualMachineError, runners::builtin_runner::SignatureBuiltinRunner},
 };
 
+use felt::Felt;
 use num_bigint::BigInt;
 use pyo3::prelude::*;
 
@@ -13,7 +14,7 @@ use crate::relocatable::PyRelocatable;
 #[pyclass(name = "Signature")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PySignature {
-    signatures: HashMap<PyRelocatable, (BigInt, BigInt)>,
+    signatures: HashMap<PyRelocatable, (Felt, Felt)>,
 }
 
 #[pymethods]
@@ -26,7 +27,8 @@ impl PySignature {
     }
 
     pub fn add_signature(&mut self, address: PyRelocatable, pair: (BigInt, BigInt)) {
-        self.signatures.insert(address, pair);
+        self.signatures
+            .insert(address, (pair.0.into(), pair.1.into()));
     }
 }
 

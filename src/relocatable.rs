@@ -1,13 +1,15 @@
 use cairo_rs::{
-    bigint,
-    hint_processor::hint_processor_utils::bigint_to_usize,
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::errors::vm_errors::VirtualMachineError,
 };
+use felt::FeltOps;
 use num_bigint::BigInt;
 use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
 
-use crate::utils::to_py_error;
+use crate::{
+    bigint,
+    utils::{bigint_to_usize, to_py_error},
+};
 
 const PYRELOCATABLE_COMPARE_ERROR: &str = "Cannot compare Relocatables of different segments";
 
@@ -111,7 +113,7 @@ impl From<PyMaybeRelocatable> for MaybeRelocatable {
             PyMaybeRelocatable::RelocatableValue(rel) => MaybeRelocatable::RelocatableValue(
                 Relocatable::from((rel.segment_index, rel.offset)),
             ),
-            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num),
+            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num.into()),
         }
     }
 }
@@ -122,7 +124,7 @@ impl From<&PyMaybeRelocatable> for MaybeRelocatable {
             PyMaybeRelocatable::RelocatableValue(rel) => MaybeRelocatable::RelocatableValue(
                 Relocatable::from((rel.segment_index, rel.offset)),
             ),
-            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num.clone()),
+            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num.into()),
         }
     }
 }
@@ -133,7 +135,7 @@ impl From<MaybeRelocatable> for PyMaybeRelocatable {
             MaybeRelocatable::RelocatableValue(rel) => PyMaybeRelocatable::RelocatableValue(
                 PyRelocatable::new((rel.segment_index, rel.offset)),
             ),
-            MaybeRelocatable::Int(num) => PyMaybeRelocatable::Int(num),
+            MaybeRelocatable::Int(num) => PyMaybeRelocatable::Int(num.to_bigint()),
         }
     }
 }
@@ -144,7 +146,7 @@ impl From<&MaybeRelocatable> for PyMaybeRelocatable {
             MaybeRelocatable::RelocatableValue(rel) => PyMaybeRelocatable::RelocatableValue(
                 PyRelocatable::new((rel.segment_index, rel.offset)),
             ),
-            MaybeRelocatable::Int(num) => PyMaybeRelocatable::Int(num.clone()),
+            MaybeRelocatable::Int(num) => PyMaybeRelocatable::Int(num.to_bigint()),
         }
     }
 }
@@ -202,11 +204,12 @@ impl From<BigInt> for PyMaybeRelocatable {
 
 #[cfg(test)]
 mod test {
-    use cairo_rs::{bigint, types::relocatable::MaybeRelocatable};
-    use num_bigint::BigInt;
+    use crate::relocatable::BigInt;
+    use cairo_rs::types::relocatable::MaybeRelocatable;
     use pyo3::ToPyObject;
     use pyo3::{pyclass::CompareOp, Python};
 
+    use crate::bigint;
     use crate::relocatable::Relocatable;
     use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
 
@@ -362,7 +365,7 @@ mod test {
 
         assert_eq!(
             MaybeRelocatable::from(py_maybe_relocatable_int),
-            MaybeRelocatable::Int(bigint!(1))
+            MaybeRelocatable::from(1)
         );
         assert_eq!(
             MaybeRelocatable::from(py_maybe_relocatable_relocatable),
@@ -378,7 +381,7 @@ mod test {
 
         assert_eq!(
             MaybeRelocatable::from(&py_maybe_relocatable_int),
-            MaybeRelocatable::Int(bigint!(1))
+            MaybeRelocatable::from(1)
         );
         assert_eq!(
             MaybeRelocatable::from(&py_maybe_relocatable_relocatable),
@@ -388,7 +391,7 @@ mod test {
 
     #[test]
     fn py_maybe_relocatable_from_maybe_relocatable() {
-        let maybe_relocatable_int = MaybeRelocatable::Int(bigint!(1));
+        let maybe_relocatable_int = MaybeRelocatable::from(1);
         let maybe_relocatable_reloc = MaybeRelocatable::RelocatableValue(Relocatable {
             segment_index: 1,
             offset: 1,
@@ -410,7 +413,7 @@ mod test {
 
     #[test]
     fn py_maybe_relocatable_from_maybe_relocatable_ref() {
-        let maybe_relocatable_int = MaybeRelocatable::Int(bigint!(1));
+        let maybe_relocatable_int = MaybeRelocatable::from(1);
         let maybe_relocatable_reloc = MaybeRelocatable::RelocatableValue(Relocatable {
             segment_index: 1,
             offset: 1,
