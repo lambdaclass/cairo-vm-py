@@ -723,9 +723,7 @@ mod test {
         impl MyIterator {
             #[getter]
             pub fn __annotations__(&self) -> PyResult<Annotations> {
-                Ok(Annotations {
-                    0: self.types.clone(),
-                })
+                Ok(Annotations(self.types.clone()))
             }
             pub fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
                 slf
@@ -763,7 +761,7 @@ mod test {
         #[pymethods]
         impl TypeFelt {
             fn __repr__(&self) -> String {
-                format!("TypeFelt")
+                "TypeFelt".to_string()
             }
         }
 
@@ -775,7 +773,7 @@ mod test {
         #[pymethods]
         impl TypePointer {
             fn __repr__(&self) -> String {
-                format!("TypePointer")
+                "TypePointer".to_string()
             }
         }
 
@@ -787,7 +785,7 @@ mod test {
         #[pymethods]
         impl TypeStruct {
             fn __repr__(&self) -> String {
-                format!("TypeStruct")
+                "TypeStruct".to_string()
             }
         }
     }
@@ -1421,7 +1419,7 @@ mod test {
         runner
             .initialize_function_runner()
             .expect("Failed to initialize function runner");
-        let pc_before_run = runner.pyvm.vm.borrow().get_pc().clone();
+        let pc_before_run = *runner.pyvm.vm.borrow().get_pc();
 
         Python::with_gil(|py| {
             let result = runner.run_from_entrypoint(
@@ -1439,7 +1437,7 @@ mod test {
             assert!(format!("{:?}", result).contains("Execution reached the end of the program."));
         });
 
-        let pc_after_run = runner.pyvm.vm.borrow().get_pc().clone();
+        let pc_after_run = *runner.pyvm.vm.borrow().get_pc();
 
         // As the run_resurces provide 0 steps, no steps should have been run
         // To check this, we check that the pc hasnt changed after "running" the vm
@@ -1888,8 +1886,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref
@@ -1916,8 +1913,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref

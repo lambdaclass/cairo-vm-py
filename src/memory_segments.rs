@@ -154,8 +154,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref
@@ -182,8 +181,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref

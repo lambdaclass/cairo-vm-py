@@ -26,7 +26,7 @@ pub fn const_path_to_const_name(constants: &HashMap<String, Felt>) -> HashMap<St
         .iter()
         .map(|(name, value)| {
             let name = name.rsplit('.').next().unwrap_or(name);
-            (name.to_string(), value.to_bigint().clone())
+            (name.to_string(), value.to_bigint())
         })
         .collect()
 }

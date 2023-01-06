@@ -219,11 +219,11 @@ assert memory[ap] == fp
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+                .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0)))
+                .insert_value(&Relocatable::from((1, 1)), Relocatable::from((3, 0)))
                 .unwrap();
 
             let maybe_relocatable = MaybeRelocatable::from((1, 0));
@@ -271,11 +271,11 @@ assert memory[ap] == fp
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+                .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 2)), &Relocatable::from((3, 0)))
+                .insert_value(&Relocatable::from((1, 2)), Relocatable::from((3, 0)))
                 .unwrap();
 
             let maybe_relocatable = MaybeRelocatable::from((1, 0));
