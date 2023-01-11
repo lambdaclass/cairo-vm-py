@@ -1,0 +1,12 @@
+[submodule "starknet-devnet"]
+	path = starknet-devnet
+	url = git@github.com:Shard-Labs/starknet-devnet.git
+[submodule "kakarot"]
+	path = kakarot
+	url = git@github.com:sayajin-labs/kakarot.git
+[submodule "protostar"]
+	path = protostar
+	url = git@github.com:software-mansion/protostar.git
+[submodule "ZeroSync"]
+	path = ZeroSync
+	url = git@github.com:ZeroSync/ZeroSync.git

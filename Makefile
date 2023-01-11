@@ -23,24 +23,14 @@ $(TEST_DIR)/%.trace $(TEST_DIR)/%.memory: $(TEST_DIR)/%.json
 
 $(BAD_TEST_DIR)/%.json: $(BAD_TEST_DIR)/%.cairo
 	cairo-compile $< --output $@
-deps:
-	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
-	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
-	python3 -m venv cairo-rs-py-env
-	pyenv install pypy3.7-7.3.9
-	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	pip install cairo_lang==0.9.1 && \
-	deactivate
 
-deps-macos:
-	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa
-	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
-	python3 -m venv cairo-rs-py-env
-	pyenv install pypy3.7-7.3.9
-	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
-	CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib pip install fastecdsa && \
-	pip install cairo_lang==0.9.1 && \
-	deactivate
+deps:
+	sh scripts/build_envs.sh
+	cargo install hyperfine
+	git submodule add git@github.com:Shard-Labs/starknet-devnet.git
+	git submodule add git@github.com:sayajin-labs/kakarot.git
+	git submodule add git@github.com:software-mansion/protostar.git
+	git submodule add git@github.com:ZeroSync/ZeroSync.git
 
 deps-default-version:
 	pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
@@ -66,6 +56,21 @@ coverage:
 
 test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 	cargo test --no-default-features --features embedded-python
+
+benchmark-devnet: 
+	sh scripts/install-devnet-deps.sh
+	hyperfine -w 0 -r 1 --show-output -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && cd starknet-devnet && export STARKNET_DEVNET_CAIRO_VM="rust" && poetry run pytest test --ignore=test/test_postman.py && deactivate" -n cairo-lang "source scripts/cairo-lang/bin/activate && cd starknet-devnet && export STARKNET_DEVNET_CAIRO_VM="rust" && poetry run pytest test --ignore=test/test_postman.py && deactivate"
+
+benchmark-kakarot:
+	sh scripts/install-kakarot-deps.sh
+	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && cd kakarot && make test-integration" -n cairo-lang "source scripts/cairo-lang/bin/activate && cd kakarot && make test-integration"
+
+benchmark-protostar:
+	sh scripts/install-protostar-deps.sh
+	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py -R < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes"
+
+benchmark-zerosync:
+	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && patch zerosync/src/utils/benchmark_block.py < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch zerosync/src/utils/benchmark_block.py -R < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block"
 
 clippy:
 	cargo clippy  -- -D warnings
