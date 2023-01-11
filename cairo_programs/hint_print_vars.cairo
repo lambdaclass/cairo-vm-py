@@ -1,6 +1,6 @@
-func main():
-    let a : felt = 1
-    let b : felt = 2
+func main() {
+    let a: felt = 1;
+    let b: felt = 2;
 
     %{
         c = ids.a + ids.b
@@ -9,5 +9,5 @@ func main():
         print("c: ", c)
     %}
 
-    return ()
-end
+    return ();
+}
