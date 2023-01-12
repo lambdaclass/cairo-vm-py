@@ -63,9 +63,8 @@ benchmark-deps:
 	sh scripts/install-protostar-deps.sh
 
 benchmark-devnet: 
-	source scripts/cairo-rs-py/bin/activate
-	maturin develop --release
-	deactivate
+	. scripts/cairo-rs-py/bin/activate && \
+	maturin develop --release 
 	hyperfine -w 0 -r 1 --show-output \
 	-n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && \
 	cd starknet-devnet && \
@@ -81,7 +80,7 @@ benchmark-protostar:
 	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py -R < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes"
 
 benchmark-zerosync:
-	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && patch zerosync/src/utils/benchmark_block.py < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch zerosync/src/utils/benchmark_block.py -R < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block"
+	hyperfine -w 0 -r 1 --setup "source scripts/cairo-rs-py/bin/activate && cd zerosync && make bridge_node &" --cleanup "lsof -i:2121 && pwd && kill $(lsof -t -sTCP:LISTEN -i:2121) || true" --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && patch zerosync/src/utils/benchmark_block.py < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch zerosync/src/utils/benchmark_block.py -R < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block"
 
 clippy:
 	cargo clippy  -- -D warnings
