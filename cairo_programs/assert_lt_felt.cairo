@@ -3,7 +3,7 @@
 from starkware.cairo.common.math import assert_lt
 from starkware.cairo.common.math import split_felt
 
-func assert_lt_felt{range_check_ptr}(a, b):
+func assert_lt_felt{range_check_ptr}(a, b) {
     %{
         # TEST
         from starkware.cairo.common.math_utils import assert_integer
@@ -12,31 +12,31 @@ func assert_lt_felt{range_check_ptr}(a, b):
         assert (ids.a % PRIME) < (ids.b % PRIME), \
             f'a = {ids.a % PRIME} is not less than b = {ids.b % PRIME}.'
     %}
-    alloc_locals
-    let (local a_high, local a_low) = split_felt(a)
-    let (b_high, b_low) = split_felt(b)
+    alloc_locals;
+    let (local a_high, local a_low) = split_felt(a);
+    let (b_high, b_low) = split_felt(b);
 
-    if a_high == b_high:
-        assert_lt(a_low, b_low)
-        return ()
-    end
-    assert_lt(a_high, b_high)
-    return ()
-end
+    if (a_high == b_high) {
+        assert_lt(a_low, b_low);
+        return ();
+    }
+    assert_lt(a_high, b_high);
+    return ();
+}
 
-func main{range_check_ptr: felt}():
-    let x = 5
-    let y = 6 
+func main{range_check_ptr: felt}() {
+    let x = 5;
+    let y = 6;
 
-    tempvar m = 7
-    tempvar n = 7 * 7
+    tempvar m = 7;
+    tempvar n = 7 * 7;
 
-    assert_lt_felt(1,2)
-    assert_lt_felt(-2,-1)
-    assert_lt_felt(1,-1)
-    assert_lt_felt(0,1)
-    assert_lt_felt(x,y)
-    assert_lt_felt(m,n)
+    assert_lt_felt(1, 2);
+    assert_lt_felt(-2, -1);
+    assert_lt_felt(1, -1);
+    assert_lt_felt(0, 1);
+    assert_lt_felt(x, y);
+    assert_lt_felt(m, n);
 
-    return ()
-end
+    return ();
+}

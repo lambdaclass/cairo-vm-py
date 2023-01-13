@@ -1,6 +1,6 @@
-func main():
-    let a = 500
-    let b = 600
+func main() {
+    let a = 500;
+    let b = 600;
 
     %{
         #TEST
@@ -10,5 +10,5 @@ func main():
         assert (ids.a % PRIME) < (ids.b % PRIME), f'a = {ids.a % PRIME} is not less than b = {ids.b % PRIME}.'
     %}
 
-    return ()
-end
+    return ();
+}
