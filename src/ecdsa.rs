@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use cairo_rs::{
+use cairo_vm::{
     types::relocatable::Relocatable,
     vm::{errors::vm_errors::VirtualMachineError, runners::builtin_runner::SignatureBuiltinRunner},
 };
 
-use felt::Felt;
+use cairo_felt::Felt;
 use num_bigint::BigInt;
 use pyo3::prelude::*;
 

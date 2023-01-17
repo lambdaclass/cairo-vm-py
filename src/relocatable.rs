@@ -1,8 +1,8 @@
-use cairo_rs::{
+use cairo_felt::FeltOps;
+use cairo_vm::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::errors::vm_errors::VirtualMachineError,
 };
-use felt::FeltOps;
 use num_bigint::BigInt;
 use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
 
@@ -205,7 +205,7 @@ impl From<BigInt> for PyMaybeRelocatable {
 #[cfg(test)]
 mod test {
     use crate::relocatable::BigInt;
-    use cairo_rs::types::relocatable::MaybeRelocatable;
+    use cairo_vm::types::relocatable::MaybeRelocatable;
     use pyo3::ToPyObject;
     use pyo3::{pyclass::CompareOp, Python};
 

@@ -9,17 +9,17 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable,
 };
-use cairo_rs::any_box;
-use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::serde::deserialize_program::Member;
-use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::vm::errors::hint_errors::HintError;
-use cairo_rs::vm::vm_core::VirtualMachine;
-use cairo_rs::{
+use cairo_felt::{Felt, FIELD};
+use cairo_vm::any_box;
+use cairo_vm::hint_processor::hint_processor_definition::HintProcessor;
+use cairo_vm::serde::deserialize_program::Member;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
     vm::errors::vm_errors::VirtualMachineError,
 };
-use felt::{Felt, FIELD};
 use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
@@ -297,7 +297,8 @@ pub(crate) fn update_scope_hint_locals(
 #[cfg(test)]
 mod test {
     use crate::{bigint, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_rs::{
+    use cairo_felt::{Felt, NewFelt};
+    use cairo_vm::{
         hint_processor::{
             builtin_hint_processor::builtin_hint_processor_definition::{
                 BuiltinHintProcessor, HintProcessorData,
@@ -309,7 +310,6 @@ mod test {
             relocatable::{MaybeRelocatable, Relocatable},
         },
     };
-    use felt::{Felt, NewFelt};
     use num_bigint::BigInt;
     use pyo3::{PyObject, Python, ToPyObject};
     use std::{any::Any, collections::HashMap, rc::Rc};

@@ -6,7 +6,7 @@ use crate::{
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_rs::{
+use cairo_vm::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
@@ -146,7 +146,7 @@ impl PyCairoRunner {
                 .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
                 .map_err(to_py_error)?;
 
-            match cairo_rs::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
+            match cairo_vm::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
                 Ok(()) => (),
                 Err(_e) => {
                     return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
@@ -156,7 +156,7 @@ impl PyCairoRunner {
 
         if let Some(memory_path) = memory_file {
             let memory_path = PathBuf::from(memory_path);
-            cairo_rs::cairo_run::write_binary_memory(&self.inner.relocated_memory, &memory_path)
+            cairo_vm::cairo_run::write_binary_memory(&self.inner.relocated_memory, &memory_path)
                 .map_err(|_| to_py_error(CairoRunError::Runner(RunnerError::WriteFail)))?;
         }
 
@@ -688,7 +688,7 @@ mod test {
     use super::*;
     use crate::bigint;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
-    use felt::{Felt, NewFelt};
+    use cairo_felt::{Felt, NewFelt};
     use num_bigint::BigInt;
     use std::env::temp_dir;
     use std::fs;

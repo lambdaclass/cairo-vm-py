@@ -1,4 +1,4 @@
-use cairo_rs::serde::deserialize_program::{InputFile, Location};
+use cairo_vm::serde::deserialize_program::{InputFile, Location};
 use pyo3::prelude::*;
 
 #[pyclass]

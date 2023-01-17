@@ -1,5 +1,5 @@
 use crate::utils::const_path_to_const_name;
-use felt::{Felt, FeltOps};
+use cairo_felt::{Felt, FeltOps};
 use num_bigint::BigInt;
 use pyo3::exceptions::PyValueError;
 use std::{
@@ -8,16 +8,16 @@ use std::{
     rc::Rc,
 };
 
-use cairo_rs::{
+use cairo_vm::{
     hint_processor::{
         hint_processor_definition::HintReference,
-        hint_processor_utils::compute_addr_from_reference as cairo_rs_compute_addr_from_reference,
+        hint_processor_utils::compute_addr_from_reference as cairo_vm_compute_addr_from_reference,
     },
     serde::deserialize_program::{ApTracking, Member},
     types::relocatable::Relocatable,
     vm::vm_core::VirtualMachine,
 };
-use cairo_rs::{serde::deserialize_program::OffsetValue, vm::errors::hint_errors::HintError};
+use cairo_vm::{serde::deserialize_program::OffsetValue, vm::errors::hint_errors::HintError};
 use pyo3::{
     exceptions::PyAttributeError, pyclass, pymethods, IntoPy, PyObject, PyResult, Python,
     ToPyObject,
@@ -269,14 +269,14 @@ pub fn compute_addr_from_reference(
     //ApTracking of the Hint itself
     hint_ap_tracking: &ApTracking,
 ) -> PyResult<Relocatable> {
-    cairo_rs_compute_addr_from_reference(hint_reference, vm, hint_ap_tracking)
+    cairo_vm_compute_addr_from_reference(hint_reference, vm, hint_ap_tracking)
         .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 #[cfg(test)]
 mod tests {
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
-    use cairo_rs::types::{instruction::Register, relocatable::MaybeRelocatable};
-    use felt::NewFelt;
+    use cairo_felt::NewFelt;
+    use cairo_vm::types::{instruction::Register, relocatable::MaybeRelocatable};
     use pyo3::{types::PyDict, PyCell};
 
     use super::*;

@@ -1,8 +1,8 @@
-use cairo_rs::vm::{
+use cairo_vm::vm::{
     errors::vm_errors::VirtualMachineError, runners::builtin_runner::RangeCheckBuiltinRunner,
 };
 
-use felt::FeltOps;
+use cairo_felt::FeltOps;
 use num_bigint::BigInt;
 use pyo3::prelude::*;
 
@@ -57,7 +57,7 @@ mod test {
 
     use super::PyRangeCheck;
     use super::*;
-    use cairo_rs::vm::{
+    use cairo_vm::vm::{
         errors::vm_errors::VirtualMachineError, runners::builtin_runner::RangeCheckBuiltinRunner,
     };
     use num_bigint::BigInt;

@@ -3,11 +3,11 @@ use crate::{
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_rs::{
+use cairo_felt::FeltOps;
+use cairo_vm::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::vm_core::VirtualMachine,
 };
-use felt::FeltOps;
 use num_bigint::BigInt;
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
@@ -106,7 +106,7 @@ mod test {
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use crate::vm_core::PyVM;
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
-    use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
+    use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use num_bigint::BigInt;
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};

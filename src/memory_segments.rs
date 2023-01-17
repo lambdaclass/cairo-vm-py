@@ -4,7 +4,7 @@ use crate::{
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_rs::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
+use cairo_vm::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
 use pyo3::{prelude::*, types::PyIterator};
 use std::{cell::RefCell, rc::Rc};
 
@@ -98,8 +98,8 @@ impl PySegmentManager {
 mod test {
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
-    use felt::{Felt, NewFelt};
+    use cairo_felt::{Felt, NewFelt};
+    use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use pyo3::{Python, ToPyObject};
 
     #[test]
