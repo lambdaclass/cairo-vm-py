@@ -1,6 +1,19 @@
 # cairo-rs-py
 [![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) [![codecov](https://codecov.io/gh/lambdaclass/cairo-rs-py/branch/main/graph/badge.svg)](https://codecov.io/gh/lambdaclass/cairo-rs-py)
 
+## Table of Contents
+
+- [About](#about)
+- [Dependencies](#dependencies)
+- [Using cairo-rs-py](#using-cairo-rs-py)
+- [Testing](#testing)
+- [Script to try out `cairo-rs-py`](#script-to-try-out-cairo-rs-py)
+  * [How to manually install the script dependencies](#how-to-manually-install-the-script-dependencies)
+- [Related Projects](#related-projects)
+- [License](#license)
+
+## About
+
 cairo-rs-py adds Python bindings to the [cairo-rs](https://github.com/lambdaclass/cairo-rs) Cairo VM.
 
 ## Dependencies
@@ -73,3 +86,12 @@ In Mac you'll also need to tell the script where to find the gmp lib:
 export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib
 sh build_envs.sh
 ```
+
+## Related Projects
+
+- [cairo-rs](https://github.com/lambdaclass/cairo-rs): A fast implementation of the Cairo VM in Rust.
+- [starknet_in_rust](https://github.com/lambdaclass/starknet_in_rust): implementation of Starknet in Rust, powered by the cairo-rs VM.
+
+## License
+
+[MIT](/LICENSE)
