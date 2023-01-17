@@ -350,8 +350,8 @@ impl PyCairoRunner {
             .to_object(py))
     }
 
+    #[allow(dead_code, unused)]
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::unused_variables)]
     pub fn run_from_entrypoint(
         &mut self,
         py: Python,
