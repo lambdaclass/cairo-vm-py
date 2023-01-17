@@ -1,0 +1,74 @@
+diff --git a/protostar/starknet/cheatable_execute_entry_point.py b/protostar/starknet/cheatable_execute_entry_point.py
+index 01d1886..4a8c94f 100644
+--- a/protostar/starknet/cheatable_execute_entry_point.py
++++ b/protostar/starknet/cheatable_execute_entry_point.py
+@@ -53,6 +53,7 @@ from protostar.profiler.transaction_profiler import merge_profiles
+ from protostar.starknet.cheatable_cached_state import CheatableCachedState
+ from protostar.starknet.cheatable_syscall_handler import CheatableSysCallHandler
+ from protostar.starknet.cheatcode import Cheatcode
++import cairo_rs_py
+ 
+ if TYPE_CHECKING:
+     from protostar.starknet.cheatcode_factory import CheatcodeFactory
+@@ -129,7 +130,14 @@ class CheatableExecuteEntryPoint(ExecuteEntryPoint):
+ 
+         # Run the specified contract entry point with given calldata.
+         with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
+-            runner = CairoFunctionRunner(program=contract_class.program, layout="all")
++            runner = cairo_rs_py.CairoRunner(
++            program=contract_class.program.dumps(),
++            entrypoint=None,
++            layout="all",
++            proof_mode=False,
++            )
++            runner.initialize_function_runner()
++                
+ 
+         os_context = os_utils.prepare_os_context(runner=runner)
+ 
+@@ -199,7 +207,7 @@ class CheatableExecuteEntryPoint(ExecuteEntryPoint):
+         try:
+             runner.run_from_entrypoint(
+                 entry_point.offset,
+-                *entry_points_args,
++                entry_points_args,
+                 # region Modified Starknet code.
+                 hint_locals={
+                     **hint_locals,
+@@ -219,18 +227,15 @@ class CheatableExecuteEntryPoint(ExecuteEntryPoint):
+ 
+         except VmException as exception:
+             code = StarknetErrorCode.TRANSACTION_FAILED
+-            if isinstance(exception.inner_exc, HintException):
+-                hint_exception = exception.inner_exc
+-
+-                if isinstance(hint_exception.inner_exc, syscall_utils.HandlerException):
+-                    stark_exception = hint_exception.inner_exc.stark_exception
+-                    code = stark_exception.code
+-                    called_contract_address = (
+-                        hint_exception.inner_exc.called_contract_address
+-                    )
+-                    message_prefix = f"Error in the called contract ({hex(called_contract_address)}):\n"
+-                    # Override python's traceback and keep the Cairo one of the inner exception.
+-                    exception.notes = [message_prefix + str(stark_exception.message)]
++            if isinstance(exception.inner_exc, syscall_utils.HandlerException):
++                stark_exception = exception.inner_exc.stark_exception
++                code = stark_exception.code
++                called_contract_address = exception.inner_exc.called_contract_address
++                message_prefix = (
++                    f"Error in the called contract ({hex(called_contract_address)}):\n"
++                )
++                # Override python's traceback and keep the Cairo one of the inner exception.
++                exception.notes = [message_prefix + str(stark_exception.message)]
+ 
+             if isinstance(exception.inner_exc, ResourcesError):
+                 code = StarknetErrorCode.OUT_OF_RESOURCES
+@@ -263,7 +268,7 @@ class CheatableExecuteEntryPoint(ExecuteEntryPoint):
+ 
+         # The arguments are touched by the OS and should not be counted as holes, mark them
+         # as accessed.
+-        assert isinstance(args_ptr, RelocatableValue)  # Downcast.
++        #assert isinstance(args_ptr, RelocatableValue)  # Downcast.
+         runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
+ 
+         # region Modified Starknet code.

@@ -1,4 +1,4 @@
-func assert_not_equal(a, b):
+func assert_not_equal(a, b) {
     %{
         # TEST
         from starkware.cairo.lang.vm.relocatable import RelocatableValue
@@ -10,21 +10,21 @@ func assert_not_equal(a, b):
             f'assert_not_equal failed: non-comparable values: {ids.a}, {ids.b}.'
         assert (ids.a - ids.b) % PRIME != 0, f'assert_not_equal failed: {ids.a} = {ids.b}.'
     %}
-    if a == b:
-        # If a == b, add an unsatisfiable requirement.
-        a = a + 1
-    end
+    if (a == b) {
+        // If a == b, add an unsatisfiable requirement.
+        a = a + 1;
+    }
 
-    return ()
-end
+    return ();
+}
 
-func main():
-    assert_not_equal(1, 6)
-    assert_not_equal(2, 5)
-    let x = 500 * 5
-    assert_not_equal(x, 9)
-    tempvar y = -80
-    assert_not_equal(y, 10)
+func main() {
+    assert_not_equal(1, 6);
+    assert_not_equal(2, 5);
+    let x = 500 * 5;
+    assert_not_equal(x, 9);
+    tempvar y = -80;
+    assert_not_equal(y, 10);
 
-    return ()
-end
+    return ();
+}

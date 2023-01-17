@@ -2,9 +2,9 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.math import assert_nn_le
 
-func find_element{range_check_ptr}(array_ptr : felt*, elm_size, n_elms, key) -> (elm_ptr : felt*):
-    alloc_locals
-    local index
+func find_element{range_check_ptr}(array_ptr: felt*, elm_size, n_elms, key) -> (elm_ptr: felt*) {
+    alloc_locals;
+    local index;
     %{
         # TEST
         array_ptr = ids.array_ptr
@@ -38,35 +38,32 @@ func find_element{range_check_ptr}(array_ptr : felt*, elm_size, n_elms, key) -> 
                 raise ValueError(f'Key {key} was not found.')
     %}
 
-    assert_nn_le(a=index, b=n_elms - 1)
-    tempvar elm_ptr = array_ptr + elm_size * index
-    assert [elm_ptr] = key
-    return (elm_ptr=elm_ptr)
-end
+    assert_nn_le(a=index, b=n_elms - 1);
+    tempvar elm_ptr = array_ptr + elm_size * index;
+    assert [elm_ptr] = key;
+    return (elm_ptr=elm_ptr);
+}
 
-struct MyStruct:
-    member a : felt
-    member b : felt
-end
+struct MyStruct {
+    a: felt,
+    b: felt,
+}
 
-func main{range_check_ptr}() -> ():
-    # Create an array with MyStruct elements (1,2), (3,4), (5,6).
-    alloc_locals
-    let (local array_ptr : MyStruct*) = alloc()
-    assert array_ptr[0] = MyStruct(a=1, b=2)
-    assert array_ptr[1] = MyStruct(a=3, b=4)
-    assert array_ptr[2] = MyStruct(a=5, b=6)
+func main{range_check_ptr}() -> () {
+    // Create an array with MyStruct elements (1,2), (3,4), (5,6).
+    alloc_locals;
+    let (local array_ptr: MyStruct*) = alloc();
+    assert array_ptr[0] = MyStruct(a=1, b=2);
+    assert array_ptr[1] = MyStruct(a=3, b=4);
+    assert array_ptr[2] = MyStruct(a=5, b=6);
 
-    # Find any element with key '5'.
-    let (element_ptr : MyStruct*) = find_element(
-        array_ptr=array_ptr,
-        elm_size=MyStruct.SIZE,
-        n_elms=3,
-        key=5,
-    )
-    # A pointer to the element with index 2 is returned.
-    assert element_ptr.a = 5
-    assert element_ptr.b = 6
+    // Find any element with key '5'.
+    let (element_ptr: MyStruct*) = find_element(
+        array_ptr=array_ptr, elm_size=MyStruct.SIZE, n_elms=3, key=5
+    );
+    // A pointer to the element with index 2 is returned.
+    assert element_ptr.a = 5;
+    assert element_ptr.b = 6;
 
-    return ()
-end
+    return ();
+}
