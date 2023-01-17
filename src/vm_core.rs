@@ -191,10 +191,12 @@ impl PyVM {
                 {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
-                        .ok_or(VirtualMachineError::Hint(
-                            hint_index,
-                            Box::new(HintError::WrongHintData),
-                        ))
+                        .ok_or_else(|| {
+                            VirtualMachineError::Hint(
+                                hint_index,
+                                Box::new(HintError::WrongHintData),
+                            )
+                        })
                         .map_err(to_py_error)?;
 
                     if let Err(hint_error) = self.execute_hint(
