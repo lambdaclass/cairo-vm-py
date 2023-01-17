@@ -1,5 +1,17 @@
-# cairo-rs-py
-[![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) [![codecov](https://codecov.io/gh/lambdaclass/cairo-rs-py/branch/main/graph/badge.svg)](https://codecov.io/gh/lambdaclass/cairo-rs-py)
+# Cairo-rs-py 🚀
+<p align="center">
+    <img src="https://i.ibb.co/mTqJq4k/cairo-rs-py2.jpg" alt="drawing" width="300"/>
+</p>
+<div align="center">
+  <h3 align="center">
+  EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK
+  proof system.
+  </h3>
+  
+  [![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) [![codecov](https://codecov.io/gh/lambdaclass/cairo-rs-py/branch/main/graph/badge.svg)](https://codecov.io/gh/lambdaclass/cairo-rs-py)
+
+</div>
+
 
 ## Table of Contents
 
@@ -7,25 +19,26 @@
 - [Dependencies](#dependencies)
 - [Using cairo-rs-py](#using-cairo-rs-py)
 - [Testing](#testing)
+- [Benchmarking](#benchmarking)
 - [Script to try out `cairo-rs-py`](#script-to-try-out-cairo-rs-py)
   * [How to manually install the script dependencies](#how-to-manually-install-the-script-dependencies)
 - [Related Projects](#related-projects)
 - [License](#license)
 
-## About
+## About 📖
 
 cairo-rs-py adds Python bindings to the [cairo-rs](https://github.com/lambdaclass/cairo-rs) Cairo VM.
 
-## Dependencies
+## Dependencies 📚
 - Rust and Cargo
 - Pyenv and Python 3.9
 - GMP
 - make
 
 ## Using cairo-rs-py
-To setup the Python environment, and install necessary Python libraries, run `make deps`.
+To set up the Python environment, and install necessary Python libraries, run `make deps`. This command builds two virtual environments, one intended for the Rust VM and the other one for the Original Python VM. It also initializes the submodules of some of the projects we integrated with. 
 
-Finally, install into the python environment with `maturin develop --release`.
+After setting up the environments, you can install the python binary using `maturin develop --release`.
 
 After that, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
 
@@ -37,34 +50,46 @@ with open(f"cairo_programs/array_sum.json") as file:
     runner.cairo_run(True)
 ```
 
-## Testing
+## Testing 🧪
 To run the test suite:
 ```bash
 make full-test
 ```
 
+## Benchmarking 📊
+To run the benchmarks of the projects we integrated with, first you need to set up the dependencies:
+```bash
+make benchmark-deps
+```
+
+Lastly, run make + the project you desire to try: 
+```bash
+benchmark-devnet
+```
+
+
 ## Script to try out `cairo-rs-py`
 
 The `build_envs.sh` script will build two Python virtual environments:
-- `cairo-lang` containing a pristine install of `cairo-lang==0.10.3`;
-- `cairo-rs-py` containing a patched install of `cairo-lang==0.10.3` that uses `cairo-rs-py` as dependency.
+- `cairo-lang` containing a pristine installation of `cairo-lang==0.10.3`;
+- `cairo-rs-py` containing a patched installation of `cairo-lang==0.10.3` that uses `cairo-rs-py` as dependency.
 It will also install the required dependencies automatically in Debian-based distributions, CentOs, Fedora and OSX. 
-If you use another OS you can check how to install them manually below.
+If you use another OS, you can check how to install them manually below.
 
 To run the script:
 ```shell
 ./scripts/build_envs.sh
 ```
 
-Both virtualenvs will be created under the `/scripts` directory.
+Both virtual environment will be created under the `/scripts` directory.
 
-To actually use any of the implementations you would have to activate the environment you want. For example to use the cairo-rs-py integration you need to run:
+To actually use any of the implementations, you would have to activate the environment you want. For example, to use the cairo-rs-py integration you need to run:
 
 ```shell
 source scripts/cairo-rs-py/bin/activate
 ```
 
-After activating the cairo-rs-py virtualenv you can try out any Cairo project and it will use cairo-rs.
+After activating the cairo-rs-py virtualenv you can try out any Cairo project and it will use cairo-rs. In some cases some projects are coupled to cairo-run or need some extra patching to be able to use the Cairo-rs runner (e.g. Protostar, Zerosync).
 
 Note that the script assumes you have a Rust toolchain, Python 3.9 and the `venv` program installed.
 
@@ -95,3 +120,5 @@ sh build_envs.sh
 ## License
 
 [MIT](/LICENSE)
+
+  
