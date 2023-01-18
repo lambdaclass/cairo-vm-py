@@ -1,12 +1,11 @@
 <div align="center">
 <img src="https://i.ibb.co/mTqJq4k/cairo-rs-py2.jpg" alt="drawing" width="150"/>
-<h3>🐍 Cairo-rs-py 🐍</h3>
+
+### 🐍 Cairo-rs-py 🐍
 
 EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK proof system.
 
-<a href="https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=bug&title=bug%3A+">Report Bug</a>
-·
-<a href="https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=enhancement&title=feat%3A+">Request Feature</a>
+[Report Bug](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=bug&title=bug%3A+) · [Request Feature](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=enhancement&title=feat%3A+)
 
 [![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) 
 [![codecov](https://img.shields.io/codecov/c/github/lambdaclass/cairo-rs-py)](https://codecov.io/gh/lambdaclass/cairo-rs-py)
@@ -129,7 +128,7 @@ benchmark-devnet
 - [cairo-rs](https://github.com/lambdaclass/cairo-rs): A fast implementation of the Cairo VM in Rust.
 - [starknet_in_rust](https://github.com/lambdaclass/starknet_in_rust): implementation of Starknet in Rust, powered by the cairo-rs VM.
 
-## 📝 License
+## ⚖️ License
 
 This project is licensed under the MIT license.
 
