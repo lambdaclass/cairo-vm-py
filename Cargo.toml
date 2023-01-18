@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 pyo3 = { version = "0.16.5", features = ["num-bigint"] }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "9321055390512cd2e668a82fa34619c20baee9d7" }
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "9321055390512cd2e668a82fa34619c20baee9d7" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "7f8c2fb5ddebfdfe557c79f0072483f550e9e0e3" }
+cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "7f8c2fb5ddebfdfe557c79f0072483f550e9e0e3" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
 
