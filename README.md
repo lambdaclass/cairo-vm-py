@@ -1,6 +1,6 @@
 <div align="center">
 <img src="https://i.ibb.co/mTqJq4k/cairo-rs-py2.jpg" alt="drawing" width="150"/>
-<h3>Cairo-rs-py</h3>
+<h3>🐍 Cairo-rs-py 🐍</h3>
 
 EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK proof system.
 
