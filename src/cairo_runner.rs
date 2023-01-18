@@ -686,10 +686,10 @@ impl PyExecutionResources {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::bigint;
+    use crate::biguint;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use cairo_felt::{Felt, NewFelt};
-    use num_bigint::BigInt;
+    use num_bigint::BigUint;
     use std::env::temp_dir;
     use std::fs;
 
@@ -1301,8 +1301,8 @@ mod test {
             let args = MyIterator {
                 iter: Box::new(
                     vec![
-                        PyMaybeRelocatable::from(bigint!(0)).to_object(py),
-                        PyMaybeRelocatable::from(bigint!(2)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(0_u32)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
                     ]
                     .into_iter(),
                 ),
@@ -1589,7 +1589,7 @@ mod test {
 
             let args = MyIterator {
                 iter: Box::new(
-                    vec![PyMaybeRelocatable::from(bigint!(value)).to_object(*py)].into_iter(),
+                    vec![PyMaybeRelocatable::from(biguint!(value)).to_object(*py)].into_iter(),
                 ),
                 types: vec![PyType::TypeFelt],
             };
@@ -1630,12 +1630,12 @@ mod test {
 
         Python::with_gil(|py| {
             let array = vec![
-                PyMaybeRelocatable::from(bigint!(1)).to_object(py),
-                PyMaybeRelocatable::from(bigint!(2)).to_object(py),
-                PyMaybeRelocatable::from(bigint!(4)).to_object(py),
-                PyMaybeRelocatable::from(bigint!(8)).to_object(py),
+                PyMaybeRelocatable::from(biguint!(1_u32)).to_object(py),
+                PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
+                PyMaybeRelocatable::from(biguint!(4_u32)).to_object(py),
+                PyMaybeRelocatable::from(biguint!(8_u32)).to_object(py),
             ];
-            let size = PyMaybeRelocatable::from(bigint!(array.len()));
+            let size = PyMaybeRelocatable::from(biguint!(array.len()));
             let args = vec![array.into_py(py), size.to_object(py)];
             let result = runner.run_from_entrypoint(
                 py,
@@ -1671,13 +1671,13 @@ mod test {
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
-            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(biguint!(3_u32)))
             .unwrap();
         runner
-            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(biguint!(4_u32)))
             .unwrap();
         runner
-            .insert(&(0, 2).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .insert(&(0, 2).into(), PyMaybeRelocatable::Int(biguint!(5_u32)))
             .unwrap();
         assert_eq!(
             (*runner.pyvm.get_vm())
@@ -1696,13 +1696,13 @@ mod test {
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
-            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(biguint!(3_u32)))
             .unwrap();
         runner
-            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(biguint!(4_u32)))
             .unwrap();
         runner
-            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(biguint!(5_u32)))
             .expect_err("insertion succeeded when it should've failed");
         assert_eq!(
             (*runner.pyvm.get_vm())
@@ -2135,8 +2135,8 @@ mod test {
             let arg = MyIterator {
                 iter: Box::new(
                     vec![
-                        PyMaybeRelocatable::from(bigint!(0)).to_object(py),
-                        PyMaybeRelocatable::from(bigint!(2)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(0_u32)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
                     ]
                     .into_iter(),
                 ),
@@ -2149,8 +2149,8 @@ mod test {
             assert_eq!(
                 stack,
                 vec![
-                    PyMaybeRelocatable::from(bigint!(0)),
-                    PyMaybeRelocatable::from(bigint!(2)),
+                    PyMaybeRelocatable::from(biguint!(0_u32)),
+                    PyMaybeRelocatable::from(biguint!(2_u32)),
                 ]
             );
         })
@@ -2211,14 +2211,14 @@ mod test {
                 runner
                     .get(py, &addr)
                     .expect("Could not get value")
-                    .map(|x| x.extract::<BigInt>(py))
+                    .map(|x| x.extract::<BigUint>(py))
                     .transpose()
-                    .expect("Could not convert value to a BigInt")
+                    .expect("Could not convert value to a biguint")
             };
-            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
-            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
-            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
-            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 0), Some(biguint!(1_u32)));
+            assert_eq!(get_value(&segment, 1), Some(biguint!(2_u32)));
+            assert_eq!(get_value(&segment, 2), Some(biguint!(3_u32)));
+            assert_eq!(get_value(&segment, 3), Some(biguint!(4_u32)));
             assert_eq!(get_value(&segment, 4), None);
         });
     }
@@ -2298,8 +2298,8 @@ mod test {
             let arg = MyIterator {
                 iter: Box::new(
                     vec![
-                        PyMaybeRelocatable::from(bigint!(0)).to_object(py),
-                        PyMaybeRelocatable::from(bigint!(2)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(0_u32)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
                     ]
                     .into_iter(),
                 ),
@@ -2320,7 +2320,7 @@ mod test {
         Python::with_gil(|py| {
             let segment = runner.add_segment();
 
-            let set_value = |addr: &PyRelocatable, offset, value: BigInt| {
+            let set_value = |addr: &PyRelocatable, offset, value: BigUint| {
                 let addr = addr.__add__(offset);
                 memory
                     .__setitem__(&addr, PyMaybeRelocatable::Int(value))
@@ -2331,20 +2331,20 @@ mod test {
                 memory
                     .__getitem__(&addr, py)
                     .expect("Could not get value from memory.")
-                    .map(|x| x.extract::<BigInt>(py))
+                    .map(|x| x.extract::<BigUint>(py))
                     .transpose()
-                    .expect("Could not convert value to a BigInt")
+                    .expect("Could not convert value to a biguint")
             };
 
-            set_value(&segment, 0, bigint!(1));
-            set_value(&segment, 1, bigint!(2));
-            set_value(&segment, 2, bigint!(3));
-            set_value(&segment, 3, bigint!(4));
+            set_value(&segment, 0, biguint!(1_u32));
+            set_value(&segment, 1, biguint!(2_u32));
+            set_value(&segment, 2, biguint!(3_u32));
+            set_value(&segment, 3, biguint!(4_u32));
 
-            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
-            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
-            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
-            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 0), Some(biguint!(1_u32)));
+            assert_eq!(get_value(&segment, 1), Some(biguint!(2_u32)));
+            assert_eq!(get_value(&segment, 2), Some(biguint!(3_u32)));
+            assert_eq!(get_value(&segment, 3), Some(biguint!(4_u32)));
             assert_eq!(get_value(&segment, 4), None);
         });
     }
@@ -2368,7 +2368,7 @@ mod test {
         Python::with_gil(|py| {
             let segment = runner.add_segment();
 
-            let set_value = |addr: &PyRelocatable, offset, value: BigInt| {
+            let set_value = |addr: &PyRelocatable, offset, value: BigUint| {
                 let addr = addr.__add__(offset);
                 memory
                     .__setitem__(&addr, PyMaybeRelocatable::Int(value))
@@ -2379,20 +2379,20 @@ mod test {
                 memory
                     .__getitem__(&addr, py)
                     .expect("Could not get value from memory.")
-                    .map(|x| x.extract::<BigInt>(py))
+                    .map(|x| x.extract::<BigUint>(py))
                     .transpose()
-                    .expect("Could not convert value to a BigInt")
+                    .expect("Could not convert value to a biguint")
             };
 
-            set_value(&segment, 0, bigint!(1));
-            set_value(&segment, 1, bigint!(2));
-            set_value(&segment, 2, bigint!(3));
-            set_value(&segment, 3, bigint!(4));
+            set_value(&segment, 0, biguint!(1_u32));
+            set_value(&segment, 1, biguint!(2_u32));
+            set_value(&segment, 2, biguint!(3_u32));
+            set_value(&segment, 3, biguint!(4_u32));
 
-            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
-            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
-            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
-            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 0), Some(biguint!(1_u32)));
+            assert_eq!(get_value(&segment, 1), Some(biguint!(2_u32)));
+            assert_eq!(get_value(&segment, 2), Some(biguint!(3_u32)));
+            assert_eq!(get_value(&segment, 3), Some(biguint!(4_u32)));
             assert_eq!(get_value(&segment, 4), None);
         });
     }
@@ -2558,8 +2558,8 @@ mod test {
                 PyMaybeRelocatable::Int(value) => Ok(value),
                 PyMaybeRelocatable::RelocatableValue(r) => Err(r),
             };
-            let expected = bigint!(144);
-            assert_eq!(result, Ok(&expected) as Result<&BigInt, &PyRelocatable>);
+            let expected = biguint!(144_u32);
+            assert_eq!(result, Ok(&expected) as Result<&BigUint, &PyRelocatable>);
         });
     }
 

@@ -1,4 +1,4 @@
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use pyo3::prelude::*;
 
 use crate::relocatable::{PyMaybeRelocatable, PyRelocatable};
@@ -12,7 +12,7 @@ impl ToFeltOrRelocatableFunc {
         match any.extract::<PyRelocatable>(py) {
             Ok(rel) => Ok(Into::<PyMaybeRelocatable>::into(rel).to_object(py)),
             Err(_) => Ok(Into::<PyMaybeRelocatable>::into(
-                any.call_method0(py, "__int__")?.extract::<BigInt>(py)?,
+                any.call_method0(py, "__int__")?.extract::<BigUint>(py)?,
             )
             .to_object(py)),
         }

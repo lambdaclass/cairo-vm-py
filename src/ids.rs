@@ -1,6 +1,6 @@
 use crate::utils::const_path_to_const_name;
 use cairo_felt::{Felt, FeltOps};
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use std::{
     cell::RefCell,
@@ -34,7 +34,7 @@ pub struct PyIds {
     vm: Rc<RefCell<VirtualMachine>>,
     references: HashMap<String, HintReference>,
     ap_tracking: ApTracking,
-    constants: HashMap<String, BigInt>,
+    constants: HashMap<String, BigUint>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
 
@@ -245,7 +245,7 @@ pub fn get_value_from_reference(
 ) -> PyResult<PyMaybeRelocatable> {
     // //First handle case on only immediate
     if let OffsetValue::Immediate(num) = &hint_reference.offset1 {
-        return Ok(PyMaybeRelocatable::from(num.to_bigint()));
+        return Ok(PyMaybeRelocatable::from(num.to_biguint()));
     }
     //Then calculate address
     let var_addr = compute_addr_from_reference(hint_reference, vm, ap_tracking)?;

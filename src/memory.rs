@@ -8,7 +8,7 @@ use cairo_vm::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::vm_core::VirtualMachine,
 };
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
     prelude::*,
@@ -87,27 +87,27 @@ impl PyMemory {
     }
 
     /// Return a continuous section of memory as a vector of integers.
-    pub fn get_range_as_ints(&self, addr: PyRelocatable, size: usize) -> PyResult<Vec<BigInt>> {
+    pub fn get_range_as_ints(&self, addr: PyRelocatable, size: usize) -> PyResult<Vec<BigUint>> {
         Ok(self
             .vm
             .borrow()
             .get_integer_range(&Relocatable::from(&addr), size)
             .map_err(to_py_error)?
             .into_iter()
-            .map(|num| num.into_owned().to_bigint())
+            .map(|num| num.into_owned().to_biguint())
             .collect())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::bigint;
+    use crate::biguint;
     use crate::relocatable::PyMaybeRelocatable;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use crate::vm_core::PyVM;
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
-    use num_bigint::BigInt;
+    use num_bigint::BigUint;
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};
 
@@ -315,7 +315,12 @@ assert memory[ap] == fp
             memory
                 .get_range_as_ints(addr.into(), 4)
                 .expect("get_range_as_ints() failed"),
-            vec![bigint!(1), bigint!(2), bigint!(3), bigint!(4)],
+            vec![
+                biguint!(1_u32),
+                biguint!(2_u32),
+                biguint!(3_u32),
+                biguint!(4_u32)
+            ],
         );
     }
 

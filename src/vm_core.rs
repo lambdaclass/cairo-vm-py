@@ -21,7 +21,7 @@ use cairo_vm::{
     vm::errors::vm_errors::VirtualMachineError,
 };
 use lazy_static::lazy_static;
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
 use pyo3::{PyCell, PyErr};
@@ -51,8 +51,8 @@ const GLOBAL_NAMES: [&str; 18] = [
 ];
 
 lazy_static! {
-    pub static ref CAIRO_PRIME: BigInt =
-        (Into::<BigInt>::into(FIELD.0) << 128) + Into::<BigInt>::into(FIELD.1);
+    pub static ref CAIRO_PRIME: BigUint =
+        (Into::<BigUint>::into(FIELD.0) << 128) + Into::<BigUint>::into(FIELD.1);
 }
 
 #[derive(Clone)]
@@ -93,6 +93,7 @@ impl PyVM {
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
         Python::with_gil(|py| -> Result<(), PyErr> {
+            println!("Excecuting Hint: {}", hint_data.code);
             let memory = PyMemory::new(self);
             let segments = PySegmentManager::new(self, memory.clone());
             let ap = PyRelocatable::from((*self.vm).borrow().get_ap());
@@ -109,7 +110,7 @@ impl PyVM {
             let range_check_builtin =
                 PyRangeCheck::from((*self.vm).borrow().get_range_check_builtin());
             let ecdsa_builtin = pycell!(py, PySignature::new());
-            let prime: BigInt = CAIRO_PRIME.clone();
+            let prime: BigUint = CAIRO_PRIME.clone();
             let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
@@ -296,7 +297,8 @@ pub(crate) fn update_scope_hint_locals(
 
 #[cfg(test)]
 mod test {
-    use crate::{bigint, relocatable::PyMaybeRelocatable, vm_core::PyVM};
+    use super::*;
+    use crate::{biguint, relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_felt::{Felt, NewFelt};
     use cairo_vm::{
         hint_processor::{
@@ -310,7 +312,6 @@ mod test {
             relocatable::{MaybeRelocatable, Relocatable},
         },
     };
-    use num_bigint::BigInt;
     use pyo3::{PyObject, Python, ToPyObject};
     use std::{any::Any, collections::HashMap, rc::Rc};
 
@@ -828,7 +829,7 @@ lista_b = [lista_a[k] for k in range(2)]";
                     .unwrap()
                     .extract::<PyMaybeRelocatable>(py)
                     .unwrap(),
-                PyMaybeRelocatable::from(bigint!(456))
+                PyMaybeRelocatable::from(biguint!(456_u32))
             );
         });
     }
