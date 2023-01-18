@@ -93,7 +93,6 @@ impl PyVM {
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
         Python::with_gil(|py| -> Result<(), PyErr> {
-            println!("Excecuting Hint: {}", hint_data.code);
             let memory = PyMemory::new(self);
             let segments = PySegmentManager::new(self, memory.clone());
             let ap = PyRelocatable::from((*self.vm).borrow().get_ap());
