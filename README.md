@@ -27,9 +27,9 @@ EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK pr
   * [Installation](#installation)
 - [Usage](#-usage)
   * [Testing](#testing)
-  * [Benchmarking](#benchmarking)
   * [Demo](#demo)
   * [How to manually install the script dependencies](#how-to-manually-install-the-script-dependencies)
+- [Benchmarking](#-benchmarking)
 - [Related Projects](#-related-projects)
 - [License](#-license)
 
@@ -68,18 +68,6 @@ To run the test suite:
 ```bash
 make full-test
 ```
-
-### Benchmarking
-To run the benchmarks of the projects we integrated with, first you need to set up the dependencies:
-```bash
-make benchmark-deps
-```
-
-Lastly, run make + the project you desire to try: 
-```bash
-benchmark-devnet
-```
-
 
 ### Demo
 
@@ -123,6 +111,17 @@ In Mac you'll also need to tell the script where to find the gmp lib:
 ```shell
 export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/lib
 sh build_envs.sh
+```
+
+## 📊 Benchmarking
+To run the benchmarks of the projects we integrated with, first you need to set up the dependencies:
+```bash
+make benchmark-deps
+```
+
+Lastly, run make + the project you desire to try: 
+```bash
+benchmark-devnet
 ```
 
 ## 🌞 Related Projects
