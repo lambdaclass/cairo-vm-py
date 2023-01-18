@@ -84,7 +84,7 @@ impl PyVM {
     }
 
     pub(crate) fn execute_hint(
-        &mut self,
+        &self,
         hint_data: &HintProcessorData,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
@@ -316,7 +316,7 @@ mod test {
 
     #[test]
     fn execute_print_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert!(vm
@@ -333,7 +333,7 @@ mod test {
 
     #[test]
     fn set_memory_item_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert!(vm
@@ -350,7 +350,7 @@ mod test {
 
     #[test]
     fn ids_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
@@ -383,7 +383,7 @@ mod test {
     #[test]
     // Test the availability of cairo constants in ids
     fn const_ids() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
 
         let constants = HashMap::from([(String::from("CONST"), Felt::new(1))]);
 
@@ -506,7 +506,7 @@ mod test {
 
     #[test]
     fn scopes_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
@@ -541,7 +541,7 @@ mod test {
 
     #[test]
     fn scopes_hint_modify() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
@@ -599,7 +599,7 @@ mod test {
 
     #[test]
     fn modify_hint_locals() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let code = "word = word[::-1]
 print(word)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -627,7 +627,7 @@ print(word)";
 
     #[test]
     fn exit_main_scope_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_exit_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -644,7 +644,7 @@ print(word)";
 
     #[test]
     fn enter_scope_empty_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -663,7 +663,7 @@ print(word)";
 
     #[test]
     fn enter_exit_scope_same_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()
 vm_exit_scope()";
@@ -683,7 +683,7 @@ vm_exit_scope()";
 
     #[test]
     fn enter_exit_scope_separate_hints() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code_a = "vm_enter_scope()";
         let code_b = "vm_exit_scope()";
@@ -715,7 +715,7 @@ vm_exit_scope()";
 
     #[test]
     fn enter_exit_enter_scope_same_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()
 vm_exit_scope()
@@ -736,7 +736,7 @@ vm_enter_scope()";
 
     #[test]
     fn list_comprehension() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "lista_a = [1,2,3]
 lista_b = [lista_a[k] for k in range(2)]";
@@ -755,7 +755,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn enter_scope_non_empty_hint() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code_a = "vm_enter_scope({'n': 12})";
         let code_b = "assert(n == 12)";
@@ -787,7 +787,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn access_relocatable_segment_index() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "assert(ap.segment_index == 1)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -805,7 +805,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_number() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "felt = to_felt_or_relocatable(456)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -835,7 +835,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_list_should_fail() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "felt = to_felt_or_relocatable([1,2,3])";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -853,7 +853,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_relocatable() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "ids.test_value = to_felt_or_relocatable(ids.relocatable)";
         vm.vm.borrow_mut().add_memory_segment();
@@ -890,7 +890,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn test_get_range() {
-        let mut pyvm = PyVM::new(false);
+        let pyvm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "assert(memory.get_range(ids.address, 3) == [1,2,7])";
 
@@ -935,7 +935,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn test_segments_memory_get_range() {
-        let mut pyvm = PyVM::new(false);
+        let pyvm = PyVM::new(false);
         let code = "assert(segments.memory.get_range(ids.address, 2) == [9,12])";
 
         let ids = HashMap::from([("address".to_string(), HintReference::new_simple(0))]);
@@ -974,7 +974,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
@@ -1006,7 +1006,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_change_its_value() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
@@ -1036,7 +1036,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_affect_scope_or_hint_locals() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
