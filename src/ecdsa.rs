@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use std::collections::HashMap;
 
 use cairo_vm::{
@@ -6,7 +7,6 @@ use cairo_vm::{
 };
 
 use cairo_felt::Felt;
-use num_bigint::BigInt;
 use pyo3::prelude::*;
 
 use crate::relocatable::PyRelocatable;
@@ -26,7 +26,7 @@ impl PySignature {
         }
     }
 
-    pub fn add_signature(&mut self, address: PyRelocatable, pair: (BigInt, BigInt)) {
+    pub fn add_signature(&mut self, address: PyRelocatable, pair: (BigUint, BigUint)) {
         self.signatures
             .insert(address, (pair.0.into(), pair.1.into()));
     }
@@ -61,10 +61,8 @@ impl ToPyObject for PySignature {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::relocatable::PyRelocatable;
-    use num_bigint::{BigInt, Sign};
-
     use crate::cairo_runner::PyCairoRunner;
+    use crate::relocatable::PyRelocatable;
 
     use std::fs;
 
@@ -81,8 +79,8 @@ mod test {
         };
 
         let numbers = (
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
         );
 
         let mut signature = PySignature::new();
@@ -98,8 +96,8 @@ mod test {
         };
 
         let numbers = (
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 13421772]),
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 13421772]),
+            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 13421772]),
+            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 13421772]),
         );
 
         let mut signature = PySignature::new();
@@ -135,8 +133,8 @@ mod test {
         };
 
         let numbers = (
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
         );
 
         let mut signature = PySignature::new();
