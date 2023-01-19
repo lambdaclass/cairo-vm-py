@@ -30,7 +30,7 @@ EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK pr
   * [How to manually install the script dependencies](#how-to-manually-install-the-script-dependencies)
 - [Benchmarking](#-benchmarking)
 - [Related Projects](#-related-projects)
-- [License](#-license)
+- [License](#%EF%B8%8F-license)
 
 ## 📖 About
 
@@ -130,7 +130,7 @@ benchmark-devnet
 
 ## ⚖️ License
 
-This project is licensed under the MIT license.
+This project is licensed under the Apache 2.0 license.
 
 See [LICENSE](/LICENSE) for more information.
   
