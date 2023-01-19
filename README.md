@@ -1,46 +1,58 @@
-# Cairo-rs-py 🚀
-<p align="center">
-    <img src="https://i.ibb.co/mTqJq4k/cairo-rs-py2.jpg" alt="drawing" width="300"/>
-</p>
 <div align="center">
-  <h3 align="center">
-  EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK
-  proof system.
-  </h3>
-  
-  [![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) [![codecov](https://codecov.io/gh/lambdaclass/cairo-rs-py/branch/main/graph/badge.svg)](https://codecov.io/gh/lambdaclass/cairo-rs-py)
+<img src="https://i.ibb.co/mTqJq4k/cairo-rs-py2.jpg" alt="drawing" width="150"/>
+
+### 🐍 Cairo-rs-py 🐍
+
+EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK proof system.
+
+[Report Bug](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=bug&title=bug%3A+) · [Request Feature](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=enhancement&title=feat%3A+)
+
+[![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) 
+[![codecov](https://img.shields.io/codecov/c/github/lambdaclass/cairo-rs-py)](https://codecov.io/gh/lambdaclass/cairo-rs-py)
+[![license](https://img.shields.io/github/license/lambdaclass/cairo-rs-py)](/LICENSE)
+[![Telegram Chat][tg-badge]][tg-url]
+
+[tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
+[tg-url]: https://t.me/starknet_rs
 
 </div>
 
 
 ## Table of Contents
 
-- [About](#about)
-- [Dependencies](#dependencies)
-- [Using cairo-rs-py](#using-cairo-rs-py)
-- [Testing](#testing)
-- [Benchmarking](#benchmarking)
-- [Script to try out `cairo-rs-py`](#script-to-try-out-cairo-rs-py)
+- [About](#-about)
+- [Getting Started](#-getting-started)
+  * [Dependencies](#dependencies)
+  * [Installation](#installation)
+- [Usage](#-usage)
+  * [Testing](#testing)
+  * [Demo](#demo)
   * [How to manually install the script dependencies](#how-to-manually-install-the-script-dependencies)
-- [Related Projects](#related-projects)
-- [License](#license)
+- [Benchmarking](#-benchmarking)
+- [Related Projects](#-related-projects)
+- [License](#-license)
 
-## About 📖
+## 📖 About
 
-cairo-rs-py adds Python bindings to the [cairo-rs](https://github.com/lambdaclass/cairo-rs) Cairo VM.
+`cairo-rs-py` adds Python bindings to the [cairo-rs](https://github.com/lambdaclass/cairo-rs) Cairo VM.
 
-## Dependencies 📚
+## 🌅 Getting Started
+
+### Dependencies
 - Rust and Cargo
 - Pyenv and Python 3.9
 - GMP
 - make
 
-## Using cairo-rs-py
+### Installation
+
 To set up the Python environment, and install necessary Python libraries, run `make deps`. This command builds two virtual environments, one intended for the Rust VM and the other one for the Original Python VM. It also initializes the submodules of some of the projects we integrated with. 
 
 After setting up the environments, you can install the python binary using `maturin develop --release`.
 
-After that, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
+## 🚀 Usage
+
+After installation, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
 
 ```python
 import cairo_rs_py
@@ -50,25 +62,13 @@ with open(f"cairo_programs/array_sum.json") as file:
     runner.cairo_run(True)
 ```
 
-## Testing 🧪
+### Testing
 To run the test suite:
 ```bash
 make full-test
 ```
 
-## Benchmarking 📊
-To run the benchmarks of the projects we integrated with, first you need to set up the dependencies:
-```bash
-make benchmark-deps
-```
-
-Lastly, run make + the project you desire to try: 
-```bash
-benchmark-devnet
-```
-
-
-## Script to try out `cairo-rs-py`
+### Demo
 
 The `build_envs.sh` script will build two Python virtual environments:
 - `cairo-lang` containing a pristine installation of `cairo-lang==0.10.3`;
@@ -112,13 +112,25 @@ export CFLAGS=-I/opt/homebrew/opt/gmp/include LDFLAGS=-L/opt/homebrew/opt/gmp/li
 sh build_envs.sh
 ```
 
-## Related Projects
+## 📊 Benchmarking
+To run the benchmarks of the projects we integrated with, first you need to set up the dependencies:
+```bash
+make benchmark-deps
+```
+
+Lastly, run make + the project you desire to try: 
+```bash
+benchmark-devnet
+```
+
+## 🌞 Related Projects
 
 - [cairo-rs](https://github.com/lambdaclass/cairo-rs): A fast implementation of the Cairo VM in Rust.
 - [starknet_in_rust](https://github.com/lambdaclass/starknet_in_rust): implementation of Starknet in Rust, powered by the cairo-rs VM.
 
-## License
+## ⚖️ License
 
-[MIT](/LICENSE)
+This project is licensed under the MIT license.
 
+See [LICENSE](/LICENSE) for more information.
   
