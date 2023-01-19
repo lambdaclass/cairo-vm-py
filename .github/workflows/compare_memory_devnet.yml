@@ -1,0 +1,36 @@
+name: compare_devnet_memory
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '*' ]
+
+env:
+    CARGO_TERM_COLOR: always
+jobs:
+  compare_memory_devnet:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install Rust 1.61.0
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: 1.61.0
+          override: true
+          components: rustfmt, clippy
+    - uses: actions/checkout@v3
+    - name: Python3 Build
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Checkout starknet-devnet
+      uses: actions/checkout@v3
+      with:
+        repository: Shard-Labs/starknet-devnet
+        path: starknet-devnet
+    - name: Install test dependencies
+      run: pip install ecdsa fastecdsa sympy cairo-lang==0.9.1 maturin
+    - name: Run devnet tests & compare memory outputs
+      run: make compare_memory_devnet_ci

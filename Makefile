@@ -1,4 +1,4 @@
-.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test full-test run-comparer-tracer compare_trace_memory compare_trace compare_memory
+.PHONY: deps deps-macos deps-default-version build run check test clippy clean run-python-test full-test run-comparer-tracer compare_trace_memory compare_trace compare_memory compare_memory_devnet compare_memory_devnet_ci
 
 TEST_DIR=cairo_programs
 TEST_FILES:=$(wildcard $(TEST_DIR)/*.cairo)
@@ -93,6 +93,8 @@ clean:
 	rm -f $(BAD_TEST_DIR)/*.memory
 	rm -f $(BAD_TEST_DIR)/*.trace
 	rm -rf cairo-rs-py-env
+	rm -rf starknet-devnet
+	rm -rf scripts/memory_comparator/cairo*
 
 run-python-test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
@@ -119,4 +121,50 @@ compare_trace: $(CAIRO_RS_TRACE) $(CAIRO_TRACE)
 compare_memory: $(CAIRO_RS_MEM) $(CAIRO_MEM)
 	cd tests; ./compare_vm_state.sh memory
 	
-	
+compare_memory_devnet:
+# Set up the virtual envs
+	scripts/memory_comparator/build_envs.sh
+# Clone the starknet-devnet from github
+	git clone git@github.com:Shard-Labs/starknet-devnet.git
+# Set up the starknet-devnet in each env
+# cairo-rs-py
+	. scripts/memory_comparator/cairo-rs-py/bin/activate && \
+	pip install starknet-devnet && \
+	cd starknet-devnet; scripts/install_dev_tools.sh
+# cairo-lang
+	. scripts/memory_comparator/cairo-lang/bin/activate && \
+	pip install starknet-devnet && \
+	cd starknet-devnet; scripts/install_dev_tools.sh
+# Create the folder where we will store the memory outputs
+	cd starknet-devnet; mkdir memory_files; mkdir trace_files
+# Compile test files
+	. scripts/memory_comparator/cairo-lang/bin/activate && \
+	cd starknet-devnet; scripts/compile_contracts.sh
+# Patch both envs
+	patch --directory scripts/memory_comparator/cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-rs-py.patch
+	patch --directory scripts/memory_comparator/cairo-lang/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-lang.patch
+# Run each test one by one in each env and run the memory comparator
+	. ./scripts/memory_comparator/run_tests_compare_memory.sh
+
+compare_memory_devnet_ci:
+# Set up the virtual envs
+	scripts/memory_comparator/build_envs.sh
+# Set up the starknet-devnet in each env
+# cairo-rs-py
+	. scripts/memory_comparator/cairo-rs-py/bin/activate && \
+	pip install starknet-devnet && \
+	cd starknet-devnet; scripts/install_dev_tools.sh
+# cairo-lang
+	. scripts/memory_comparator/cairo-lang/bin/activate && \
+	pip install starknet-devnet && \
+	cd starknet-devnet; scripts/install_dev_tools.sh
+# Create the folder where we will store the memory outputs
+	cd starknet-devnet; mkdir memory_files; mkdir trace_files
+# Compile test files
+	. scripts/memory_comparator/cairo-lang/bin/activate && \
+	cd starknet-devnet; scripts/compile_contracts.sh
+# Patch both envs
+	patch --directory scripts/memory_comparator/cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-rs-py.patch
+	patch --directory scripts/memory_comparator/cairo-lang/lib/python3.9/site-packages/ --strip 2 < scripts/memory_comparator/output-memory-cairo-lang.patch
+# Run each test one by one in each env and run the memory comparator
+	. ./scripts/memory_comparator/run_tests_compare_memory.sh

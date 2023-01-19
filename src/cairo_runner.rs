@@ -8,7 +8,7 @@ use crate::{
 };
 use cairo_rs::{
     bigint,
-    cairo_run::write_output,
+    cairo_run::{write_binary_memory, write_binary_trace, write_output},
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
     types::{
@@ -32,7 +32,14 @@ use pyo3::{
     prelude::*,
     types::PyIterator,
 };
-use std::{any::Any, borrow::BorrowMut, collections::HashMap, iter::zip, path::PathBuf, rc::Rc};
+use std::{
+    any::Any,
+    borrow::BorrowMut,
+    collections::HashMap,
+    iter::zip,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.utils, ResourcesError);
 
@@ -235,6 +242,20 @@ impl PyCairoRunner {
 
     pub fn write_output(&mut self) -> PyResult<()> {
         write_output(&mut self.inner, &mut (*self.pyvm.vm).borrow_mut()).map_err(to_py_error)
+    }
+
+    pub fn write_binary_memory(&mut self, name: String) -> PyResult<()> {
+        write_binary_memory(&self.inner.relocated_memory, Path::new(&name)).map_err(to_py_error)
+    }
+
+    pub fn write_binary_trace(&mut self, name: String) -> PyResult<()> {
+        write_binary_trace(
+            self.inner.relocated_trace.as_ref().ok_or_else(|| {
+                PyTypeError::new_err("Cant write binary trace if trace is not enabled")
+            })?,
+            Path::new(&name),
+        )
+        .map_err(to_py_error)
     }
 
     pub fn add_segment(&self) -> PyRelocatable {
