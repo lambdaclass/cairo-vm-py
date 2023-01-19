@@ -3,16 +3,17 @@ use crate::{
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_rs::{
+use cairo_felt::FeltOps;
+use cairo_vm::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::vm_core::VirtualMachine,
 };
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
     prelude::*,
 };
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 const MEMORY_GET_ERROR_MSG: &str = "Failed to get value from Cairo memory";
 const MEMORY_SET_ERROR_MSG: &str = "Failed to set value to Cairo memory";
@@ -86,38 +87,34 @@ impl PyMemory {
     }
 
     /// Return a continuous section of memory as a vector of integers.
-    pub fn get_range_as_ints(&self, addr: PyRelocatable, size: usize) -> PyResult<Vec<BigInt>> {
+    pub fn get_range_as_ints(&self, addr: PyRelocatable, size: usize) -> PyResult<Vec<BigUint>> {
         Ok(self
             .vm
             .borrow()
             .get_integer_range(&Relocatable::from(&addr), size)
             .map_err(to_py_error)?
             .into_iter()
-            .map(Cow::into_owned)
+            .map(|num| num.into_owned().to_biguint())
             .collect())
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::biguint;
     use crate::relocatable::PyMaybeRelocatable;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
     use crate::vm_core::PyVM;
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
-    use cairo_rs::bigint;
-    use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
-    use num_bigint::{BigInt, Sign};
+    use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+    use num_bigint::BigUint;
     use pyo3::PyCell;
     use pyo3::{types::PyDict, Python};
 
     #[test]
     fn memory_insert_test() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -143,11 +140,7 @@ mod test {
     #[test]
     fn memory_insert_ocuppied_address_error_test() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -177,11 +170,7 @@ memory[ap] = 3
     #[test]
     fn memory_get_test() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -214,11 +203,7 @@ assert memory[ap] == fp
     #[test]
     fn get_range() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
 
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -230,15 +215,15 @@ assert memory[ap] == fp
 
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+                .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+                .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0)))
+                .insert_value(&Relocatable::from((1, 1)), Relocatable::from((3, 0)))
                 .unwrap();
 
             let maybe_relocatable = MaybeRelocatable::from((1, 0));
@@ -270,11 +255,7 @@ assert memory[ap] == fp
     #[test]
     fn get_range_with_gap() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
 
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
@@ -286,15 +267,15 @@ assert memory[ap] == fp
 
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+                .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+                .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 2)), &Relocatable::from((3, 0)))
+                .insert_value(&Relocatable::from((1, 2)), Relocatable::from((3, 0)))
                 .unwrap();
 
             let maybe_relocatable = MaybeRelocatable::from((1, 0));
@@ -314,11 +295,7 @@ assert memory[ap] == fp
     // Test that get_range_as_ints() works as intended.
     #[test]
     fn get_range_as_ints() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let vm = PyVM::new(false);
         let memory = PyMemory::new(&vm);
 
         let addr = {
@@ -327,12 +304,7 @@ assert memory[ap] == fp
 
             vm.load_data(
                 &MaybeRelocatable::from(&addr),
-                vec![
-                    bigint!(1).into(),
-                    bigint!(2).into(),
-                    bigint!(3).into(),
-                    bigint!(4).into(),
-                ],
+                &vec![1.into(), 2.into(), 3.into(), 4.into()],
             )
             .expect("memory insertion failed");
 
@@ -343,18 +315,19 @@ assert memory[ap] == fp
             memory
                 .get_range_as_ints(addr.into(), 4)
                 .expect("get_range_as_ints() failed"),
-            vec![bigint!(1), bigint!(2), bigint!(3), bigint!(4)],
+            vec![
+                biguint!(1_u32),
+                biguint!(2_u32),
+                biguint!(3_u32),
+                biguint!(4_u32)
+            ],
         );
     }
 
     // Test that get_range_as_ints() fails when not all values are integers.
     #[test]
     fn get_range_as_ints_mixed() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let vm = PyVM::new(false);
         let memory = PyMemory::new(&vm);
 
         let addr = {
@@ -363,11 +336,11 @@ assert memory[ap] == fp
 
             vm.load_data(
                 &MaybeRelocatable::from(&addr),
-                vec![
-                    bigint!(1).into(),
-                    bigint!(2).into(),
+                &vec![
+                    1.into(),
+                    2.into(),
                     MaybeRelocatable::RelocatableValue((1, 2).into()),
-                    bigint!(4).into(),
+                    4.into(),
                 ],
             )
             .expect("memory insertion failed");
@@ -384,11 +357,7 @@ assert memory[ap] == fp
     // segments.
     #[test]
     fn get_range_as_ints_incomplete() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let vm = PyVM::new(false);
         let memory = PyMemory::new(&vm);
 
         let addr = {
@@ -397,12 +366,7 @@ assert memory[ap] == fp
 
             vm.load_data(
                 &MaybeRelocatable::from(&addr),
-                vec![
-                    bigint!(1).into(),
-                    bigint!(2).into(),
-                    bigint!(3).into(),
-                    bigint!(4).into(),
-                ],
+                &vec![1.into(), 2.into(), 3.into(), 4.into()],
             )
             .expect("memory insertion failed");
 

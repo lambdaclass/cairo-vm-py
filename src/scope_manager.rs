@@ -1,6 +1,6 @@
 use std::{any::Any, collections::HashMap};
 
-use cairo_rs::{any_box, types::exec_scope::ExecutionScopes};
+use cairo_vm::{any_box, types::exec_scope::ExecutionScopes};
 use pyo3::{pyclass, pymethods, PyErr, PyObject};
 
 use crate::utils::to_py_error;

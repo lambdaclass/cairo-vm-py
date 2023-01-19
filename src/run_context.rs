@@ -1,5 +1,5 @@
 use crate::relocatable::PyRelocatable;
-use cairo_rs::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::Relocatable;
 use pyo3::{pyclass, pymethods};
 
 #[pyclass]

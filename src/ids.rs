@@ -1,5 +1,6 @@
 use crate::utils::const_path_to_const_name;
-use num_bigint::BigInt;
+use cairo_felt::{Felt, FeltOps};
+use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use std::{
     cell::RefCell,
@@ -7,16 +8,16 @@ use std::{
     rc::Rc,
 };
 
-use cairo_rs::serde::deserialize_program::OffsetValue;
-use cairo_rs::{
+use cairo_vm::{
     hint_processor::{
         hint_processor_definition::HintReference,
-        hint_processor_utils::compute_addr_from_reference as cairo_rs_compute_addr_from_reference,
+        hint_processor_utils::compute_addr_from_reference as cairo_vm_compute_addr_from_reference,
     },
     serde::deserialize_program::{ApTracking, Member},
     types::relocatable::Relocatable,
-    vm::{errors::vm_errors::VirtualMachineError, vm_core::VirtualMachine},
+    vm::vm_core::VirtualMachine,
 };
+use cairo_vm::{serde::deserialize_program::OffsetValue, vm::errors::hint_errors::HintError};
 use pyo3::{
     exceptions::PyAttributeError, pyclass, pymethods, IntoPy, PyObject, PyResult, Python,
     ToPyObject,
@@ -33,7 +34,7 @@ pub struct PyIds {
     vm: Rc<RefCell<VirtualMachine>>,
     references: HashMap<String, HintReference>,
     ap_tracking: ApTracking,
-    constants: HashMap<String, BigInt>,
+    constants: HashMap<String, BigUint>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
 }
 
@@ -148,7 +149,7 @@ impl PyIds {
         vm: &PyVM,
         references: &HashMap<String, HintReference>,
         ap_tracking: &ApTracking,
-        constants: &HashMap<String, BigInt>,
+        constants: &HashMap<String, Felt>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
     ) -> PyIds {
         PyIds {
@@ -244,7 +245,7 @@ pub fn get_value_from_reference(
 ) -> PyResult<PyMaybeRelocatable> {
     // //First handle case on only immediate
     if let OffsetValue::Immediate(num) = &hint_reference.offset1 {
-        return Ok(PyMaybeRelocatable::from(num));
+        return Ok(PyMaybeRelocatable::from(num.to_biguint()));
     }
     //Then calculate address
     let var_addr = compute_addr_from_reference(hint_reference, vm, ap_tracking)?;
@@ -256,7 +257,7 @@ pub fn get_value_from_reference(
     };
 
     value
-        .ok_or_else(|| PyValueError::new_err(VirtualMachineError::FailedToGetIds.to_string()))
+        .ok_or_else(|| PyValueError::new_err(HintError::FailedToGetIds.to_string()))
         .map(PyMaybeRelocatable::from)
 }
 
@@ -268,17 +269,14 @@ pub fn compute_addr_from_reference(
     //ApTracking of the Hint itself
     hint_ap_tracking: &ApTracking,
 ) -> PyResult<Relocatable> {
-    cairo_rs_compute_addr_from_reference(hint_reference, vm, hint_ap_tracking)
+    cairo_vm_compute_addr_from_reference(hint_reference, vm, hint_ap_tracking)
         .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 #[cfg(test)]
 mod tests {
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
-    use cairo_rs::{
-        bigint,
-        types::{instruction::Register, relocatable::MaybeRelocatable},
-    };
-    use num_bigint::{BigInt, Sign};
+    use cairo_felt::NewFelt;
+    use cairo_vm::types::{instruction::Register, relocatable::MaybeRelocatable};
     use pyo3::{types::PyDict, PyCell};
 
     use super::*;
@@ -309,11 +307,7 @@ mod tests {
     #[test]
     fn ids_get_test() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -323,15 +317,12 @@ mod tests {
 
             //Create constants
             let mut constants = HashMap::new();
-            constants.insert(String::from("CONST"), bigint!(3));
+            constants.insert(String::from("CONST"), Felt::new(3));
 
             //Insert ids.a into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(
-                    &Relocatable::from((1, 1)),
-                    &MaybeRelocatable::from(bigint!(2)),
-                )
+                .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from(2))
                 .unwrap();
 
             let memory = PyMemory::new(&vm);
@@ -366,11 +357,11 @@ memory[fp+2] = ids.CONST
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(bigint!(2))))
+                Ok(Some(MaybeRelocatable::from(2)))
             );
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-                Ok(Some(MaybeRelocatable::from(bigint!(3))))
+                Ok(Some(MaybeRelocatable::from(3)))
             );
         });
     }
@@ -378,11 +369,7 @@ memory[fp+2] = ids.CONST
     #[test]
     fn ids_get_simple_struct() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -405,10 +392,7 @@ memory[fp+2] = ids.CONST
             //Insert ids.a.x into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(
-                    &Relocatable::from((1, 0)),
-                    &MaybeRelocatable::from(bigint!(55)),
-                )
+                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from(55))
                 .unwrap();
 
             //Insert ids.a.ptr into memory
@@ -450,7 +434,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Check ids.a.x is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(bigint!(55))))
+                Ok(Some(MaybeRelocatable::from(Felt::new(55))))
             );
             //Check ids.a.ptr is now at memory[fp + 1]
             assert_eq!(
@@ -460,7 +444,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Check ids.SimpleStruct.SIZE is now at memory[fp + 2]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-                Ok(Some(MaybeRelocatable::from(bigint!(2))))
+                Ok(Some(MaybeRelocatable::from(Felt::new(2))))
             );
 
             //ids.a.y does not exist
@@ -475,11 +459,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
     #[test]
     fn ids_get_nested_struct() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -526,10 +506,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Insert ids.ns.x into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(
-                    &Relocatable::from((1, 0)),
-                    &MaybeRelocatable::from(bigint!(55)),
-                )
+                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from(55))
                 .unwrap();
 
             //Insert ids.ns.ptr into memory
@@ -571,7 +548,7 @@ memory[fp + 1] = ids.ns.struct.address_
             //Check ids.Struct.SIZE is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 3))),
-                Ok(Some(MaybeRelocatable::from(bigint!(0))))
+                Ok(Some(MaybeRelocatable::from(0)))
             );
             //Check that address of ids.ns.struct is now at memory[fp + 1]
             assert_eq!(
@@ -584,11 +561,7 @@ memory[fp + 1] = ids.ns.struct.address_
     #[test]
     fn ids_get_from_pointer() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..3 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -647,11 +620,7 @@ assert ids.ssp_x_ptr == 5
     #[test]
     fn ids_failed_get_test() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -691,11 +660,7 @@ assert ids.ssp_x_ptr == 5
     #[test]
     fn ids_set_test() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -705,14 +670,11 @@ assert ids.ssp_x_ptr == 5
 
             //Create constants
             let mut constants = HashMap::new();
-            constants.insert(String::from("CONST"), bigint!(3));
+            constants.insert(String::from("CONST"), Felt::new(3));
 
             vm.vm
                 .borrow_mut()
-                .insert_value(
-                    &Relocatable::from((1, 0)),
-                    &MaybeRelocatable::from(bigint!(2)),
-                )
+                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from(2))
                 .unwrap();
 
             let memory = PyMemory::new(&vm);
@@ -745,7 +707,7 @@ assert ids.ssp_x_ptr == 5
             //Check ids.a now contains memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
-                Ok(Some(MaybeRelocatable::from(bigint!(2))))
+                Ok(Some(MaybeRelocatable::from(2)))
             );
 
             //ids.b does not exist
@@ -763,11 +725,7 @@ assert ids.ssp_x_ptr == 5
     #[test]
     fn ids_set_struct_attribute() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -822,7 +780,7 @@ ids.struct.ptr = ids.fp
             //Check ids.struct.x now contains 5
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(bigint!(5))))
+                Ok(Some(MaybeRelocatable::from(5)))
             );
             //Check ids.struct.x now contains fp's address
             assert_eq!(
@@ -842,11 +800,7 @@ ids.struct.ptr = ids.fp
     #[test]
     fn ids_ap_tracked_ref() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -921,7 +875,7 @@ memory[fp] = ids.ok_ref
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(bigint!(5))))
+                Ok(Some(MaybeRelocatable::from(5)))
             );
 
             let code = r"ids.bad_ref";
@@ -931,15 +885,14 @@ memory[fp] = ids.ok_ref
             assert!(py_result
                 .unwrap_err()
                 .to_string()
-                .contains(&VirtualMachineError::InvalidTrackingGroup(1, 0).to_string()));
+                .contains(&HintError::InvalidTrackingGroup(1, 0).to_string()));
 
             let code = r"ids.none_ref";
 
             let py_result = py.run(code, Some(globals), None);
 
             assert!(py_result.unwrap_err().to_string().contains(
-                &PyValueError::new_err(VirtualMachineError::NoneApTrackingData.to_string())
-                    .to_string()
+                &PyValueError::new_err(HintError::NoneApTrackingData.to_string()).to_string()
             ));
         });
     }
@@ -947,11 +900,7 @@ memory[fp] = ids.ok_ref
     #[test]
     fn ids_no_register_ref() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }
@@ -962,8 +911,8 @@ memory[fp] = ids.ok_ref
             references.insert(
                 String::from("imm_ref"),
                 HintReference {
-                    offset1: OffsetValue::Immediate(bigint!(imm)),
-                    offset2: OffsetValue::Immediate(bigint!(0)),
+                    offset1: OffsetValue::Immediate(Felt::from(imm)),
+                    offset2: OffsetValue::Immediate(Felt::from(0)),
                     dereference: true,
                     ap_tracking_data: None,
                     cairo_type: None,
@@ -1010,7 +959,7 @@ memory[fp] = ids.ok_ref
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(bigint!(imm))))
+                Ok(Some(MaybeRelocatable::from(imm)))
             );
 
             let code = r"ids.no_reg_ref";
@@ -1020,18 +969,14 @@ memory[fp] = ids.ok_ref
             assert!(py_result
                 .unwrap_err()
                 .to_string()
-                .contains(&VirtualMachineError::NoRegisterInReference.to_string()));
+                .contains(&HintError::NoRegisterInReference.to_string()));
         });
     }
 
     #[test]
     fn ids_reference_with_immediate() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             for _ in 0..2 {
                 vm.vm.borrow_mut().add_memory_segment();
             }

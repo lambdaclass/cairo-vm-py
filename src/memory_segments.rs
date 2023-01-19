@@ -4,7 +4,7 @@ use crate::{
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_rs::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
+use cairo_vm::{types::relocatable::MaybeRelocatable, vm::vm_core::VirtualMachine};
 use pyo3::{prelude::*, types::PyIterator};
 use std::{cell::RefCell, rc::Rc};
 
@@ -50,15 +50,7 @@ impl PySegmentManager {
                     )?;
                     segment_ptr
                 }
-                _ => {
-                    let mut value: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>(py)?.into();
-                    if apply_modulo_to_args {
-                        value = value
-                            .mod_floor(self.vm.borrow().get_prime())
-                            .map_err(to_py_error)?;
-                    }
-                    value
-                }
+                _ => arg.extract::<PyMaybeRelocatable>(py)?.into(),
             })
             .to_object(py),
         )
@@ -75,7 +67,7 @@ impl PySegmentManager {
         let ptr: MaybeRelocatable = ptr.into();
 
         let arg_iter = PyIterator::from_object(py, &arg)?;
-        let mut data = Vec::new();
+        let mut data = Vec::<MaybeRelocatable>::new();
         for value in arg_iter {
             data.push(
                 self.gen_arg(py, value?.to_object(py), apply_modulo_to_args)?
@@ -86,7 +78,7 @@ impl PySegmentManager {
 
         self.vm
             .borrow_mut()
-            .load_data(&ptr, data)
+            .load_data(&ptr, &data)
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
@@ -106,17 +98,13 @@ impl PySegmentManager {
 mod test {
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_rs::{bigint, types::relocatable::Relocatable};
-    use num_bigint::{BigInt, Sign};
+    use cairo_felt::{Felt, NewFelt};
+    use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use pyo3::{Python, ToPyObject};
 
     #[test]
     fn add_segment_test() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let vm = PyVM::new(false);
         let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
         assert!(segments.add().is_ok());
     }
@@ -124,11 +112,7 @@ mod test {
     #[test]
     fn write_arg_test() {
         Python::with_gil(|py| {
-            let vm = PyVM::new(
-                BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-                false,
-                Vec::new(),
-            );
+            let vm = PyVM::new(false);
             let segments = PySegmentManager::new(&vm, PyMemory::new(&vm));
 
             let ptr = segments.add().unwrap();
@@ -153,7 +137,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(1),
+                &Felt::new(1),
             );
             assert_eq!(
                 vm_ref
@@ -162,7 +146,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(2),
+                &Felt::new(2),
             );
 
             let relocatable = vm_ref
@@ -170,8 +154,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref
@@ -180,7 +163,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(3),
+                &Felt::new(3),
             );
             assert_eq!(
                 vm_ref
@@ -189,7 +172,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(4),
+                &Felt::new(4),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
@@ -198,8 +181,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref
@@ -208,7 +190,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(5),
+                &Felt::new(5),
             );
             assert_eq!(
                 vm_ref
@@ -217,7 +199,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(6),
+                &Felt::new(6),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
@@ -230,11 +212,7 @@ mod test {
 
     #[test]
     fn add_temp_segment_test() {
-        let mut vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let memory = PyMemory::new(&vm);
         let mut segments = PySegmentManager::new(&mut vm, memory);
         assert!(segments.add_temp_segment().is_ok());
@@ -242,11 +220,7 @@ mod test {
 
     #[test]
     fn get_segment_used_size() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let vm = PyVM::new(false);
 
         let memory = PyMemory::new(&vm);
         let segments = PySegmentManager::new(&vm, memory);
@@ -257,11 +231,11 @@ mod test {
             .borrow_mut()
             .load_data(
                 &Relocatable::from(&segment).into(),
-                vec![
-                    bigint!(1).into(),
-                    bigint!(2).into(),
-                    bigint!(3).into(),
-                    bigint!(4).into(),
+                &vec![
+                    MaybeRelocatable::from(1),
+                    MaybeRelocatable::from(2),
+                    MaybeRelocatable::from(3),
+                    MaybeRelocatable::from(4),
                 ],
             )
             .is_ok());
