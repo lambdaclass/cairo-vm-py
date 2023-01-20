@@ -1,0 +1,32 @@
+name: rust
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '*' ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install Rust 1.61.0
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: 1.61.0
+          override: true
+          components: rustfmt, clippy
+    - uses: actions/checkout@v3
+    - name: Setup Pyenv
+      uses: "gabrielfalcao/pyenv-action@v9"
+      with:
+        default: 3.9
+    - name: Install test dependencies
+      run: make deps
+    - name: benchmark-deps
+      run: make benchmark-deps
+    - name: benchmark-devnet
+      run: make benchmark-devnet
