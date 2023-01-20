@@ -24,7 +24,6 @@ jobs:
       uses: "gabrielfalcao/pyenv-action@v9"
       with:
         versions: 3.9.7
-    - name: alias
       run: python --version
     - name: Install test dependencies
       run: make deps
