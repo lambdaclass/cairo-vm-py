@@ -3,8 +3,8 @@
 
 ### 🐍 Cairo-rs-py 🐍
 
-EVM interpreter written in Cairo, a sort of ZK-EVM emulator, leveraging STARK proof system.
-
+FFI Python bindings for cairo-rs
+ 
 [Report Bug](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=bug&title=bug%3A+) · [Request Feature](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=enhancement&title=feat%3A+)
 
 [![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) 
