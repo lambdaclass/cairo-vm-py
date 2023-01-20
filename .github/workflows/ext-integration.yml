@@ -23,9 +23,9 @@ jobs:
     - name: Setup Pyenv
       uses: "gabrielfalcao/pyenv-action@v9"
       with:
-        default: 3.9
+        versions: 3.9.7
     - name: alias
-      run: pyenv install --list
+      run: python --version
     - name: Install test dependencies
       run: make deps
     - name: benchmark-deps
