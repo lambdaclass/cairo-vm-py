@@ -25,7 +25,6 @@ jobs:
       with:
         default: 3.9.7
         versions: 3.9.7
-      run: python --version
     - name: Install test dependencies
       run: make deps
     - name: benchmark-deps
