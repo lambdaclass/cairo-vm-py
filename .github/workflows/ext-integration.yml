@@ -25,7 +25,7 @@ jobs:
       with:
         default: 3.9
     - name: alias
-      run: alias python3.9=python
+      run: python --version
     - name: Install test dependencies
       run: make deps
     - name: benchmark-deps
