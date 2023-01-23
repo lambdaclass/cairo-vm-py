@@ -12,7 +12,8 @@ cairo-rs-py adds Python bindings to the [cairo-rs](https://github.com/lambdaclas
 ## Using cairo-rs-py
 To setup the Python environment, and install necessary Python libraries, run `make deps`.
 
-Finally, install into the python environment with `maturin develop --release`.
+Finally, install into the python environment with `maturin develop --release`. For mac installation, these flags might be necessary:
+`maturin develop --release -m cairo-rs-py/Cargo.toml --no-default-features --features extension`.
 
 After that, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
 
