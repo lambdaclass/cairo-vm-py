@@ -9,7 +9,7 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable,
 };
-use cairo_felt::{Felt, FIELD};
+use cairo_felt::{Felt, FIELD_HIGH, FIELD_LOW};
 use cairo_vm::any_box;
 use cairo_vm::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_vm::serde::deserialize_program::Member;
@@ -52,7 +52,7 @@ const GLOBAL_NAMES: [&str; 18] = [
 
 lazy_static! {
     pub static ref CAIRO_PRIME: BigUint =
-        (Into::<BigUint>::into(FIELD.0) << 128) + Into::<BigUint>::into(FIELD.1);
+        (Into::<BigUint>::into(FIELD_LOW) << 128) + Into::<BigUint>::into(FIELD_HIGH);
 }
 
 #[derive(Clone)]
@@ -298,7 +298,7 @@ pub(crate) fn update_scope_hint_locals(
 mod test {
     use super::*;
     use crate::{biguint, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_felt::{Felt, NewFelt};
+    use cairo_felt::Felt;
     use cairo_vm::{
         hint_processor::{
             builtin_hint_processor::builtin_hint_processor_definition::{

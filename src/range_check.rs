@@ -2,7 +2,6 @@ use cairo_vm::vm::{
     errors::vm_errors::VirtualMachineError, runners::builtin_runner::RangeCheckBuiltinRunner,
 };
 
-use cairo_felt::FeltOps;
 use num_bigint::BigUint;
 use pyo3::prelude::*;
 

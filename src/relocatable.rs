@@ -2,7 +2,7 @@ use crate::{
     biguint,
     utils::{biguint_to_usize, to_py_error},
 };
-use cairo_felt::FeltOps;
+
 use cairo_vm::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::errors::vm_errors::VirtualMachineError,

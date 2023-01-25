@@ -1,4 +1,4 @@
-use cairo_felt::{Felt, FeltOps};
+use cairo_felt::Felt;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use num_bigint::BigUint;
 use pyo3::{exceptions::PyValueError, PyErr};
