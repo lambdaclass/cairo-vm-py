@@ -8,6 +8,7 @@ RUN yum update && \
 
 # Install maturin with pip
 RUN yum install -y python3-pip
+RUN pip3 install tomli
 RUN pip3 install maturin
 
 # Clone a repository
