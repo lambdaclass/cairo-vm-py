@@ -21,12 +21,10 @@ jobs:
       with:
         command: build
         args: --release
-    - name: ls
-      run: ls
     - name: Publish a Python distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
-        packages_dir: custom-dir/
+        packages_dir: target/wheels/
 
 
