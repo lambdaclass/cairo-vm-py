@@ -7,7 +7,7 @@ RUN yum update && \
     export PATH="$HOME/.cargo/bin:$PATH"
 
 # Install maturin with pip
-RUN yum install python3.9-pip
+RUN yum install python3-pip
 RUN pip3 install maturin
 
 # Clone a repository
