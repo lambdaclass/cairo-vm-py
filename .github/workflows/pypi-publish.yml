@@ -24,7 +24,8 @@ jobs:
       uses: PyO3/maturin-action@v1
       with:
         command: build
-        args: --release -i python3.9 --target "aarch64-apple-darwin"
+        args: --release -i python3.9 
+        target: aarch64-apple-darwin
     - name: Publish a Python distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
