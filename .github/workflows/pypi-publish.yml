@@ -16,7 +16,8 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker run -t myimage:latest -e PYPI_API_TOKEN=${{ secrets.PYPI_API_TOKEN }} .github/.
+        cd .github
+        docker run -t maturin -e PYPI_API_TOKEN=${{ secrets.PYPI_API_TOKEN }} .
 
 
 
