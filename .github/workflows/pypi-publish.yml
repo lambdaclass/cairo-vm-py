@@ -1,0 +1,22 @@
+name: publish-pypi
+
+on:
+  push:
+    tags:        
+      - '*'
+  pull_request:
+    branches: [ '*' ]
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+    - name: Publish a Python distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.   }}
+
+
