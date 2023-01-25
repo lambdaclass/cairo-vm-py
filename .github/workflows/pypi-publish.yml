@@ -6,30 +6,17 @@ on:
       - '*'
   pull_request:
     branches: [ '*' ]
-
 jobs:
-  publish:
-    name: Publish
+  build_and_push:
     runs-on: ubuntu-20.04
+
     steps:
-    - name: Checkout sources
+    - name: Checkout code
       uses: actions/checkout@v2
-    - name: Install toolchain
-      uses: dtolnay/rust-toolchain@stable
-    - name: Install target
-      run: rustup target add aarch64-apple-darwin
-    - name: Setup Pyenv
-      uses: "gabrielfalcao/pyenv-action@v9"
-      with:
-        default: 3.9.7
-    - name: Install maturin
-      run: pip install maturin
-    - name: Maturin build
-      run: maturin build --release --target aarch64-apple-darwin -i python3.9
-    - name: Publish a Python distribution to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
-        packages_dir: target/wheels/
+
+    - name: Build Docker image
+      run: |
+        docker run -t myimage:latest -e PYPI_API_TOKEN=${{ secrets.PYPI_API_TOKEN }} .github/.
+
 
 
