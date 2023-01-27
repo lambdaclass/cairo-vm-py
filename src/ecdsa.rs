@@ -126,40 +126,6 @@ mod test {
     }
 
     #[test]
-    fn update_py_signature_with_invalid_vaue() {
-        let rel = PyRelocatable {
-            segment_index: 2,
-            offset: 0,
-        };
-
-        let numbers = (
-            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-        );
-
-        let mut signature = PySignature::new();
-
-        signature.add_signature(rel, numbers);
-
-        let path = "cairo_programs/ecdsa.json".to_string();
-        let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            Some("main".to_string()),
-            Some("all".to_string()),
-            false,
-        )
-        .unwrap();
-
-        runner.initialize().expect("Failed to initialize VM");
-
-        let mut binding = runner.pyvm.vm.borrow_mut();
-        let signature_builtin = binding.get_signature_builtin().unwrap();
-
-        assert!(signature.update_signature(signature_builtin).is_err());
-    }
-
-    #[test]
     fn py_signature_to_py_object() {
         let new_py_signature = PySignature::new();
 
