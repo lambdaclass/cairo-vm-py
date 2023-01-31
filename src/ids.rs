@@ -206,8 +206,7 @@ impl PyTypedId {
                 })
             }
             None => Err(PyAttributeError::new_err(format!(
-                "'PyTypeId' object has no attribute '{}'",
-                name
+                "'PyTypeId' object has no attribute '{name}'"
             ))),
         }
     }
@@ -219,10 +218,7 @@ impl PyTypedId {
             .ok_or_else(|| PyValueError::new_err(STRUCT_TYPES_GET_ERROR_MSG))?;
 
         let member = struct_type.get(field_name).ok_or_else(|| {
-            PyAttributeError::new_err(format!(
-                "'PyTypeId' object has no attribute '{}'",
-                field_name
-            ))
+            PyAttributeError::new_err(format!("'PyTypeId' object has no attribute '{field_name}'"))
         })?;
 
         let mut vm = self.vm.borrow_mut();

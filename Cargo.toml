@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pyo3 = { version = "0.16.5", features = ["num-bigint"] }
+pyo3 = { version = "0.18.0", features = ["num-bigint"] }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "75bfba3850194a270d270e80ea57d39235690edd" }
 cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "75bfba3850194a270d270e80ea57d39235690edd" }
 num-bigint = "0.4"
