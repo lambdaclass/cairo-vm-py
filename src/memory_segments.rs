@@ -29,7 +29,7 @@ impl PySegmentManager {
         Ok(self.vm.borrow_mut().add_memory_segment().into())
     }
 
-    #[args(apply_modulo_to_args = true)]
+    #[pyo3(signature = (arg, apply_modulo_to_args = true))]
     pub fn gen_arg(
         &self,
         py: Python,
@@ -56,7 +56,7 @@ impl PySegmentManager {
         )
     }
 
-    #[args(apply_modulo_to_args = true)]
+    #[pyo3(signature = (ptr, arg, apply_modulo_to_args = true))]
     pub fn write_arg(
         &self,
         py: Python<'_>,

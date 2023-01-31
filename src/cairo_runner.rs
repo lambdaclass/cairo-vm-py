@@ -51,6 +51,7 @@ pub struct PyCairoRunner {
 #[pymethods]
 impl PyCairoRunner {
     #[new]
+    #[pyo3(signature = (program, entrypoint="__main__.main".to_string(), layout="plain".to_string(), proof_mode=false))]
     pub fn new(
         program: String,
         entrypoint: Option<String>,
@@ -511,7 +512,7 @@ impl PyCairoRunner {
         )
     }
 
-    #[args(apply_modulo_to_args = true)]
+    #[pyo3(signature = (ptr, arg, apply_modulo_to_args = true))]
     pub fn write_arg(
         &self,
         py: Python<'_>,
@@ -591,8 +592,7 @@ impl PyCairoRunner {
                 cairo_args.extend(self.gen_typed_args(py, value?.to_object(py)));
             } else {
                 return Err(PyValueError::new_err(format!(
-                    "Failed to generate typed arguments: {:?} is not supported",
-                    type_str
+                    "Failed to generate typed arguments: {type_str:?} is not supported"
                 )));
             }
         }
@@ -674,7 +674,7 @@ impl PyExecutionResources {
         for builtin_name in self.0.builtin_instance_counter.keys() {
             if let Some((key, counter)) = instance_counters.remove_entry(builtin_name) {
                 instance_counters
-                    .entry(format!("{}_builtin", key).to_string())
+                    .entry(format!("{key}_builtin").to_string())
                     .or_insert(counter);
             }
         }

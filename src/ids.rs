@@ -206,8 +206,7 @@ impl PyTypedId {
                 })
             }
             None => Err(PyAttributeError::new_err(format!(
-                "'PyTypeId' object has no attribute '{}'",
-                name
+                "'PyTypeId' object has no attribute '{name}'"
             ))),
         }
     }
@@ -220,8 +219,7 @@ impl PyTypedId {
 
         let member = struct_type.get(field_name).ok_or_else(|| {
             PyAttributeError::new_err(format!(
-                "'PyTypeId' object has no attribute '{}'",
-                field_name
+                "'PyTypeId' object has no attribute '{field_name}'"
             ))
         })?;
 
