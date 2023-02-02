@@ -21,7 +21,7 @@ impl PyRangeCheck {
 
     pub fn __repr__(&self) -> String {
         match self.bound {
-            Some(ref bound) => format!("Bound: {}", bound),
+            Some(ref bound) => format!("Bound: {bound}"),
             None => String::from("None"),
         }
     }
