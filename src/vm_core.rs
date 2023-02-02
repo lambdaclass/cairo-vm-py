@@ -52,7 +52,7 @@ const GLOBAL_NAMES: [&str; 18] = [
 
 lazy_static! {
     pub static ref CAIRO_PRIME: BigUint =
-        (Into::<BigUint>::into(FIELD_LOW) << 128) + Into::<BigUint>::into(FIELD_HIGH);
+        (Into::<BigUint>::into(FIELD_HIGH) << 128) + Into::<BigUint>::into(FIELD_LOW);
 }
 
 #[derive(Clone)]
