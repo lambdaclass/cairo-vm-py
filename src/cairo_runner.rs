@@ -125,10 +125,14 @@ impl PyCairoRunner {
                 &mut self.hint_processor,
             )
             .map_err(to_py_error)?;
-
         (*self.pyvm.vm)
-            .borrow_mut()
+            .borrow()
             .verify_auto_deductions()
+            .map_err(to_py_error)?;
+        self.inner
+            .read_return_values(&mut (*self.pyvm.vm).borrow_mut())
+            .map_err(to_py_error)?;
+        verify_secure_runner(&self.inner, true, &mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
         self.relocate()?;
