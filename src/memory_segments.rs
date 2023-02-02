@@ -98,7 +98,7 @@ impl PySegmentManager {
 mod test {
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_felt::{Felt, NewFelt};
+    use cairo_felt::Felt;
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use pyo3::{Python, ToPyObject};
 

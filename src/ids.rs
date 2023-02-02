@@ -1,5 +1,5 @@
 use crate::utils::const_path_to_const_name;
-use cairo_felt::{Felt, FeltOps};
+use cairo_felt::Felt;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use std::{
@@ -271,7 +271,7 @@ pub fn compute_addr_from_reference(
 #[cfg(test)]
 mod tests {
     use crate::{memory::PyMemory, relocatable::PyRelocatable};
-    use cairo_felt::NewFelt;
+
     use cairo_vm::types::{instruction::Register, relocatable::MaybeRelocatable};
     use pyo3::{types::PyDict, PyCell};
 

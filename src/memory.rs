@@ -3,7 +3,7 @@ use crate::{
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_felt::FeltOps;
+
 use cairo_vm::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::vm_core::VirtualMachine,

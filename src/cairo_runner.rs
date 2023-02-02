@@ -30,7 +30,7 @@ use pyo3::{
     prelude::*,
     types::PyIterator,
 };
-use std::{any::Any, borrow::BorrowMut, collections::HashMap, iter::zip, path::PathBuf, rc::Rc};
+use std::{any::Any, borrow::BorrowMut, collections::HashMap, path::PathBuf, rc::Rc};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.utils, ResourcesError);
 
@@ -126,10 +126,14 @@ impl PyCairoRunner {
                 &mut self.hint_processor,
             )
             .map_err(to_py_error)?;
-
         (*self.pyvm.vm)
-            .borrow_mut()
+            .borrow()
             .verify_auto_deductions()
+            .map_err(to_py_error)?;
+        self.inner
+            .read_return_values(&mut (*self.pyvm.vm).borrow_mut())
+            .map_err(to_py_error)?;
+        verify_secure_runner(&self.inner, true, &mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
         self.relocate()?;
@@ -276,35 +280,14 @@ impl PyCairoRunner {
     }
 
     pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable) -> PyResult<PyRelocatable> {
-        let mut stack_ptr = Relocatable::from(&stack_ptr);
-        let mut stop_ptrs = Vec::new();
-        let mut stop_ptr;
-
-        for (_, runner) in self
-            .pyvm
-            .vm
-            .borrow()
-            .get_builtin_runners()
-            .iter()
-            .rev()
-            .filter(|(builtin_name, _builtin_runner)| {
-                self.inner.get_program_builtins().contains(builtin_name)
-            })
-        {
-            (stack_ptr, stop_ptr) = runner
-                .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
-                .map_err(to_py_error)?;
-            stop_ptrs.push(stop_ptr);
-        }
-
-        for ((_, runner), stop_ptr) in zip(
-            (*self.pyvm.vm).borrow_mut().get_builtin_runners_as_mut(),
-            stop_ptrs,
-        ) {
-            runner.set_stop_ptr(stop_ptr);
-        }
-
-        Ok(stack_ptr.into())
+        Ok(self
+            .inner
+            .get_builtins_final_stack(
+                &mut (*self.pyvm.vm).borrow_mut(),
+                Relocatable::from(&stack_ptr),
+            )
+            .map_err(to_py_error)?
+            .into())
     }
 
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
@@ -688,7 +671,7 @@ mod test {
     use super::*;
     use crate::biguint;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
-    use cairo_felt::{Felt, NewFelt};
+    use cairo_felt::Felt;
     use num_bigint::BigUint;
     use std::env::temp_dir;
     use std::fs;

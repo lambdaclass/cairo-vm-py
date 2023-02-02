@@ -1,8 +1,9 @@
 use crate::{
     biguint,
     utils::{biguint_to_usize, to_py_error},
+    vm_core::CAIRO_PRIME,
 };
-use cairo_felt::FeltOps;
+
 use cairo_vm::{
     types::relocatable::{MaybeRelocatable, Relocatable},
     vm::errors::vm_errors::VirtualMachineError,
@@ -191,13 +192,21 @@ impl From<PyRelocatable> for PyMaybeRelocatable {
 
 impl From<&BigUint> for PyMaybeRelocatable {
     fn from(val: &BigUint) -> Self {
-        PyMaybeRelocatable::Int(val.clone())
+        PyMaybeRelocatable::Int(if val < &CAIRO_PRIME {
+            val.clone()
+        } else {
+            val % &*CAIRO_PRIME
+        })
     }
 }
 
 impl From<BigUint> for PyMaybeRelocatable {
     fn from(val: BigUint) -> Self {
-        PyMaybeRelocatable::Int(val)
+        PyMaybeRelocatable::Int(if val < *CAIRO_PRIME {
+            val
+        } else {
+            val % &*CAIRO_PRIME
+        })
     }
 }
 
