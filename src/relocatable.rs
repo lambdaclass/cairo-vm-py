@@ -195,7 +195,7 @@ impl From<&BigUint> for PyMaybeRelocatable {
         PyMaybeRelocatable::Int(if val < &CAIRO_PRIME {
             val.clone()
         } else {
-            val % CAIRO_PRIME.clone()
+            val % &*CAIRO_PRIME
         })
     }
 }
@@ -205,7 +205,7 @@ impl From<BigUint> for PyMaybeRelocatable {
         PyMaybeRelocatable::Int(if val < *CAIRO_PRIME {
             val
         } else {
-            val % CAIRO_PRIME.clone()
+            val % &*CAIRO_PRIME
         })
     }
 }
