@@ -10,6 +10,12 @@ RUN echo $HOME
 
 ENV PATH="${PATH}:root/.cargo/bin"
 
+RUN ls
+
+RUN cd
+
+RUN ls
+
 RUN echo $PATH
 
 RUN source "$HOME/.cargo/env"
