@@ -6,6 +6,8 @@ RUN yum update -y && \
     curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     export PATH="$HOME/.cargo/bin:$PATH"
 
+RUN echo $PATH
+
 # Install maturin with pip
 RUN yum install -y python3-pip
 RUN pip3 install tomli setuptools_rust
