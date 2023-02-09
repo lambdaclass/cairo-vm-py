@@ -8,7 +8,7 @@ RUN yum update -y && \
 
 RUN echo $HOME
 
-RUN export PATH="$HOME/.cargo/bin:$PATH"
+RUN export PATH="root/.cargo/bin/:$PATH"
 
 RUN echo $PATH
 
