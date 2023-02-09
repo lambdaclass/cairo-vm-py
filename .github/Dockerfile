@@ -14,9 +14,9 @@ RUN ls
 
 RUN ls ./root
 
-RUN ls ./bin
+RUN ls ./usr/bin
 
-RUN ls ./usr
+RUN ls ./usr/src
 
 RUN echo $PATH
 
