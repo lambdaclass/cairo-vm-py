@@ -6,6 +6,8 @@ RUN yum update -y && \
     curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     export PATH="$HOME/.cargo/bin:$PATH"
 
+RUN echo $HOME
+
 RUN export PATH="$HOME/.cargo/bin:$PATH"
 
 RUN echo $PATH
