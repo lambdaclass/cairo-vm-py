@@ -14,6 +14,10 @@ RUN ls
 
 RUN ls ./root
 
+RUN ls ./bin
+
+RUN ls ./usr
+
 RUN echo $PATH
 
 RUN source "$HOME/.cargo/env"
