@@ -12,9 +12,7 @@ ENV PATH="${PATH}:root/.cargo/bin"
 
 RUN ls
 
-RUN cd root
-
-RUN ls
+RUN ls ./root
 
 RUN echo $PATH
 
