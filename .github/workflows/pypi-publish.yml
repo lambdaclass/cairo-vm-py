@@ -11,9 +11,14 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
+    - name: Install Rust 1.66.1
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: 1.66.1
+          override: true
+          components: rustfmt, clippy
     - name: Checkout code
       uses: actions/checkout@v2
-
     - name: Build Docker image
       run: |
         cd .github
