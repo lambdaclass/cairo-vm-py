@@ -9,16 +9,19 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable,
 };
-use cairo_rs::any_box;
-use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::serde::deserialize_program::{Attribute, Member};
-use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::vm::vm_core::VirtualMachine;
-use cairo_rs::{
+use cairo_felt::{Felt, FIELD_HIGH, FIELD_LOW};
+use cairo_vm::any_box;
+use cairo_vm::hint_processor::hint_processor_definition::HintProcessor;
+use cairo_vm::serde::deserialize_program::Member;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData,
     vm::errors::vm_errors::VirtualMachineError,
 };
-use num_bigint::BigInt;
+use lazy_static::lazy_static;
+use num_bigint::BigUint;
 use pyo3::{pyclass, pymethods, PyObject, ToPyObject};
 use pyo3::{types::PyDict, Python};
 use pyo3::{PyCell, PyErr};
@@ -47,10 +50,16 @@ const GLOBAL_NAMES: [&str; 18] = [
     "__name__",
 ];
 
+lazy_static! {
+    pub static ref CAIRO_PRIME: BigUint =
+        (Into::<BigUint>::into(FIELD_HIGH) << 128) + Into::<BigUint>::into(FIELD_LOW);
+}
+
 #[derive(Clone)]
 #[pyclass(unsendable)]
 pub struct PyVM {
     pub(crate) vm: Rc<RefCell<VirtualMachine>>,
+    pub(crate) failed_hint_index: Option<usize>,
 }
 
 #[pymethods]
@@ -58,22 +67,15 @@ impl PyVM {
     #[getter]
     fn run_context(&self) -> PyRunContext {
         let vm = self.vm.borrow();
-        PyRunContext::new(vm.get_pc().clone(), vm.get_ap(), vm.get_fp())
+        PyRunContext::new(*vm.get_pc(), vm.get_ap(), vm.get_fp())
     }
 }
 
 impl PyVM {
-    pub fn new(
-        prime: BigInt,
-        trace_enabled: bool,
-        error_message_attributes: Vec<Attribute>,
-    ) -> PyVM {
+    pub fn new(trace_enabled: bool) -> PyVM {
         PyVM {
-            vm: Rc::new(RefCell::new(VirtualMachine::new(
-                prime,
-                trace_enabled,
-                error_message_attributes,
-            ))),
+            vm: Rc::new(RefCell::new(VirtualMachine::new(trace_enabled))),
+            failed_hint_index: None,
         }
     }
 
@@ -82,11 +84,11 @@ impl PyVM {
     }
 
     pub(crate) fn execute_hint(
-        &self,
+        &mut self,
         hint_data: &HintProcessorData,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
-        constants: &HashMap<String, BigInt>,
+        constants: &HashMap<String, Felt>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
@@ -107,7 +109,7 @@ impl PyVM {
             let range_check_builtin =
                 PyRangeCheck::from((*self.vm).borrow().get_range_check_builtin());
             let ecdsa_builtin = pycell!(py, PySignature::new());
-            let prime = (*self.vm).borrow().get_prime().clone();
+            let prime: BigUint = CAIRO_PRIME.clone();
             let to_felt_or_relocatable = ToFeltOrRelocatableFunc;
 
             // This line imports Python builtins. If not imported, this will run only with Python 3.10
@@ -164,36 +166,50 @@ impl PyVM {
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step_hint(
-        &self,
-        hint_executor: &dyn HintProcessor,
+        &mut self,
+        hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
-        constants: &HashMap<String, BigInt>,
+        constants: &HashMap<String, Felt>,
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
         let pc_offset = (*self.vm).borrow().get_pc().offset;
 
         if let Some(hint_list) = hint_data_dictionary.get(&pc_offset) {
-            for hint_data in hint_list.iter() {
+            for (hint_index, hint_data) in hint_list.iter().enumerate() {
                 if self
-                    .should_run_py_hint(hint_executor, exec_scopes, hint_data, constants)
+                    .should_run_py_hint(
+                        hint_executor,
+                        exec_scopes,
+                        hint_data,
+                        constants,
+                        hint_index,
+                    )
                     .map_err(to_py_error)?
                 {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
-                        .ok_or(VirtualMachineError::WrongHintData)
+                        .ok_or_else(|| {
+                            VirtualMachineError::Hint(
+                                hint_index,
+                                Box::new(HintError::WrongHintData),
+                            )
+                        })
                         .map_err(to_py_error)?;
 
-                    self.execute_hint(
+                    if let Err(hint_error) = self.execute_hint(
                         hint_data,
                         hint_locals,
                         exec_scopes,
                         constants,
                         Rc::clone(&struct_types),
                         static_locals,
-                    )?;
+                    ) {
+                        self.failed_hint_index = Some(hint_index);
+                        return Err(hint_error);
+                    }
                 }
             }
         }
@@ -203,13 +219,13 @@ impl PyVM {
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step(
-        &self,
-        hint_executor: &dyn HintProcessor,
+        &mut self,
+        hint_executor: &mut dyn HintProcessor,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
-        constants: &HashMap<String, BigInt>,
+        constants: &HashMap<String, Felt>,
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
         self.step_hint(
@@ -225,17 +241,21 @@ impl PyVM {
     }
 
     fn should_run_py_hint(
-        &self,
-        hint_executor: &dyn HintProcessor,
+        &mut self,
+        hint_executor: &mut dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
-        constants: &HashMap<String, BigInt>,
+        constants: &HashMap<String, Felt>,
+        hint_index: usize,
     ) -> Result<bool, VirtualMachineError> {
         let mut vm = self.vm.borrow_mut();
         match hint_executor.execute_hint(&mut vm, exec_scopes, hint_data, constants) {
             Ok(()) => Ok(false),
-            Err(VirtualMachineError::UnknownHint(_)) => Ok(true),
-            Err(e) => Err(e),
+            Err(HintError::UnknownHint(_)) => Ok(true),
+            Err(e) => {
+                self.failed_hint_index = Some(hint_index);
+                Err(VirtualMachineError::Hint(hint_index, Box::new(e)))
+            }
         }
     }
 }
@@ -276,9 +296,10 @@ pub(crate) fn update_scope_hint_locals(
 
 #[cfg(test)]
 mod test {
-    use crate::{relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_rs::{
-        bigint,
+    use super::*;
+    use crate::{biguint, relocatable::PyMaybeRelocatable, vm_core::PyVM};
+    use cairo_felt::Felt;
+    use cairo_vm::{
         hint_processor::{
             builtin_hint_processor::builtin_hint_processor_definition::{
                 BuiltinHintProcessor, HintProcessorData,
@@ -290,17 +311,12 @@ mod test {
             relocatable::{MaybeRelocatable, Relocatable},
         },
     };
-    use num_bigint::{BigInt, Sign};
     use pyo3::{PyObject, Python, ToPyObject};
-    use std::{collections::HashMap, rc::Rc};
+    use std::{any::Any, collections::HashMap, rc::Rc};
 
     #[test]
     fn execute_print_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert!(vm
@@ -317,11 +333,7 @@ mod test {
 
     #[test]
     fn set_memory_item_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let code = "print(ap)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
         assert!(vm
@@ -338,11 +350,7 @@ mod test {
 
     #[test]
     fn ids_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
@@ -352,10 +360,7 @@ mod test {
         ]);
         vm.vm
             .borrow_mut()
-            .insert_value(
-                &Relocatable::from((1, 1)),
-                &MaybeRelocatable::from(bigint!(2usize)),
-            )
+            .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from(2))
             .unwrap();
         let code = "ids.a = ids.b";
         let hint_data = HintProcessorData::new_default(code.to_string(), references);
@@ -371,20 +376,16 @@ mod test {
             .is_ok());
         assert_eq!(
             vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-            Ok(Some(MaybeRelocatable::from(bigint!(2))))
+            Ok(Some(MaybeRelocatable::from(2)))
         );
     }
 
     #[test]
     // Test the availability of cairo constants in ids
     fn const_ids() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
 
-        let constants = HashMap::from([(String::from("CONST"), bigint!(1))]);
+        let constants = HashMap::from([(String::from("CONST"), Felt::new(1))]);
 
         let mut exec_scopes = ExecutionScopes::new();
         let code_1 = "assert(ids.CONST != 2)";
@@ -419,17 +420,13 @@ mod test {
     #[test]
     // This test is analogous to the `test_step_for_preset_memory` unit test in the cairo-rs crate.
     fn test_step_with_no_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
 
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
 
-        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
 
         vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
         vm.vm.borrow_mut().set_ap(2);
@@ -437,20 +434,20 @@ mod test {
 
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+            .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0)))
+            .insert_value(&Relocatable::from((1, 1)), Relocatable::from((3, 0)))
             .unwrap();
 
         assert!(vm
             .step(
-                &hint_processor,
+                &mut hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
@@ -463,17 +460,13 @@ mod test {
 
     #[test]
     fn test_step_with_print_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
 
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
 
-        let hint_processor = BuiltinHintProcessor::new_empty();
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
 
         vm.vm.borrow_mut().set_pc(Relocatable::from((0, 0)));
         vm.vm.borrow_mut().set_ap(2);
@@ -481,15 +474,15 @@ mod test {
 
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((0, 0)), bigint!(2345108766317314046_u64))
+            .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 0)), &Relocatable::from((2, 0)))
+            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 1)), &Relocatable::from((3, 0)))
+            .insert_value(&Relocatable::from((1, 1)), Relocatable::from((3, 0)))
             .unwrap();
 
         let code = "print(ap)";
@@ -500,7 +493,7 @@ mod test {
 
         assert!(vm
             .step(
-                &hint_processor,
+                &mut hint_processor,
                 &mut HashMap::new(),
                 &mut ExecutionScopes::new(),
                 &HashMap::new(),
@@ -513,11 +506,7 @@ mod test {
 
     #[test]
     fn scopes_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
@@ -552,11 +541,7 @@ mod test {
 
     #[test]
     fn scopes_hint_modify() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         for _ in 0..2 {
             vm.vm.borrow_mut().add_memory_segment();
         }
@@ -614,11 +599,7 @@ mod test {
 
     #[test]
     fn modify_hint_locals() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let code = "word = word[::-1]
 print(word)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -646,11 +627,7 @@ print(word)";
 
     #[test]
     fn exit_main_scope_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_exit_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -667,11 +644,7 @@ print(word)";
 
     #[test]
     fn enter_scope_empty_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -690,11 +663,7 @@ print(word)";
 
     #[test]
     fn enter_exit_scope_same_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()
 vm_exit_scope()";
@@ -714,11 +683,7 @@ vm_exit_scope()";
 
     #[test]
     fn enter_exit_scope_separate_hints() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code_a = "vm_enter_scope()";
         let code_b = "vm_exit_scope()";
@@ -750,11 +715,7 @@ vm_exit_scope()";
 
     #[test]
     fn enter_exit_enter_scope_same_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "vm_enter_scope()
 vm_exit_scope()
@@ -775,11 +736,7 @@ vm_enter_scope()";
 
     #[test]
     fn list_comprehension() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "lista_a = [1,2,3]
 lista_b = [lista_a[k] for k in range(2)]";
@@ -798,11 +755,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn enter_scope_non_empty_hint() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code_a = "vm_enter_scope({'n': 12})";
         let code_b = "assert(n == 12)";
@@ -834,11 +787,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn access_relocatable_segment_index() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "assert(ap.segment_index == 1)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -856,11 +805,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_number() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "felt = to_felt_or_relocatable(456)";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -883,18 +828,14 @@ lista_b = [lista_a[k] for k in range(2)]";
                     .unwrap()
                     .extract::<PyMaybeRelocatable>(py)
                     .unwrap(),
-                PyMaybeRelocatable::from(bigint!(456))
+                PyMaybeRelocatable::from(biguint!(456_u32))
             );
         });
     }
 
     #[test]
     fn to_felt_or_relocatable_list_should_fail() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "felt = to_felt_or_relocatable([1,2,3])";
         let hint_data = HintProcessorData::new_default(code.to_string(), HashMap::new());
@@ -912,11 +853,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn to_felt_or_relocatable_relocatable() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "ids.test_value = to_felt_or_relocatable(ids.relocatable)";
         vm.vm.borrow_mut().add_memory_segment();
@@ -946,19 +883,14 @@ lista_b = [lista_a[k] for k in range(2)]";
             vm.vm
                 .borrow()
                 .get_relocatable(&Relocatable::from((1, 1)))
-                .unwrap()
-                .into_owned(),
+                .unwrap(),
             Relocatable::from((2, 0))
         );
     }
 
     #[test]
     fn test_get_range() {
-        let pyvm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut pyvm = PyVM::new(false);
         let mut exec_scopes = ExecutionScopes::new();
         let code = "assert(memory.get_range(ids.address, 3) == [1,2,7])";
 
@@ -975,17 +907,17 @@ lista_b = [lista_a[k] for k in range(2)]";
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 0)), bigint!(1))
+            .insert_value(&Relocatable::from((2, 0)), 1)
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 1)), bigint!(2))
+            .insert_value(&Relocatable::from((2, 1)), 2)
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 2)), bigint!(7))
+            .insert_value(&Relocatable::from((2, 2)), 7)
             .unwrap();
 
         let hint_data = HintProcessorData::new_default(code.to_string(), ids);
@@ -1003,11 +935,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn test_segments_memory_get_range() {
-        let pyvm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut pyvm = PyVM::new(false);
         let code = "assert(segments.memory.get_range(ids.address, 2) == [9,12])";
 
         let ids = HashMap::from([("address".to_string(), HintReference::new_simple(0))]);
@@ -1023,12 +951,12 @@ lista_b = [lista_a[k] for k in range(2)]";
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 0)), bigint!(9))
+            .insert_value(&Relocatable::from((2, 0)), 9)
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 1)), bigint!(12))
+            .insert_value(&Relocatable::from((2, 1)), 12)
             .unwrap();
 
         let hint_data = HintProcessorData::new_default(code.to_string(), ids);
@@ -1046,11 +974,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
@@ -1082,11 +1006,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_change_its_value() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
@@ -1116,11 +1036,7 @@ lista_b = [lista_a[k] for k in range(2)]";
 
     #[test]
     fn run_hint_with_static_locals_shouldnt_affect_scope_or_hint_locals() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let mut vm = PyVM::new(false);
         let static_locals = HashMap::from([(
             "__number_max".to_string(),
             Python::with_gil(|py| -> PyObject { 90.to_object(py) }),
@@ -1144,12 +1060,24 @@ lista_b = [lista_a[k] for k in range(2)]";
     }
 
     #[test]
+    fn should_run_py_hint_nonsense_data_should_fail() {
+        let mut vm = PyVM::new(false);
+        let hint_data: Box<dyn Any + 'static> = Box::new("nonsense");
+        let mut hint_processor = BuiltinHintProcessor::new_empty();
+        assert!(vm
+            .should_run_py_hint(
+                &mut hint_processor,
+                &mut ExecutionScopes::new(),
+                &hint_data,
+                &HashMap::new(),
+                0
+            )
+            .is_err());
+    }
+
+    #[test]
     fn run_context() {
-        let vm = PyVM::new(
-            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
-            false,
-            Vec::new(),
-        );
+        let vm = PyVM::new(false);
 
         let run_context = vm.run_context();
         assert_eq!(run_context.pc(), (0, 0).into());

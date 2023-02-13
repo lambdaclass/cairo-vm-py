@@ -1,8 +1,8 @@
-use num_bigint::BigInt;
-use pyo3::PyErr;
+use cairo_felt::Felt;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use num_bigint::BigUint;
+use pyo3::{exceptions::PyValueError, PyErr};
 use std::{collections::HashMap, fmt::Display};
-
-pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
 
 #[macro_export]
 macro_rules! pycell {
@@ -10,27 +10,30 @@ macro_rules! pycell {
         PyCell::new($py, $val)?
     };
 }
-
 pub fn to_py_error<T: Display>(error: T) -> PyErr {
-    // these are some dummy values, the only important one is
-    // the `[error.to_string()]` one that lets the error message
-    // from a hint to be printed (needed for some tests to pass)
-    VmException::new_err((
-        None::<i32>,
-        None::<i32>,
-        None::<i32>,
-        None::<i32>,
-        None::<i32>,
-        [error.to_string()],
-    ))
+    PyValueError::new_err(error.to_string())
 }
 
-pub fn const_path_to_const_name(constants: &HashMap<String, BigInt>) -> HashMap<String, BigInt> {
+#[macro_export]
+macro_rules! biguint {
+    ($val : expr) => {
+        Into::<BigUint>::into($val)
+    };
+}
+
+pub fn const_path_to_const_name(constants: &HashMap<String, Felt>) -> HashMap<String, BigUint> {
     constants
         .iter()
         .map(|(name, value)| {
             let name = name.rsplit('.').next().unwrap_or(name);
-            (name.to_string(), value.clone())
+            (name.to_string(), value.to_biguint())
         })
         .collect()
+}
+
+//Tries to convert a biguint value to usize
+pub fn biguint_to_usize(biguint: &BigUint) -> Result<usize, VirtualMachineError> {
+    biguint
+        .try_into()
+        .map_err(|_| VirtualMachineError::BigintToUsizeFail)
 }

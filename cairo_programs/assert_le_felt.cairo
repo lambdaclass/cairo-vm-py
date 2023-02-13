@@ -2,9 +2,9 @@
 
 from starkware.cairo.common.math import assert_nn_le, split_felt, assert_le
 
-func assert_le_felt{range_check_ptr}(a, b):
-    alloc_locals
-    local small_inputs
+func assert_le_felt{range_check_ptr}(a, b) {
+    alloc_locals;
+    local small_inputs;
     %{
         # TEST
         from starkware.cairo.common.math_utils import assert_integer
@@ -17,37 +17,37 @@ func assert_le_felt{range_check_ptr}(a, b):
         ids.small_inputs = int(
             a < range_check_builtin.bound and (b - a) < range_check_builtin.bound)
     %}
-    if small_inputs != 0:
-        assert_nn_le(a, b)
-        ap += 33
-        return ()
-    end
+    if (small_inputs != 0) {
+        assert_nn_le(a, b);
+        ap += 33;
+        return ();
+    }
 
-    let (local a_high, local a_low) = split_felt(a)
-    let (b_high, b_low) = split_felt(b)
+    let (local a_high, local a_low) = split_felt(a);
+    let (b_high, b_low) = split_felt(b);
 
-    if a_high == b_high:
-        assert_le(a_low, b_low)
-        return ()
-    end
-    assert_le(a_high, b_high)
-    return ()
-end
+    if (a_high == b_high) {
+        assert_le(a_low, b_low);
+        return ();
+    }
+    assert_le(a_high, b_high);
+    return ();
+}
 
-func main{range_check_ptr : felt}():
-    let x = 5
-    let y = 6
+func main{range_check_ptr: felt}() {
+    let x = 5;
+    let y = 6;
 
-    tempvar m = 7
-    tempvar n = 7 * 7
+    tempvar m = 7;
+    tempvar n = 7 * 7;
 
-    assert_le_felt(1, 2)
-    assert_le_felt(2, 2)
-    assert_le_felt(-2, -1)
-    assert_le_felt(1, -1)
-    assert_le_felt(0, 1)
-    assert_le_felt(x, y)
-    assert_le_felt(m, n)
+    assert_le_felt(1, 2);
+    assert_le_felt(2, 2);
+    assert_le_felt(-2, -1);
+    assert_le_felt(1, -1);
+    assert_le_felt(0, 1);
+    assert_le_felt(x, y);
+    assert_le_felt(m, n);
 
-    return ()
-end
+    return ();
+}

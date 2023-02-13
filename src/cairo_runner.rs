@@ -1,11 +1,12 @@
 use crate::{
+    instruction_location::InstructionLocation,
     memory::PyMemory,
+    memory_segments::PySegmentManager,
     relocatable::{PyMaybeRelocatable, PyRelocatable},
     utils::to_py_error,
     vm_core::PyVM,
 };
-use cairo_rs::{
-    bigint,
+use cairo_vm::{
     cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
@@ -15,19 +16,23 @@ use cairo_rs::{
     },
     vm::{
         errors::{
-            cairo_run_errors::CairoRunError, runner_errors::RunnerError, trace_errors::TraceError,
+            cairo_run_errors::CairoRunError,
+            runner_errors::RunnerError,
+            trace_errors::TraceError,
+            vm_exception::{get_error_attr_value, get_location, get_traceback},
         },
         runners::cairo_runner::{CairoRunner, ExecutionResources},
         security::verify_secure_runner,
     },
 };
-use num_bigint::BigInt;
 use pyo3::{
     exceptions::{PyNotImplementedError, PyTypeError, PyValueError},
     prelude::*,
     types::PyIterator,
 };
-use std::{any::Any, borrow::BorrowMut, collections::HashMap, iter::zip, path::PathBuf, rc::Rc};
+use std::{any::Any, borrow::BorrowMut, collections::HashMap, path::PathBuf, rc::Rc};
+
+pyo3::import_exception!(starkware.cairo.lang.vm.utils, ResourcesError);
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
@@ -36,7 +41,7 @@ const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
 #[pyo3(name = "CairoRunner")]
 pub struct PyCairoRunner {
     inner: CairoRunner,
-    pyvm: PyVM,
+    pub(crate) pyvm: PyVM,
     hint_processor: BuiltinHintProcessor,
     hint_locals: HashMap<String, PyObject>,
     struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
@@ -46,6 +51,7 @@ pub struct PyCairoRunner {
 #[pymethods]
 impl PyCairoRunner {
     #[new]
+    #[pyo3(signature = (program, entrypoint="__main__.main".to_string(), layout="plain".to_string(), proof_mode=false))]
     pub fn new(
         program: String,
         entrypoint: Option<String>,
@@ -72,7 +78,7 @@ impl PyCairoRunner {
 
         Ok(PyCairoRunner {
             inner: cairo_runner,
-            pyvm: PyVM::new(program.prime, true, program.error_message_attributes),
+            pyvm: PyVM::new(true),
             hint_processor: BuiltinHintProcessor::new_empty(),
             hint_locals: HashMap::new(),
             struct_types: Rc::new(struct_types),
@@ -98,6 +104,7 @@ impl PyCairoRunner {
         }
 
         let end = self.initialize()?;
+
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
@@ -107,20 +114,26 @@ impl PyCairoRunner {
         if trace_file.is_none() {
             (*self.pyvm.vm).borrow_mut().disable_trace();
         }
-        self.run_until_pc(&end)?;
+        if let Err(error) = self.run_until_pc(&end, None) {
+            return Err(self.as_vm_exception(error));
+        }
 
         self.inner
             .end_run(
                 false,
                 false,
                 &mut (*self.pyvm.vm).borrow_mut(),
-                &self.hint_processor,
+                &mut self.hint_processor,
             )
             .map_err(to_py_error)?;
-
         (*self.pyvm.vm)
-            .borrow_mut()
+            .borrow()
             .verify_auto_deductions()
+            .map_err(to_py_error)?;
+        self.inner
+            .read_return_values(&mut (*self.pyvm.vm).borrow_mut())
+            .map_err(to_py_error)?;
+        verify_secure_runner(&self.inner, true, &mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
         self.relocate()?;
@@ -138,7 +151,7 @@ impl PyCairoRunner {
                 .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
                 .map_err(to_py_error)?;
 
-            match cairo_rs::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
+            match cairo_vm::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
                 Ok(()) => (),
                 Err(_e) => {
                     return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
@@ -148,7 +161,7 @@ impl PyCairoRunner {
 
         if let Some(memory_path) = memory_file {
             let memory_path = PathBuf::from(memory_path);
-            cairo_rs::cairo_run::write_binary_memory(&self.inner.relocated_memory, &memory_path)
+            cairo_vm::cairo_run::write_binary_memory(&self.inner.relocated_memory, &memory_path)
                 .map_err(|_| to_py_error(CairoRunError::Runner(RunnerError::WriteFail)))?;
         }
 
@@ -167,18 +180,23 @@ impl PyCairoRunner {
             .initialize_segments(&mut (*self.pyvm.vm).borrow_mut(), None)
     }
 
-    pub fn run_until_pc(&mut self, address: &PyRelocatable) -> PyResult<()> {
+    pub fn run_until_pc(
+        &mut self,
+        address: &PyRelocatable,
+        run_resources_n_steps: Option<usize>,
+    ) -> PyResult<()> {
         let references = self.inner.get_reference_list();
         let hint_data_dictionary = self
             .inner
-            .get_hint_data_dictionary(&references, &self.hint_processor)
+            .get_hint_data_dictionary(&references, &mut self.hint_processor)
             .map_err(to_py_error)?;
 
         let address = Into::<Relocatable>::into(address);
         let constants = self.inner.get_constants().clone();
-        while self.pyvm.vm.borrow().get_pc() != &address {
+        let mut steps_left = run_resources_n_steps.unwrap_or(1); // default value
+        while self.pyvm.vm.borrow().get_pc() != &address && steps_left > 0 {
             self.pyvm.step(
-                &self.hint_processor,
+                &mut self.hint_processor,
                 &mut self.hint_locals,
                 &mut self.inner.exec_scopes,
                 &hint_data_dictionary,
@@ -186,13 +204,23 @@ impl PyCairoRunner {
                 &constants,
                 self.static_locals.as_ref(),
             )?;
+            // Consume step
+            if run_resources_n_steps.is_some() {
+                steps_left -= 1;
+            }
+        }
+        if self.pyvm.vm.borrow().get_pc() != &address {
+            return Err(ResourcesError::new_err(PyValueError::new_err(
+                "Error: Execution reached the end of the program.",
+            )));
         }
         Ok(())
     }
 
     pub fn mark_as_accessed(&mut self, address: PyRelocatable, size: usize) -> PyResult<()> {
-        self.inner
-            .mark_as_accessed((&address).into(), size)
+        (*self.pyvm.vm)
+            .borrow_mut()
+            .mark_address_range_as_accessed((&address).into(), size)
             .map_err(to_py_error)
     }
 
@@ -252,35 +280,14 @@ impl PyCairoRunner {
     }
 
     pub fn get_builtins_final_stack(&self, stack_ptr: PyRelocatable) -> PyResult<PyRelocatable> {
-        let mut stack_ptr = Relocatable::from(&stack_ptr);
-        let mut stop_ptrs = Vec::new();
-        let mut stop_ptr;
-
-        for (_, runner) in self
-            .pyvm
-            .vm
-            .borrow()
-            .get_builtin_runners()
-            .iter()
-            .rev()
-            .filter(|(builtin_name, _builtin_runner)| {
-                self.inner.get_program_builtins().contains(builtin_name)
-            })
-        {
-            (stack_ptr, stop_ptr) = runner
-                .final_stack(&self.pyvm.vm.borrow(), stack_ptr)
-                .map_err(to_py_error)?;
-            stop_ptrs.push(stop_ptr);
-        }
-
-        for ((_, runner), stop_ptr) in zip(
-            (*self.pyvm.vm).borrow_mut().get_builtin_runners_as_mut(),
-            stop_ptrs,
-        ) {
-            runner.set_stop_ptr(stop_ptr);
-        }
-
-        Ok(stack_ptr.into())
+        Ok(self
+            .inner
+            .get_builtins_final_stack(
+                &mut (*self.pyvm.vm).borrow_mut(),
+                Relocatable::from(&stack_ptr),
+            )
+            .map_err(to_py_error)?
+            .into())
     }
 
     pub fn get_execution_resources(&self) -> PyResult<PyExecutionResources> {
@@ -327,6 +334,7 @@ impl PyCairoRunner {
             .to_object(py))
     }
 
+    #[allow(unused)]
     #[allow(clippy::too_many_arguments)]
     pub fn run_from_entrypoint(
         &mut self,
@@ -337,6 +345,7 @@ impl PyCairoRunner {
         static_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
+        run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
         enum Either {
@@ -358,7 +367,6 @@ impl PyCairoRunner {
         }
 
         self.static_locals = static_locals;
-        let apply_modulo_to_args = apply_modulo_to_args.unwrap_or(true);
 
         let entrypoint = if let Ok(x) = entrypoint.extract::<usize>() {
             x
@@ -372,17 +380,11 @@ impl PyCairoRunner {
             let args = self
                 .gen_typed_args(py, args.to_object(py))
                 .map_err(to_py_error)?;
+
             let mut stack = Vec::new();
             for arg in args.extract::<Vec<&PyAny>>(py)? {
                 let arg: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>()?.into();
-                if apply_modulo_to_args {
-                    let arg = arg
-                        .mod_floor(self.pyvm.vm.borrow().get_prime())
-                        .map_err(to_py_error)?;
-                    stack.push(arg)
-                } else {
-                    stack.push(arg)
-                }
+                stack.push(arg)
             }
             stack
         } else {
@@ -401,15 +403,10 @@ impl PyCairoRunner {
             let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
             let mut stack = Vec::new();
             for arg in processed_args {
-                let prime = match apply_modulo_to_args {
-                    true => Some(self.pyvm.vm.borrow().get_prime().clone()),
-                    false => None,
-                };
-
                 stack.push(
                     (*self.pyvm.vm)
                         .borrow_mut()
-                        .gen_arg(arg, prime.as_ref())
+                        .gen_arg(arg)
                         .map_err(to_py_error)?,
                 );
             }
@@ -417,7 +414,7 @@ impl PyCairoRunner {
             stack
         };
 
-        let return_fp = MaybeRelocatable::from(bigint!(0));
+        let return_fp = MaybeRelocatable::from(0);
 
         let end = self
             .inner
@@ -433,14 +430,19 @@ impl PyCairoRunner {
             .initialize_vm(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
-        self.run_until_pc(&PyRelocatable::from(end))?;
+        if let Err(error) = self.run_until_pc(
+            &end.into(),
+            run_resources.and_then(|resource| resource.n_steps),
+        ) {
+            return Err(self.as_vm_exception(error));
+        }
 
         self.inner
             .end_run(
                 true,
                 false,
                 &mut (*self.pyvm.vm).borrow_mut(),
-                &self.hint_processor,
+                &mut self.hint_processor,
             )
             .map_err(to_py_error)?;
 
@@ -487,21 +489,13 @@ impl PyCairoRunner {
                     )?;
                     segment_ptr
                 }
-                _ => {
-                    let mut value: MaybeRelocatable = arg.extract::<PyMaybeRelocatable>(py)?.into();
-                    if apply_modulo_to_args {
-                        value = value
-                            .mod_floor(self.pyvm.vm.borrow().get_prime())
-                            .map_err(to_py_error)?;
-                    }
-                    value
-                }
+                _ => arg.extract::<PyMaybeRelocatable>(py)?.into(),
             })
             .to_object(py),
         )
     }
 
-    #[args(apply_modulo_to_args = true)]
+    #[pyo3(signature = (ptr, arg, apply_modulo_to_args = true))]
     pub fn write_arg(
         &self,
         py: Python<'_>,
@@ -523,7 +517,7 @@ impl PyCairoRunner {
 
         (*self.pyvm.vm)
             .borrow_mut()
-            .load_data(&ptr, data)
+            .load_data(&ptr, &data)
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
@@ -581,8 +575,7 @@ impl PyCairoRunner {
                 cairo_args.extend(self.gen_typed_args(py, value?.to_object(py)));
             } else {
                 return Err(PyValueError::new_err(format!(
-                    "Failed to generate typed arguments: {:?} is not supported",
-                    type_str
+                    "Failed to generate typed arguments: {type_str:?} is not supported"
                 )));
             }
         }
@@ -595,6 +588,11 @@ impl PyCairoRunner {
     pub fn add_additional_hash_builtin(&self) -> PyRelocatable {
         let mut vm = (*self.pyvm.vm).borrow_mut();
         self.inner.add_additional_hash_builtin(&mut vm).into()
+    }
+
+    #[getter]
+    fn segments(&self) -> PySegmentManager {
+        PySegmentManager::new(&self.pyvm, PyMemory::new(&self.pyvm))
     }
 
     #[getter]
@@ -611,6 +609,30 @@ impl PyCairoRunner {
     pub fn vm_memory(&self) -> PyMemory {
         PyMemory::new(&self.pyvm)
     }
+}
+
+pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
+
+impl PyCairoRunner {
+    fn as_vm_exception(&self, error: PyErr) -> PyErr {
+        let pc = self.pyvm.vm.borrow().get_pc().offset;
+        let instruction_location = get_location(pc, &self.inner, self.pyvm.failed_hint_index)
+            .map(InstructionLocation::from);
+        let error_attribute = get_error_attr_value(pc, &self.inner, &self.pyvm.vm.borrow());
+        let traceback = get_traceback(&self.pyvm.vm.borrow(), &self.inner);
+        VmException::new_err((
+            PyRelocatable::from((0, pc)),
+            instruction_location,
+            error,
+            error_attribute,
+            traceback,
+        ))
+    }
+}
+
+#[derive(Clone, FromPyObject)]
+pub struct PyRunResources {
+    n_steps: Option<usize>,
 }
 
 #[pyclass]
@@ -635,7 +657,7 @@ impl PyExecutionResources {
         for builtin_name in self.0.builtin_instance_counter.keys() {
             if let Some((key, counter)) = instance_counters.remove_entry(builtin_name) {
                 instance_counters
-                    .entry(format!("{}_builtin", key).to_string())
+                    .entry(format!("{key}_builtin").to_string())
                     .or_insert(counter);
             }
         }
@@ -647,11 +669,109 @@ impl PyExecutionResources {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::biguint;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
-    use cairo_rs::bigint;
-    use num_bigint::BigInt;
-    use pyo3::PyIterProtocol;
+    use cairo_felt::Felt;
+    use num_bigint::BigUint;
+    use std::env::temp_dir;
     use std::fs;
+
+    use type_samples::*;
+
+    pub mod type_samples {
+        use super::*;
+        /* First we need to create a structure that behaves similarly to starknet's typed args
+        This means we need:
+        A: An iterable object
+        B: An object that has an __annotations__ attribute
+        C: The __annotations__  attribute should have a values method
+        D: Values must return an iterable object containing the arg's type for each of the elements in args
+        F: This iterable object must yield the following format string when format!("{:?}") is applied to it:
+            **.Type or **.Type'>
+        Where Type can be either TypeFelt, TypePointer or TypeStruct
+        */
+
+        // We first create the iterable pyclass (A)
+        #[pyclass(unsendable)]
+        pub struct MyIterator {
+            pub iter: Box<dyn Iterator<Item = PyObject>>,
+            pub types: Vec<PyType>,
+        }
+
+        // This pyclass implements the iterator dunder methods __iter__ and __next__
+        // We then implement a __getattr__ that will allow us to call Object.__annotations__ (B)
+        // This method returns a second object, so that we can then implement the values() method
+
+        #[pymethods]
+        impl MyIterator {
+            #[getter]
+            pub fn __annotations__(&self) -> PyResult<Annotations> {
+                Ok(Annotations(self.types.clone()))
+            }
+            pub fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+                slf
+            }
+            pub fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
+                slf.iter.next()
+            }
+        }
+        #[pyclass(unsendable)]
+        pub struct Annotations(Vec<PyType>);
+
+        // We implement the values method (C), which in turn returns another object so that we can override its representation
+        #[pymethods]
+        impl Annotations {
+            pub fn values(&self) -> PyResult<Vec<PyType>> {
+                Ok(self.0.clone())
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub enum PyType {
+            TypePointer,
+            TypeFelt,
+            TypeStruct,
+            // this value is added to test invalid types
+            BigInt,
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct TypeFelt;
+
+        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
+        #[pymethods]
+        impl TypeFelt {
+            fn __repr__(&self) -> String {
+                "TypeFelt".to_string()
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct TypePointer;
+
+        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
+        #[pymethods]
+        impl TypePointer {
+            fn __repr__(&self) -> String {
+                "TypePointer".to_string()
+            }
+        }
+
+        #[pyclass]
+        #[derive(Clone)]
+        pub struct TypeStruct;
+
+        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
+        #[pymethods]
+        impl TypeStruct {
+            fn __repr__(&self) -> String {
+                "TypeStruct".to_string()
+            }
+        }
+    }
 
     #[test]
     fn create_cairo_runner() {
@@ -1042,6 +1162,37 @@ mod test {
     }
 
     #[test]
+    fn failed_to_get_segment_used_size() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner =
+            PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .unwrap();
+
+        Python::with_gil(|py| assert!(runner.get_segment_used_size(100, py).is_err()));
+    }
+
+    #[test]
+    fn cairo_run_py_with_hint_locals() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let hint_locals = Some(HashMap::from([(
+            "__find_element_max_size".to_string(),
+            Python::with_gil(|py| -> PyObject { 100.to_object(py) }),
+        )]));
+        let mut runner =
+            PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, hint_locals, None, None)
+            .unwrap();
+
+        Python::with_gil(|py| assert!(runner.get_segment_used_size(100, py).is_err()));
+    }
+
+    #[test]
     fn run_from_entrypoint_without_args() {
         let path = "cairo_programs/not_main.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -1053,10 +1204,9 @@ mod test {
         )
         .unwrap();
 
-        // Without `runner.initialize()`, an uninitialized error is returned.
-        // With `runner.initialize()`, an invalid memory assignment is returned...
-        //   Maybe it has to do with `initialize_main_entrypoint()` called from `initialize()`?
-        runner.initialize_segments();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
             runner
@@ -1069,8 +1219,249 @@ mod test {
                     Some(false),
                     None,
                     None,
+                    None,
                 )
                 .unwrap();
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_with_false_apply_module_to_args_and_false_typed_args() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
+
+        Python::with_gil(|py| {
+            let args = vec![
+                Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((0, 0))).to_object(py),
+                Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((0, 1))).to_object(py),
+            ]
+            .to_object(py);
+
+            runner
+                .run_from_entrypoint(
+                    py,
+                    py.eval("0", None, None).unwrap(),
+                    args,
+                    None,
+                    None,
+                    Some(false),
+                    None,
+                    None,
+                    Some(false),
+                )
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_with_false_apply_module_to_args_and_true_typed_args() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
+
+        Python::with_gil(|py| {
+            let args = MyIterator {
+                iter: Box::new(
+                    vec![
+                        PyMaybeRelocatable::from(biguint!(0_u32)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
+                    ]
+                    .into_iter(),
+                ),
+                types: vec![PyType::TypeFelt, PyType::TypeFelt],
+            }
+            .into_py(py);
+
+            runner
+                .run_from_entrypoint(
+                    py,
+                    py.eval("0", None, None).unwrap(),
+                    args,
+                    None,
+                    None,
+                    Some(true),
+                    None,
+                    None,
+                    Some(false),
+                )
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn error_when_run_from_entrypoint_with_invalid_args() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
+
+        Python::with_gil(|py| {
+            // invalid arguments
+            let args =
+                vec![vec![vec![
+                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((0, 0))).to_object(py),
+                ]
+                .to_object(py)]
+                .to_object(py)]
+                .to_object(py);
+
+            assert!(runner
+                .run_from_entrypoint(
+                    py,
+                    py.eval("0", None, None).unwrap(),
+                    args,
+                    None,
+                    None,
+                    Some(false),
+                    None,
+                    None,
+                    None,
+                )
+                .is_err());
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_with_string_name() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
+
+        Python::with_gil(|py| {
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("'not_main'", None, None).unwrap(),
+                Vec::<&PyAny>::new().to_object(py),
+                None,
+                None,
+                Some(false),
+                None,
+                None,
+                None,
+            );
+            // using a named entrypoint in run_from_entrypoint is not implemented yet
+            assert_eq!(
+                format!("{:?}", result),
+                format!("{:?}", Err::<(), PyErr>(PyNotImplementedError::new_err(())))
+            );
+        });
+    }
+
+    #[test]
+    fn run_from_entrypoint_limited_resources() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
+        let pc_before_run = *runner.pyvm.vm.borrow().get_pc();
+
+        Python::with_gil(|py| {
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("0", None, None).unwrap(),
+                Vec::<&PyAny>::new().to_object(py),
+                None,
+                None,
+                Some(false),
+                None,
+                Some(PyRunResources { n_steps: Some(0) }),
+                None,
+            );
+            assert!(result.is_err());
+            assert!(format!("{:?}", result).contains("Execution reached the end of the program."));
+        });
+
+        let pc_after_run = *runner.pyvm.vm.borrow().get_pc();
+
+        // As the run_resurces provide 0 steps, no steps should have been run
+        // To check this, we check that the pc hasnt changed after "running" the vm
+        assert_eq!(pc_before_run, pc_after_run);
+    }
+
+    #[test]
+    fn run_from_entrypoint_with_invalid_entrypoint() {
+        let path = "cairo_programs/not_main.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
+
+        Python::with_gil(|py| {
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("[]", None, None).unwrap(),
+                Vec::<&PyAny>::new().to_object(py),
+                None,
+                None,
+                Some(false),
+                None,
+                None,
+                None,
+            );
+            assert_eq!(
+                format!("{:?}", result),
+                format!(
+                    "{:?}",
+                    Err::<(), PyErr>(PyTypeError::new_err("entrypoint must be int or str"))
+                )
+            );
         });
     }
 
@@ -1100,6 +1491,7 @@ mod test {
                     )])),
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                 )
@@ -1145,6 +1537,7 @@ mod test {
                     Some(false),
                     None,
                     None,
+                    None,
                 )
                 .unwrap();
             assert!(!runner.static_locals.as_ref().unwrap().is_empty());
@@ -1164,20 +1557,93 @@ mod test {
 
     #[test]
     fn run_from_entrypoint_with_one_typed_arg() {
-        // One arg (typed)
-        //   value
-    }
+        let test_fails_with_zero = |value: usize, py: &Python| {
+            let path = "cairo_programs/assert_not_zero.json".to_string();
+            let program = fs::read_to_string(path).unwrap();
+            let mut runner = PyCairoRunner::new(
+                program,
+                Some("main".to_string()),
+                Some("plain".to_string()),
+                false,
+            )
+            .unwrap();
 
-    #[test]
-    fn run_from_entrypoint_with_one_typed_vec_arg() {
-        // One arg (typed)
-        //   vec
+            runner.initialize_segments();
+
+            let args = MyIterator {
+                iter: Box::new(
+                    vec![PyMaybeRelocatable::from(biguint!(value)).to_object(*py)].into_iter(),
+                ),
+                types: vec![PyType::TypeFelt],
+            };
+            runner.run_from_entrypoint(
+                *py,
+                py.eval("0", None, None).unwrap(),
+                args.into_py(*py),
+                None,
+                None,
+                Some(true),
+                None,
+                None,
+                None,
+            )
+        };
+        Python::with_gil(|py| {
+            // program fails if argument is zero
+            assert!(test_fails_with_zero(0, &py).is_err());
+            // but doesn't with nonzero argument
+            assert!(test_fails_with_zero(1, &py).is_ok());
+            assert!(test_fails_with_zero(2, &py).is_ok());
+        });
     }
 
     #[test]
     fn run_from_entrypoint_with_multiple_untyped_args() {
-        // Multiple args (no typed)
-        // Test that `PyCairoRunner::insert()` inserts values correctly.
+        let path = "cairo_programs/array_sum.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("plain".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner.initialize_segments();
+
+        Python::with_gil(|py| {
+            let array = vec![
+                PyMaybeRelocatable::from(biguint!(1_u32)).to_object(py),
+                PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
+                PyMaybeRelocatable::from(biguint!(4_u32)).to_object(py),
+                PyMaybeRelocatable::from(biguint!(8_u32)).to_object(py),
+            ];
+            let size = PyMaybeRelocatable::from(biguint!(array.len()));
+            let args = vec![array.into_py(py), size.to_object(py)];
+            let result = runner.run_from_entrypoint(
+                py,
+                py.eval("7", None, None).unwrap(),
+                args.into_py(py),
+                None,
+                None,
+                Some(false),
+                None,
+                None,
+                None,
+            );
+
+            assert!(result.is_ok());
+
+            let return_value: MaybeRelocatable = runner
+                .get_return_values(1, py)
+                .unwrap()
+                .extract::<Vec<PyMaybeRelocatable>>(py)
+                .expect("failed to get return value")
+                .first()
+                .expect("there's no return value")
+                .into();
+            assert_eq!(return_value, MaybeRelocatable::from(15));
+        });
     }
 
     #[test]
@@ -1188,23 +1654,19 @@ mod test {
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
-            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(biguint!(3_u32)))
             .unwrap();
         runner
-            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(biguint!(4_u32)))
             .unwrap();
         runner
-            .insert(&(0, 2).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .insert(&(0, 2).into(), PyMaybeRelocatable::Int(biguint!(5_u32)))
             .unwrap();
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
                 .get_continuous_range(&(0, 0).into(), 3),
-            Ok(vec![
-                bigint!(3).into(),
-                bigint!(4).into(),
-                bigint!(5).into(),
-            ]),
+            Ok(vec![3.into(), 4.into(), 5.into(),]),
         )
     }
 
@@ -1217,19 +1679,19 @@ mod test {
 
         (*runner.pyvm.get_vm()).borrow_mut().add_memory_segment();
         runner
-            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(3)))
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(biguint!(3_u32)))
             .unwrap();
         runner
-            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(bigint!(4)))
+            .insert(&(0, 1).into(), PyMaybeRelocatable::Int(biguint!(4_u32)))
             .unwrap();
         runner
-            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(bigint!(5)))
+            .insert(&(0, 0).into(), PyMaybeRelocatable::Int(biguint!(5_u32)))
             .expect_err("insertion succeeded when it should've failed");
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
                 .get_continuous_range(&(0, 0).into(), 2),
-            Ok(vec![bigint!(3).into(), bigint!(4).into(),]),
+            Ok(vec![3.into(), 4.into(),]),
         );
     }
 
@@ -1254,6 +1716,21 @@ mod test {
     }
 
     #[test]
+    fn failed_to_get_initial_fp_test() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some(String::from("all")),
+            false,
+        )
+        .unwrap();
+
+        assert!(runner.initial_fp().is_err());
+    }
+
+    #[test]
     fn initialize_function_runner() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -1265,7 +1742,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_function_runner().unwrap();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
             vec![RelocatableValue(PyRelocatable {
@@ -1321,7 +1800,9 @@ mod test {
         )
         .unwrap();
 
-        runner.initialize_function_runner().unwrap();
+        runner
+            .initialize_function_runner()
+            .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
 
@@ -1371,7 +1852,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(1),
+                &Felt::new(1),
             );
             assert_eq!(
                 vm_ref
@@ -1380,7 +1861,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(2),
+                &Felt::new(2),
             );
 
             let relocatable = vm_ref
@@ -1388,8 +1869,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref
@@ -1398,7 +1878,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(3),
+                &Felt::new(3),
             );
             assert_eq!(
                 vm_ref
@@ -1407,7 +1887,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(4),
+                &Felt::new(4),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
@@ -1416,8 +1896,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .get_relocatable()
-                .unwrap()
-                .clone();
+                .unwrap();
 
             assert_eq!(
                 vm_ref
@@ -1426,7 +1905,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(5),
+                &Felt::new(5),
             );
             assert_eq!(
                 vm_ref
@@ -1435,7 +1914,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &bigint!(6),
+                &Felt::new(6),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
 
@@ -1510,6 +1989,21 @@ mod test {
             .expect("Call to PyCairoRunner::cairo_run_py() failed.");
     }
 
+    #[test]
+    fn set_bad_entrypoint_on_new() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+
+        let program = fs::read_to_string(path).unwrap();
+        let result = PyCairoRunner::new(
+            program,
+            Some(" non-existent entrypoint".to_string()),
+            Some("small".to_string()),
+            false,
+        );
+
+        assert!(result.is_err());
+    }
+
     /// Test that `PyCairoRunner::get()` works as intended.
     #[test]
     fn get() {
@@ -1534,7 +2028,7 @@ mod test {
                     .get(py, &ap)
                     .unwrap()
                     .map(|x| MaybeRelocatable::from(x.extract::<PyMaybeRelocatable>(py).unwrap())),
-                Some(MaybeRelocatable::Int(bigint!(144))),
+                Some(MaybeRelocatable::from(144)),
             );
         });
     }
@@ -1557,13 +2051,7 @@ mod test {
                 let ptr = vm.add_memory_segment();
                 vm.load_data(
                     &(&ptr).into(),
-                    vec![
-                        bigint!(1).into(),
-                        bigint!(2).into(),
-                        bigint!(3).into(),
-                        bigint!(4).into(),
-                        bigint!(5).into(),
-                    ],
+                    &vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
                 )
                 .unwrap();
 
@@ -1579,13 +2067,7 @@ mod test {
                     .into_iter()
                     .map(MaybeRelocatable::from)
                     .collect::<Vec<_>>(),
-                vec![
-                    bigint!(1).into(),
-                    bigint!(2).into(),
-                    bigint!(3).into(),
-                    bigint!(4).into(),
-                    bigint!(5).into(),
-                ],
+                vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into(),],
             );
         });
     }
@@ -1621,78 +2103,14 @@ mod test {
 
             let mut vm = (*runner.pyvm.vm).borrow_mut();
             // Check that the segment exists by writing to it.
-            vm.insert_value(
-                &Relocatable::from((0, 0)),
-                MaybeRelocatable::Int(bigint!(42)),
-            )
-            .expect("memory insert failed");
+            vm.insert_value(&Relocatable::from((0, 0)), MaybeRelocatable::from(42))
+                .expect("memory insert failed");
         });
     }
 
     #[test]
     fn gen_typed_args_type_felt() {
-        /* First we need to create a structure that behaves similarly to starknet's typed args
-        This means we need:
-        A: An iterable object
-        B: An object that has an __annotations__ attribute
-        C: The __annotations__  attribute should have a values method
-        D: Values must return an iterable object containing the arg's type for each of the elements in args
-        F: This iterable object must yield the following format string when format!("{:?") is applied to it:
-            **.Type or **.Type'>
-        Where Type can be either TypeFelt, TypePointer or TypeStruct
-        */
-
-        // We first create the iterable pyclass (A), implementing PyIterProtocol
-        #[pyclass(unsendable)]
-        struct MyIterator {
-            iter: Box<dyn Iterator<Item = PyObject>>,
-        }
-
-        #[pyproto]
-        impl PyIterProtocol for MyIterator {
-            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-                slf
-            }
-            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
-                slf.iter.next()
-            }
-        }
-
-        // We then implement a __getattr__ that will allow us to call Object.__annotations__ (B)
-        // This method returns a second object, so that we can then implement the values() method
-
-        #[pymethods]
-        // This method is implemented exclusively to support arg.__annotations__
-        impl MyIterator {
-            fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
-                Ok(Annotations {
-                    0: vec![TypeFelt, TypeFelt],
-                })
-            }
-        }
-        #[pyclass(unsendable)]
-        struct Annotations(Vec<TypeFelt>);
-
-        // We implement the values method (C), which in turn returns another object so that we can override its representation
-        #[pymethods]
-        impl Annotations {
-            pub fn values(&self) -> PyResult<Vec<TypeFelt>> {
-                Ok(self.0.clone())
-            }
-        }
-
-        #[pyclass]
-        #[derive(Clone)]
-        struct TypeFelt;
-
-        // We override the __repr__ method, so that we can customize the string we get when calling format!({:?}) (F)
-        #[pymethods]
-        impl TypeFelt {
-            fn __repr__(&self) -> String {
-                format!("TypeFelt")
-            }
-        }
-
+        //For documentation on how this test works see test submodule type_samples
         let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
         let runner = PyCairoRunner::new(program, None, None, false).unwrap();
         Python::with_gil(|py| {
@@ -1700,11 +2118,12 @@ mod test {
             let arg = MyIterator {
                 iter: Box::new(
                     vec![
-                        PyMaybeRelocatable::from(bigint!(0)).to_object(py),
-                        PyMaybeRelocatable::from(bigint!(2)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(0_u32)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
                     ]
                     .into_iter(),
                 ),
+                types: vec![PyType::TypeFelt, PyType::TypeFelt],
             };
             let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
             let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
@@ -1713,8 +2132,8 @@ mod test {
             assert_eq!(
                 stack,
                 vec![
-                    PyMaybeRelocatable::from(bigint!(0)),
-                    PyMaybeRelocatable::from(bigint!(2)),
+                    PyMaybeRelocatable::from(biguint!(0_u32)),
+                    PyMaybeRelocatable::from(biguint!(2_u32)),
                 ]
             );
         })
@@ -1722,49 +2141,7 @@ mod test {
 
     #[test]
     fn gen_typed_args_type_pointer() {
-        //For documentation on how this test works see gen_typed_args_type_pointer()
-        #[pyclass(unsendable)]
-        struct MyIterator {
-            iter: Box<dyn Iterator<Item = PyObject>>,
-        }
-
-        #[pyproto]
-        impl PyIterProtocol for MyIterator {
-            fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
-                slf
-            }
-            fn __next__(mut slf: PyRefMut<Self>) -> Option<PyObject> {
-                slf.iter.next()
-            }
-        }
-        #[pymethods]
-        // This method is implemented exclusively to support arg.__annotations__
-        impl MyIterator {
-            fn __getattr__(&self, _name: String) -> PyResult<Annotations> {
-                Ok(Annotations {
-                    0: vec![TypePointer, TypePointer],
-                })
-            }
-        }
-        #[pyclass(unsendable)]
-        struct Annotations(Vec<TypePointer>);
-
-        #[pymethods]
-        impl Annotations {
-            pub fn values(&self) -> PyResult<Vec<TypePointer>> {
-                Ok(self.0.clone())
-            }
-        }
-
-        #[pyclass]
-        #[derive(Clone)]
-        struct TypePointer;
-        #[pymethods]
-        impl TypePointer {
-            fn __repr__(&self) -> String {
-                format!("TypePointer")
-            }
-        }
+        //For documentation on how this test works see test submodule type_samples
 
         let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
         let runner = PyCairoRunner::new(program, None, None, false).unwrap();
@@ -1779,7 +2156,9 @@ mod test {
                     ]
                     .into_iter(),
                 ),
+                types: vec![PyType::TypePointer, PyType::TypePointer],
             };
+
             let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
             let stack = stack.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
             assert_eq!(
@@ -1793,6 +2172,128 @@ mod test {
     }
 
     #[test]
+    fn segments() {
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+
+        let segments = runner.segments();
+
+        Python::with_gil(|py| {
+            let segment = segments.add().expect("Could not add segemnt.");
+            segments
+                .write_arg(
+                    py,
+                    segment.clone().into(),
+                    py.eval("[1, 2, 3, 4]", None, None).unwrap().to_object(py),
+                    false,
+                )
+                .unwrap();
+
+            let get_value = |addr: &PyRelocatable, offset| {
+                let addr = addr.__add__(offset);
+                runner
+                    .get(py, &addr)
+                    .expect("Could not get value")
+                    .map(|x| x.extract::<BigUint>(py))
+                    .transpose()
+                    .expect("Could not convert value to a biguint")
+            };
+            assert_eq!(get_value(&segment, 0), Some(biguint!(1_u32)));
+            assert_eq!(get_value(&segment, 1), Some(biguint!(2_u32)));
+            assert_eq!(get_value(&segment, 2), Some(biguint!(3_u32)));
+            assert_eq!(get_value(&segment, 3), Some(biguint!(4_u32)));
+            assert_eq!(get_value(&segment, 4), None);
+        });
+    }
+
+    #[test]
+    fn gen_typed_args_type_struct() {
+        //For documentation on how this test works see test submodule type_samples
+
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+        Python::with_gil(|py| {
+            let arg = MyIterator {
+                iter: Box::new(
+                    vec![
+                        MyIterator {
+                            iter: Box::new(
+                                vec![
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 0,
+                                    )))
+                                    .to_object(py),
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 1,
+                                    )))
+                                    .to_object(py),
+                                ]
+                                .into_iter(),
+                            ),
+                            types: vec![PyType::TypePointer, PyType::TypePointer],
+                        }
+                        .into_py(py),
+                        MyIterator {
+                            iter: Box::new(
+                                vec![
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 0,
+                                    )))
+                                    .to_object(py),
+                                    Into::<PyMaybeRelocatable>::into(MaybeRelocatable::from((
+                                        0, 1,
+                                    )))
+                                    .to_object(py),
+                                ]
+                                .into_iter(),
+                            ),
+                            types: vec![PyType::TypePointer, PyType::TypePointer],
+                        }
+                        .into_py(py),
+                    ]
+                    .into_iter(),
+                ),
+                types: vec![PyType::TypeStruct, PyType::TypeStruct],
+            };
+
+            let stack = runner.gen_typed_args(py, arg.into_py(py)).unwrap();
+            let stack = stack.extract::<Vec<Py<PyAny>>>(py).unwrap();
+            for value in stack.iter() {
+                let stack = value.extract::<Vec<PyMaybeRelocatable>>(py).unwrap();
+                assert_eq!(
+                    stack,
+                    vec![
+                        MaybeRelocatable::from((0, 0)).into(),
+                        MaybeRelocatable::from((0, 1)).into(),
+                    ]
+                );
+            }
+        })
+    }
+
+    #[test]
+    fn error_when_gen_typed_args_with_invalid_type() {
+        //For documentation on how this test works see test submodule type_samples
+
+        let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
+        let runner = PyCairoRunner::new(program, None, None, false).unwrap();
+        Python::with_gil(|py| {
+            let arg = MyIterator {
+                iter: Box::new(
+                    vec![
+                        PyMaybeRelocatable::from(biguint!(0_u32)).to_object(py),
+                        PyMaybeRelocatable::from(biguint!(2_u32)).to_object(py),
+                    ]
+                    .into_iter(),
+                ),
+                types: vec![PyType::BigInt, PyType::BigInt],
+            };
+
+            assert!(runner.gen_typed_args(py, arg.into_py(py)).is_err());
+        })
+    }
+
+    #[test]
     fn memory() {
         let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
         let runner = PyCairoRunner::new(program, None, None, false).unwrap();
@@ -1802,7 +2303,7 @@ mod test {
         Python::with_gil(|py| {
             let segment = runner.add_segment();
 
-            let set_value = |addr: &PyRelocatable, offset, value: BigInt| {
+            let set_value = |addr: &PyRelocatable, offset, value: BigUint| {
                 let addr = addr.__add__(offset);
                 memory
                     .__setitem__(&addr, PyMaybeRelocatable::Int(value))
@@ -1813,20 +2314,20 @@ mod test {
                 memory
                     .__getitem__(&addr, py)
                     .expect("Could not get value from memory.")
-                    .map(|x| x.extract::<BigInt>(py))
+                    .map(|x| x.extract::<BigUint>(py))
                     .transpose()
-                    .expect("Could not convert value to a BigInt")
+                    .expect("Could not convert value to a biguint")
             };
 
-            set_value(&segment, 0, bigint!(1));
-            set_value(&segment, 1, bigint!(2));
-            set_value(&segment, 2, bigint!(3));
-            set_value(&segment, 3, bigint!(4));
+            set_value(&segment, 0, biguint!(1_u32));
+            set_value(&segment, 1, biguint!(2_u32));
+            set_value(&segment, 2, biguint!(3_u32));
+            set_value(&segment, 3, biguint!(4_u32));
 
-            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
-            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
-            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
-            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 0), Some(biguint!(1_u32)));
+            assert_eq!(get_value(&segment, 1), Some(biguint!(2_u32)));
+            assert_eq!(get_value(&segment, 2), Some(biguint!(3_u32)));
+            assert_eq!(get_value(&segment, 3), Some(biguint!(4_u32)));
             assert_eq!(get_value(&segment, 4), None);
         });
     }
@@ -1850,7 +2351,7 @@ mod test {
         Python::with_gil(|py| {
             let segment = runner.add_segment();
 
-            let set_value = |addr: &PyRelocatable, offset, value: BigInt| {
+            let set_value = |addr: &PyRelocatable, offset, value: BigUint| {
                 let addr = addr.__add__(offset);
                 memory
                     .__setitem__(&addr, PyMaybeRelocatable::Int(value))
@@ -1861,21 +2362,227 @@ mod test {
                 memory
                     .__getitem__(&addr, py)
                     .expect("Could not get value from memory.")
-                    .map(|x| x.extract::<BigInt>(py))
+                    .map(|x| x.extract::<BigUint>(py))
                     .transpose()
-                    .expect("Could not convert value to a BigInt")
+                    .expect("Could not convert value to a biguint")
             };
 
-            set_value(&segment, 0, bigint!(1));
-            set_value(&segment, 1, bigint!(2));
-            set_value(&segment, 2, bigint!(3));
-            set_value(&segment, 3, bigint!(4));
+            set_value(&segment, 0, biguint!(1_u32));
+            set_value(&segment, 1, biguint!(2_u32));
+            set_value(&segment, 2, biguint!(3_u32));
+            set_value(&segment, 3, biguint!(4_u32));
 
-            assert_eq!(get_value(&segment, 0), Some(bigint!(1)));
-            assert_eq!(get_value(&segment, 1), Some(bigint!(2)));
-            assert_eq!(get_value(&segment, 2), Some(bigint!(3)));
-            assert_eq!(get_value(&segment, 3), Some(bigint!(4)));
+            assert_eq!(get_value(&segment, 0), Some(biguint!(1_u32)));
+            assert_eq!(get_value(&segment, 1), Some(biguint!(2_u32)));
+            assert_eq!(get_value(&segment, 2), Some(biguint!(3_u32)));
+            assert_eq!(get_value(&segment, 3), Some(biguint!(4_u32)));
             assert_eq!(get_value(&segment, 4), None);
         });
+    }
+
+    #[test]
+    fn cairo_run_with_trace_file() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let trace_path = temp_dir().join("fibonacci.trace");
+        let trace_path = trace_path.to_str().unwrap();
+
+        _ = fs::remove_file(trace_path);
+
+        runner
+            .cairo_run_py(false, Some(trace_path), None, None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        // We simply check if file exists
+        assert!(fs::canonicalize(trace_path).is_ok());
+
+        _ = fs::remove_file(trace_path);
+    }
+
+    #[test]
+    fn cairo_run_with_nonexistent_trace_file() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let trace_path = "cairo_programs";
+
+        let result = runner.cairo_run_py(false, Some(trace_path), None, None, None, None);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn cairo_run_with_memory_file() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let memory_path = temp_dir().join("fibonacci.memory");
+        let memory_path = memory_path.to_str().unwrap();
+
+        _ = fs::remove_file(memory_path);
+
+        runner
+            .cairo_run_py(false, None, Some(memory_path), None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        // We simply check if file exists
+        assert!(fs::canonicalize(memory_path).is_ok());
+
+        _ = fs::remove_file(memory_path);
+    }
+
+    #[test]
+    fn cairo_run_with_nonexistent_memory_file() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let memory_path = "cairo_programs";
+
+        let result = runner.cairo_run_py(false, None, Some(memory_path), None, None, None);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn get_execution_resources() {
+        let path = String::from("cairo_programs/array_sum.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        let result = runner.cairo_run_py(false, None, None, None, None, None);
+
+        assert!(result.is_ok());
+
+        let exec_res = runner.get_execution_resources().unwrap();
+
+        // n_steps is 0 because trace is disabled when trace_file is None
+        assert_eq!(exec_res.n_steps(), 0);
+        assert_eq!(exec_res.n_memory_holes(), 0);
+        assert_eq!(
+            exec_res.builtin_instance_counter(),
+            HashMap::from([("output_builtin".to_string(), 1)])
+        );
+    }
+
+    #[test]
+    fn mark_as_accessed_run_not_finished() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        assert!(runner.mark_as_accessed((0, 0).into(), 3).is_err());
+    }
+
+    #[test]
+    fn get_return_values_ok() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        Python::with_gil(|py| {
+            let addresses = runner
+                .get_return_values(1, py)
+                .unwrap()
+                .extract::<Vec<PyMaybeRelocatable>>(py)
+                .unwrap();
+            assert_eq!(addresses.len(), 1);
+
+            let result = match &addresses[0] {
+                PyMaybeRelocatable::Int(value) => Ok(value),
+                PyMaybeRelocatable::RelocatableValue(r) => Err(r),
+            };
+            let expected = biguint!(144_u32);
+            assert_eq!(result, Ok(&expected) as Result<&BigUint, &PyRelocatable>);
+        });
+    }
+
+    #[test]
+    fn get_return_values_out_of_bounds() {
+        let path = String::from("cairo_programs/fibonacci.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+
+        runner
+            .cairo_run_py(true, None, None, None, None, None)
+            .expect("Call to PyCairoRunner::cairo_run_py() failed.");
+
+        Python::with_gil(|py| {
+            let oob_error = runner.get_return_values(100, py);
+
+            assert!(oob_error.is_err());
+        });
+    }
+
+    #[test]
+    fn cairo_run_with_ecdsa_builtin() {
+        let path = String::from("cairo_programs/ecdsa.json");
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("all".to_string()),
+            false,
+        )
+        .unwrap();
+
+        assert!(runner
+            .cairo_run_py(false, None, None, None, None, None)
+            .is_ok());
     }
 }

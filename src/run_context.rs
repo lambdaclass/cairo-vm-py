@@ -1,5 +1,5 @@
 use crate::relocatable::PyRelocatable;
-use cairo_rs::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::Relocatable;
 use pyo3::{pyclass, pymethods};
 
 #[pyclass]
@@ -19,17 +19,17 @@ impl PyRunContext {
 impl PyRunContext {
     #[getter]
     pub fn pc(&self) -> PyRelocatable {
-        self.pc.clone().into()
+        self.pc.into()
     }
 
     #[getter]
     pub fn ap(&self) -> PyRelocatable {
-        self.ap.clone().into()
+        self.ap.into()
     }
 
     #[getter]
     pub fn fp(&self) -> PyRelocatable {
-        self.fp.clone().into()
+        self.fp.into()
     }
 }
 

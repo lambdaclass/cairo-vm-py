@@ -1,0 +1,100 @@
+diff --git a/src/utils/benchmark_block.py b/src/utils/benchmark_block.py
+index d009077..279e215 100644
+--- a/src/utils/benchmark_block.py
++++ b/src/utils/benchmark_block.py
+@@ -3,6 +3,8 @@ import sys
+ import os
+ import json
+ from utxo_dummy_generator import generate_utxo_dummys, fetch_block
++import cairo_rs_py
++from starkware.cairo.lang.vm.vm_exceptions import VmException
+ import urllib3
+ import time
+ import datetime
+@@ -10,29 +12,25 @@ import resource
+ 
+ P = 2**251 + 17 * 2**192 + 1
+ 
+-
+-def parse_cairo_output(cairo_output):
+-    # Split at line break. Then cut off all lines until the start of the
+-    # program output
++def new_runner():
++    with open(f"{output_dir}/program.json") as file:
++        return cairo_rs_py.CairoRunner(file.read(), "main", "all", False)
++    
++def parse_cairo_output(cairo_output, debug=False):
++        # Split at line break. Then cut off all lines until the start of the program output
+     lines = cairo_output.split('\n')
+-    start_index = lines.index('Program output:') + 1
++    start_index = 0
+ 
+-    print('\n')
+-    prints = lines[:start_index - 1]
+-    for line in prints:
+-        print(line)
++    if debug:
++        print('\n')
++        prints = lines[:start_index-1]
++        for line in prints:
++            print(line)
+ 
+     lines = lines[start_index:]
+-
+-    # Remove the empty lines
+     lines = [x for x in lines if x.strip() != '']
+-
+-    # Cast all values to int
+     lines = map(int, lines)
+-
+-    # Make negative values positive
+     lines = map(lambda x: x if x >= 0 else (x + P) % P, lines)
+-
+     return list(lines)
+ 
+ 
+@@ -159,27 +157,38 @@ if __name__ == '__main__':
+     print('Done.')
+ 
+     print('Next up is the cairo runner.')
++    
++    with open(chain_state_file) as json_file:
++        data = json.load(json_file)
+ 
+     # Change the runner command here if you need the pprof trace
+     # Note: Using --profile_output significantly increases the time spent in
+     # the runner
+     # Run the Cairo runner (without pprof trace)
+-    cmd = f'cairo-run --program={output_dir}/program.json --layout=all --print_info --print_output --program_input={chain_state_file} --trace_file={output_dir}/trace.bin --memory_file={output_dir}/memory.bin'
++    runner = new_runner()
++
++    try:
++        start_time = time.clock_gettime(time.CLOCK_REALTIME)
++        runner.cairo_run(hint_locals = {'program_input': data}, print_output = False, trace_file = f'{output_dir}/trace_file.bin', memory_file = f'{output_dir}/memory_file.bin')
++        total_time = time.clock_gettime(time.CLOCK_REALTIME) - start_time
++        a = runner.get_output()
++
++    except VmException as exception:
++        print("EXCEPTION: ", exception.inner_exc)
++    # cmd = f'cairo-run --program={output_dir}/program.json --layout=all --print_info --print_output --program_input={chain_state_file} --trace_file={output_dir}/trace.bin --memory_file={output_dir}/memory.bin'
+ 
+     # Run the Cairo runner (with pprof trace)
+     # cmd = f'cairo-run --program={output_dir}/program.json --layout=all --print_info --print_output --program_input={chain_state_file} --trace_file={output_dir}/trace.bin --memory_file={output_dir}/memory.bin --profile_output={output_dir}/profile.pb.gz'
+ 
+-    start_time = time.clock_gettime(time.CLOCK_REALTIME)
+-    program_output_string = os.popen(cmd).read()
+-    total_time = time.clock_gettime(time.CLOCK_REALTIME) - start_time
++    program_output = parse_cairo_output(a)
+ 
+-    print(program_output_string)  # User can check if everything worked
++    print(program_output)  # User can check if everything worked
+ 
+     print(
+         f'RUNNER_TIME: {total_time} -> {str(datetime.timedelta(seconds=total_time))}\n')
+ 
+     # Run Giza prover
+-    cmd = f'giza prove --trace={output_dir}/trace.bin --memory={output_dir}/memory.bin --program={output_dir}/program.json --output={output_dir}/proof.bin --num-outputs=50'
++    cmd = f'giza prove --trace={output_dir}/trace_file.bin --memory={output_dir}/memory_file.bin --program={output_dir}/program.json --output={output_dir}/proof.bin --num-outputs=50'
+     start_time = time.clock_gettime(time.CLOCK_REALTIME)
+     program_output_string = os.popen(cmd).read()
+     total_time = time.clock_gettime(time.CLOCK_REALTIME) - start_time
