@@ -68,10 +68,10 @@ benchmark-devnet:
 	hyperfine -w 0 -r 1 --show-output \
 	-n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && \
 	cd starknet-devnet && \
-	STARKNET_DEVNET_CAIRO_VM='rust' poetry run pytest test --ignore=test/test_postman.py" \
+	export STARKNET_DEVNET_CAIRO_VM='rust' poetry run pytest test --ignore=test/test_postman.py" \
 	-n cairo-lang "source scripts/cairo-lang/bin/activate && \
 	cd starknet-devnet && \
-	STARKNET_DEVNET_CAIRO_VM='python' poetry run pytest test --ignore=test/test_postman.py"
+	export STARKNET_DEVNET_CAIRO_VM='python' poetry run pytest test --ignore=test/test_postman.py"
 
 benchmark-kakarot:
 	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && cd kakarot && make test-integration" -n cairo-lang "source scripts/cairo-lang/bin/activate && cd kakarot && make test-integration"
