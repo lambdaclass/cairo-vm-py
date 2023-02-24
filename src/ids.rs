@@ -879,17 +879,21 @@ memory[fp] = ids.ok_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result
-                .unwrap_err()
+            assert!(py_result.unwrap_err().to_string().contains(
+                &PyValueError::new_err(
+                    HintError::UnknownIdentifier("bad_ref".to_string()).to_string()
+                )
                 .to_string()
-                .contains(&HintError::InvalidTrackingGroup(1, 0).to_string()));
+            ));
 
             let code = r"ids.none_ref";
 
             let py_result = py.run(code, Some(globals), None);
-
             assert!(py_result.unwrap_err().to_string().contains(
-                &PyValueError::new_err(HintError::NoneApTrackingData.to_string()).to_string()
+                &PyValueError::new_err(
+                    HintError::UnknownIdentifier("none_ref".to_string()).to_string()
+                )
+                .to_string()
             ));
         });
     }
@@ -966,7 +970,7 @@ memory[fp] = ids.ok_ref
             assert!(py_result
                 .unwrap_err()
                 .to_string()
-                .contains(&HintError::UnknownIdentifier("imm_ref".to_string()).to_string()));
+                .contains(&HintError::UnknownIdentifier("no_reg_ref".to_string()).to_string()));
         });
     }
 
