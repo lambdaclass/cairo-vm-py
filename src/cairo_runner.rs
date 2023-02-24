@@ -194,7 +194,7 @@ impl PyCairoRunner {
         let address = Into::<Relocatable>::into(address);
         let constants = self.inner.get_constants().clone();
         let mut steps_left = run_resources_n_steps.unwrap_or(1); // default value
-        while self.pyvm.vm.borrow().get_pc() != &address && steps_left > 0 {
+        while self.pyvm.vm.borrow().get_pc() != address && steps_left > 0 {
             self.pyvm.step(
                 &mut self.hint_processor,
                 &mut self.hint_locals,
@@ -209,7 +209,7 @@ impl PyCairoRunner {
                 steps_left -= 1;
             }
         }
-        if self.pyvm.vm.borrow().get_pc() != &address {
+        if self.pyvm.vm.borrow().get_pc() != address {
             return Err(ResourcesError::new_err(PyValueError::new_err(
                 "Error: Execution reached the end of the program.",
             )));
@@ -458,7 +458,7 @@ impl PyCairoRunner {
     pub fn insert(&self, key: &PyRelocatable, value: PyMaybeRelocatable) -> PyResult<()> {
         (*self.pyvm.vm)
             .borrow_mut()
-            .insert_value(&key.into(), value)
+            .insert_value(key.into(), value)
             .map_err(to_py_error)
     }
 
@@ -523,13 +523,12 @@ impl PyCairoRunner {
     }
 
     /// Return a value from memory given its address.
-    pub fn get(&self, py: Python, key: &PyRelocatable) -> PyResult<Option<PyObject>> {
+    pub fn get(&self, py: Python, key: &PyRelocatable) -> Option<PyObject> {
         self.pyvm
             .vm
             .borrow()
             .get_maybe(key)
-            .map_err(to_py_error)
-            .map(|x| x.map(|x| PyMaybeRelocatable::from(x).to_object(py)))
+            .map(|x| PyMaybeRelocatable::from(x).to_object(py))
     }
 
     /// Return a list of values from memory given an initial address and a length.
@@ -991,7 +990,7 @@ mod test {
         (*runner.pyvm.vm)
             .borrow_mut()
             .get_builtin_runners_as_mut()
-            .push((String::from("fake"), fake_builtin));
+            .push(("fake", fake_builtin));
         // The fake builtin we added should be filtered out when getting the initial stacks,
         // so we should only get the range_check builtin's initial stack
         let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
@@ -1059,7 +1058,7 @@ mod test {
         (*runner.pyvm.vm)
             .borrow_mut()
             .get_builtin_runners_as_mut()
-            .push((String::from("fake"), fake_builtin));
+            .push(("fake", fake_builtin));
         // The fake builtin we added should be filtered out when getting the final stacks,
         // so we should only get the range_check builtin's final stack
 
@@ -1095,7 +1094,6 @@ mod test {
                 .vm
                 .borrow()
                 .get_maybe(&Relocatable::from((1, 40)))
-                .unwrap()
                 .unwrap(),
             MaybeRelocatable::from((3, 20))
         );
@@ -1105,7 +1103,6 @@ mod test {
                 .vm
                 .borrow()
                 .get_maybe(&Relocatable::from((1, 39)))
-                .unwrap()
                 .unwrap(),
             MaybeRelocatable::from((2, 0))
         );
@@ -1402,7 +1399,7 @@ mod test {
         runner
             .initialize_function_runner()
             .expect("Failed to initialize function runner");
-        let pc_before_run = *runner.pyvm.vm.borrow().get_pc();
+        let pc_before_run = runner.pyvm.vm.borrow().get_pc();
 
         Python::with_gil(|py| {
             let result = runner.run_from_entrypoint(
@@ -1420,7 +1417,7 @@ mod test {
             assert!(format!("{:?}", result).contains("Execution reached the end of the program."));
         });
 
-        let pc_after_run = *runner.pyvm.vm.borrow().get_pc();
+        let pc_after_run = runner.pyvm.vm.borrow().get_pc();
 
         // As the run_resurces provide 0 steps, no steps should have been run
         // To check this, we check that the pc hasnt changed after "running" the vm
@@ -1849,7 +1846,6 @@ mod test {
                 vm_ref
                     .get_maybe(&Relocatable::from((0, 0)))
                     .unwrap()
-                    .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &Felt::new(1),
@@ -1857,7 +1853,6 @@ mod test {
             assert_eq!(
                 vm_ref
                     .get_maybe(&Relocatable::from((0, 1)))
-                    .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
@@ -1867,14 +1862,12 @@ mod test {
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 2)))
                 .unwrap()
-                .unwrap()
                 .get_relocatable()
                 .unwrap();
 
             assert_eq!(
                 vm_ref
                     .get_maybe(&relocatable)
-                    .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
@@ -1884,16 +1877,14 @@ mod test {
                 vm_ref
                     .get_maybe(&(&relocatable + 1))
                     .unwrap()
-                    .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &Felt::new(4),
             );
-            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 3)))
-                .unwrap()
                 .unwrap()
                 .get_relocatable()
                 .unwrap();
@@ -1901,7 +1892,6 @@ mod test {
             assert_eq!(
                 vm_ref
                     .get_maybe(&relocatable)
-                    .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
@@ -1911,17 +1901,13 @@ mod test {
                 vm_ref
                     .get_maybe(&(&relocatable + 1))
                     .unwrap()
-                    .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &Felt::new(6),
             );
-            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 
-            assert!(vm_ref
-                .get_maybe(&Relocatable::from((0, 4)))
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&Relocatable::from((0, 4))).is_none());
         });
     }
 
@@ -2026,7 +2012,6 @@ mod test {
             assert_eq!(
                 runner
                     .get(py, &ap)
-                    .unwrap()
                     .map(|x| MaybeRelocatable::from(x.extract::<PyMaybeRelocatable>(py).unwrap())),
                 Some(MaybeRelocatable::from(144)),
             );
@@ -2097,13 +2082,13 @@ mod test {
                     .borrow()
                     .get_builtin_runners()
                     .last()
-                    .map(|(key, _)| key.as_str()),
-                Some("hash_builtin"),
+                    .map(|(key, _)| key),
+                Some(&"hash_builtin"),
             );
 
             let mut vm = (*runner.pyvm.vm).borrow_mut();
             // Check that the segment exists by writing to it.
-            vm.insert_value(&Relocatable::from((0, 0)), MaybeRelocatable::from(42))
+            vm.insert_value(Relocatable::from((0, 0)), MaybeRelocatable::from(42))
                 .expect("memory insert failed");
         });
     }
@@ -2193,7 +2178,6 @@ mod test {
                 let addr = addr.__add__(offset);
                 runner
                     .get(py, &addr)
-                    .expect("Could not get value")
                     .map(|x| x.extract::<BigUint>(py))
                     .transpose()
                     .expect("Could not convert value to a biguint")
@@ -2313,7 +2297,6 @@ mod test {
                 let addr = addr.__add__(offset);
                 memory
                     .__getitem__(&addr, py)
-                    .expect("Could not get value from memory.")
                     .map(|x| x.extract::<BigUint>(py))
                     .transpose()
                     .expect("Could not convert value to a biguint")
@@ -2361,7 +2344,6 @@ mod test {
                 let addr = addr.__add__(offset);
                 memory
                     .__getitem__(&addr, py)
-                    .expect("Could not get value from memory.")
                     .map(|x| x.extract::<BigUint>(py))
                     .transpose()
                     .expect("Could not convert value to a biguint")

@@ -1,4 +1,4 @@
-use crate::utils::const_path_to_const_name;
+use crate::utils::{const_path_to_const_name, to_py_error};
 use cairo_felt::Felt;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
@@ -99,19 +99,26 @@ impl PyIds {
                         hint_ref,
                         &self.vm.borrow(),
                         &self.ap_tracking,
-                    )?,
+                    )
+                    .ok_or_else(|| to_py_error(HintError::UnknownIdentifier(name.to_string())))?,
                     cairo_type: cairo_type.to_string(),
                     struct_types: Rc::clone(&self.struct_types),
                 }
                 .into_py(py));
             } else if self.struct_types.contains_key(&clear_ref) {
                 let addr =
-                    compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
+                    compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)
+                        .ok_or_else(|| {
+                            to_py_error(HintError::UnknownIdentifier(format!(
+                                "{}.{}",
+                                name, clear_ref
+                            )))
+                        })?;
 
                 let hint_value = self
                     .vm
                     .borrow()
-                    .get_relocatable(&addr)
+                    .get_relocatable(addr)
                     .map_err(|err| PyValueError::new_err(err.to_string()))?;
 
                 return Ok(PyTypedId {
@@ -124,11 +131,9 @@ impl PyIds {
             }
         }
 
-        Ok(
-            get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)?
-                .to_object(py)
-                .into_py(py),
-        )
+        get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)
+            .ok_or_else(|| to_py_error(HintError::UnknownIdentifier(name.to_string())))
+            .map(|x| x.to_object(py))
     }
 
     pub fn __setattr__(&self, name: &str, val: PyMaybeRelocatable) -> PyResult<()> {
@@ -136,10 +141,11 @@ impl PyIds {
             .references
             .get(name)
             .ok_or_else(|| PyValueError::new_err(IDS_SET_ERROR_MSG))?;
-        let var_addr = compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)?;
+        let var_addr = compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)
+            .ok_or_else(|| to_py_error(HintError::UnknownIdentifier(name.to_string())))?;
         self.vm
             .borrow_mut()
-            .insert_value(&var_addr, &val)
+            .insert_value(var_addr, &val)
             .map_err(|err| PyValueError::new_err(err.to_string()))
     }
 }
@@ -192,7 +198,6 @@ impl PyTypedId {
                 Ok(match member.cairo_type.as_str() {
                     "felt" | "felt*" => vm
                         .get_maybe(&(self.hint_value + member.offset))
-                        .map_err(|err| PyValueError::new_err(err.to_string()))?
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
 
@@ -225,7 +230,7 @@ impl PyTypedId {
         match member.cairo_type.as_str() {
             "felt" | "felt*" => {
                 let field_addr = self.hint_value + member.offset;
-                vm.insert_value(&field_addr, val).map_err(|err| PyValueError::new_err(err.to_string()))
+                vm.insert_value(field_addr, val).map_err(|err| PyValueError::new_err(err.to_string()))
             }
 
             _cairo_type => Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
@@ -238,23 +243,20 @@ pub fn get_value_from_reference(
     vm: &VirtualMachine,
     hint_reference: &HintReference,
     ap_tracking: &ApTracking,
-) -> PyResult<PyMaybeRelocatable> {
+) -> Option<PyMaybeRelocatable> {
     // //First handle case on only immediate
     if let OffsetValue::Immediate(num) = &hint_reference.offset1 {
-        return Ok(PyMaybeRelocatable::from(num.to_biguint()));
+        return Some(PyMaybeRelocatable::from(num.to_biguint()));
     }
     //Then calculate address
     let var_addr = compute_addr_from_reference(hint_reference, vm, ap_tracking)?;
     let value = if hint_reference.dereference {
         vm.get_maybe(&var_addr)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?
     } else {
-        return Ok(PyMaybeRelocatable::from(var_addr));
+        return Some(PyMaybeRelocatable::from(var_addr));
     };
 
-    value
-        .ok_or_else(|| PyValueError::new_err(HintError::FailedToGetIds.to_string()))
-        .map(PyMaybeRelocatable::from)
+    value.map(|x| x.into())
 }
 
 ///Computes the memory address of the ids variable indicated by the HintReference as a Relocatable
@@ -264,9 +266,8 @@ pub fn compute_addr_from_reference(
     vm: &VirtualMachine,
     //ApTracking of the Hint itself
     hint_ap_tracking: &ApTracking,
-) -> PyResult<Relocatable> {
+) -> Option<Relocatable> {
     cairo_vm_compute_addr_from_reference(hint_reference, vm, hint_ap_tracking)
-        .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 #[cfg(test)]
 mod tests {
@@ -318,7 +319,7 @@ mod tests {
             //Insert ids.a into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from(2))
+                .insert_value(Relocatable::from((1, 1)), &MaybeRelocatable::from(2))
                 .unwrap();
 
             let memory = PyMemory::new(&vm);
@@ -353,11 +354,11 @@ memory[fp+2] = ids.CONST
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(2)))
+                Some(MaybeRelocatable::from(2))
             );
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-                Ok(Some(MaybeRelocatable::from(3)))
+                Some(MaybeRelocatable::from(3))
             );
         });
     }
@@ -388,13 +389,13 @@ memory[fp+2] = ids.CONST
             //Insert ids.a.x into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from(55))
+                .insert_value(Relocatable::from((1, 0)), &MaybeRelocatable::from(55))
                 .unwrap();
 
             //Insert ids.a.ptr into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
+                .insert_value(Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
                 .unwrap();
 
             let memory = PyMemory::new(&vm);
@@ -430,17 +431,17 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Check ids.a.x is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(Felt::new(55))))
+                Some(MaybeRelocatable::from(Felt::new(55)))
             );
             //Check ids.a.ptr is now at memory[fp + 1]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
-                Ok(Some(MaybeRelocatable::from((1, 0))))
+                Some(MaybeRelocatable::from((1, 0)))
             );
             //Check ids.SimpleStruct.SIZE is now at memory[fp + 2]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-                Ok(Some(MaybeRelocatable::from(Felt::new(2))))
+                Some(MaybeRelocatable::from(Felt::new(2)))
             );
 
             //ids.a.y does not exist
@@ -502,13 +503,13 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Insert ids.ns.x into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from(55))
+                .insert_value(Relocatable::from((1, 0)), &MaybeRelocatable::from(55))
                 .unwrap();
 
             //Insert ids.ns.ptr into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
+                .insert_value(Relocatable::from((1, 1)), &MaybeRelocatable::from((1, 0)))
                 .unwrap();
 
             let memory = PyMemory::new(&vm);
@@ -544,12 +545,12 @@ memory[fp + 1] = ids.ns.struct.address_
             //Check ids.Struct.SIZE is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 3))),
-                Ok(Some(MaybeRelocatable::from(0)))
+                Some(MaybeRelocatable::from(0))
             );
             //Check that address of ids.ns.struct is now at memory[fp + 1]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 4))),
-                Ok(Some(MaybeRelocatable::from((1, 1))))
+                Some(MaybeRelocatable::from((1, 1)))
             );
         });
     }
@@ -583,7 +584,7 @@ memory[fp + 1] = ids.ns.struct.address_
             //Insert ids.ssp into memory
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from((2, 0)))
+                .insert_value(Relocatable::from((1, 0)), &MaybeRelocatable::from((2, 0)))
                 .unwrap();
 
             let struct_types = HashMap::from([create_simple_struct_type()]);
@@ -670,7 +671,7 @@ assert ids.ssp_x_ptr == 5
 
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), &MaybeRelocatable::from(2))
+                .insert_value(Relocatable::from((1, 0)), &MaybeRelocatable::from(2))
                 .unwrap();
 
             let memory = PyMemory::new(&vm);
@@ -703,7 +704,7 @@ assert ids.ssp_x_ptr == 5
             //Check ids.a now contains memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
-                Ok(Some(MaybeRelocatable::from(2)))
+                Some(MaybeRelocatable::from(2))
             );
 
             //ids.b does not exist
@@ -776,12 +777,12 @@ ids.struct.ptr = ids.fp
             //Check ids.struct.x now contains 5
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(5)))
+                Some(MaybeRelocatable::from(5))
             );
             //Check ids.struct.x now contains fp's address
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 1))),
-                Ok(Some(MaybeRelocatable::from(vm.get_vm().borrow().get_fp())))
+                Some(MaybeRelocatable::from(vm.get_vm().borrow().get_fp()))
             );
 
             //ids.struct.y does not exist
@@ -871,7 +872,7 @@ memory[fp] = ids.ok_ref
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(5)))
+                Some(MaybeRelocatable::from(5))
             );
 
             let code = r"ids.bad_ref";
@@ -955,7 +956,7 @@ memory[fp] = ids.ok_ref
             //Check ids.a is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Ok(Some(MaybeRelocatable::from(imm)))
+                Some(MaybeRelocatable::from(imm))
             );
 
             let code = r"ids.no_reg_ref";
@@ -965,7 +966,7 @@ memory[fp] = ids.ok_ref
             assert!(py_result
                 .unwrap_err()
                 .to_string()
-                .contains(&HintError::NoRegisterInReference.to_string()));
+                .contains(&HintError::UnknownIdentifier("imm_ref".to_string()).to_string()));
         });
     }
 
@@ -1007,7 +1008,7 @@ memory[fp] = ids.ok_ref
             vm.vm
                 .borrow_mut()
                 .insert_value(
-                    &Relocatable::from((1, 0)),
+                    Relocatable::from((1, 0)),
                     &MaybeRelocatable::from(&relocatable),
                 )
                 .unwrap();
@@ -1045,7 +1046,7 @@ memory[fp] = ids.inner_imm_ref
             //Check ids.inner_imm_ref is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 5))),
-                Ok(Some(MaybeRelocatable::from(relocatable + imm_offset)))
+                Some(MaybeRelocatable::from(relocatable + imm_offset))
             );
         });
     }

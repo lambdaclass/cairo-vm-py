@@ -15,7 +15,6 @@ use pyo3::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-const MEMORY_GET_ERROR_MSG: &str = "Failed to get value from Cairo memory";
 const MEMORY_SET_ERROR_MSG: &str = "Failed to set value to Cairo memory";
 const MEMORY_GET_RANGE_ERROR_MSG: &str = "Failed to call get_range method from Cairo memory";
 const MEMORY_ADD_RELOCATION_RULE_ERROR_MSG: &str =
@@ -35,16 +34,11 @@ impl PyMemory {
     }
 
     #[getter]
-    pub fn __getitem__(&self, key: &PyRelocatable, py: Python) -> PyResult<Option<PyObject>> {
-        match self
-            .vm
+    pub fn __getitem__(&self, key: &PyRelocatable, py: Python) -> Option<PyObject> {
+        self.vm
             .borrow()
             .get_maybe(key)
-            .map_err(|_| PyTypeError::new_err(MEMORY_GET_ERROR_MSG))?
-        {
-            Some(maybe_reloc) => Ok(Some(PyMaybeRelocatable::from(maybe_reloc).to_object(py))),
-            None => Ok(None),
-        }
+            .map(|x| PyMaybeRelocatable::from(x).to_object(py))
     }
 
     #[setter]
@@ -54,7 +48,7 @@ impl PyMemory {
 
         self.vm
             .borrow_mut()
-            .insert_value(&key, value)
+            .insert_value(key, value)
             .map_err(|_| PyValueError::new_err(MEMORY_SET_ERROR_MSG))
     }
 
@@ -91,7 +85,7 @@ impl PyMemory {
         Ok(self
             .vm
             .borrow()
-            .get_integer_range(&Relocatable::from(&addr), size)
+            .get_integer_range(Relocatable::from(&addr), size)
             .map_err(to_py_error)?
             .into_iter()
             .map(|num| num.into_owned().to_biguint())
@@ -215,15 +209,15 @@ assert memory[ap] == fp
 
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
+                .insert_value(Relocatable::from((0, 0)), 2345108766317314046)
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+                .insert_value(Relocatable::from((1, 0)), Relocatable::from((2, 0)))
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 1)), Relocatable::from((3, 0)))
+                .insert_value(Relocatable::from((1, 1)), Relocatable::from((3, 0)))
                 .unwrap();
 
             let maybe_relocatable = MaybeRelocatable::from((1, 0));
@@ -267,15 +261,15 @@ assert memory[ap] == fp
 
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
+                .insert_value(Relocatable::from((0, 0)), 2345108766317314046)
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+                .insert_value(Relocatable::from((1, 0)), Relocatable::from((2, 0)))
                 .unwrap();
             vm.vm
                 .borrow_mut()
-                .insert_value(&Relocatable::from((1, 2)), Relocatable::from((3, 0)))
+                .insert_value(Relocatable::from((1, 2)), Relocatable::from((3, 0)))
                 .unwrap();
 
             let maybe_relocatable = MaybeRelocatable::from((1, 0));
