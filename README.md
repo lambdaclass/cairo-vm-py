@@ -50,6 +50,9 @@ To set up the Python environment, and install necessary Python libraries, run `m
 
 After setting up the environments, you can install the python binary using `maturin develop --release`.
 
+Finally, install into the python environment with `maturin develop --release`. For mac installation, these flags might be necessary:
+`maturin develop --release -m cairo-rs-py/Cargo.toml --no-default-features --features extension`.
+
 ## 🚀 Usage
 
 After installation, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
