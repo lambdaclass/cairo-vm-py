@@ -7,8 +7,8 @@ set -e
 SCRIPT_DIR="scripts/memory_comparator"
 
 python3.9 -m venv --upgrade-deps ${SCRIPT_DIR}/cairo-lang ${SCRIPT_DIR}/cairo-rs-py
-${SCRIPT_DIR}/cairo-lang/bin/pip install cairo-lang==0.10.1
-${SCRIPT_DIR}/cairo-rs-py/bin/pip install maturin==0.14.1 cairo-lang==0.10.1
+${SCRIPT_DIR}/cairo-lang/bin/pip install cairo-lang==0.10.3
+${SCRIPT_DIR}/cairo-rs-py/bin/pip install maturin==0.14.1 cairo-lang==0.10.3
 ${SCRIPT_DIR}/cairo-rs-py/bin/maturin build --manifest-path Cargo.toml --release --strip --interpreter 3.9 --no-default-features --features extension
 ${SCRIPT_DIR}/cairo-rs-py/bin/pip install target/wheels/cairo_rs_py-*.whl
 
