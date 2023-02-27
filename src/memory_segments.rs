@@ -134,7 +134,6 @@ mod test {
                 vm_ref
                     .get_maybe(&Relocatable::from((0, 0)))
                     .unwrap()
-                    .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &Felt::new(1),
@@ -142,7 +141,6 @@ mod test {
             assert_eq!(
                 vm_ref
                     .get_maybe(&Relocatable::from((0, 1)))
-                    .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
@@ -152,14 +150,12 @@ mod test {
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 2)))
                 .unwrap()
-                .unwrap()
                 .get_relocatable()
                 .unwrap();
 
             assert_eq!(
                 vm_ref
                     .get_maybe(&relocatable)
-                    .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
@@ -169,16 +165,14 @@ mod test {
                 vm_ref
                     .get_maybe(&(&relocatable + 1))
                     .unwrap()
-                    .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &Felt::new(4),
             );
-            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 
             let relocatable = vm_ref
                 .get_maybe(&Relocatable::from((0, 3)))
-                .unwrap()
                 .unwrap()
                 .get_relocatable()
                 .unwrap();
@@ -186,7 +180,6 @@ mod test {
             assert_eq!(
                 vm_ref
                     .get_maybe(&relocatable)
-                    .unwrap()
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
@@ -196,17 +189,13 @@ mod test {
                 vm_ref
                     .get_maybe(&(&relocatable + 1))
                     .unwrap()
-                    .unwrap()
                     .get_int_ref()
                     .unwrap(),
                 &Felt::new(6),
             );
-            assert!(vm_ref.get_maybe(&(&relocatable + 2)).unwrap().is_none());
+            assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 
-            assert!(vm_ref
-                .get_maybe(&Relocatable::from((0, 4)))
-                .unwrap()
-                .is_none());
+            assert!(vm_ref.get_maybe(&Relocatable::from((0, 4))).is_none());
         });
     }
 

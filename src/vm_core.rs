@@ -67,7 +67,7 @@ impl PyVM {
     #[getter]
     fn run_context(&self) -> PyRunContext {
         let vm = self.vm.borrow();
-        PyRunContext::new(*vm.get_pc(), vm.get_ap(), vm.get_fp())
+        PyRunContext::new(vm.get_pc(), vm.get_ap(), vm.get_fp())
     }
 }
 
@@ -360,7 +360,7 @@ mod test {
         ]);
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 1)), &MaybeRelocatable::from(2))
+            .insert_value(Relocatable::from((1, 1)), &MaybeRelocatable::from(2))
             .unwrap();
         let code = "ids.a = ids.b";
         let hint_data = HintProcessorData::new_default(code.to_string(), references);
@@ -376,7 +376,7 @@ mod test {
             .is_ok());
         assert_eq!(
             vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-            Ok(Some(MaybeRelocatable::from(2)))
+            Some(MaybeRelocatable::from(2))
         );
     }
 
@@ -434,15 +434,15 @@ mod test {
 
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
+            .insert_value(Relocatable::from((0, 0)), 2345108766317314046)
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .insert_value(Relocatable::from((1, 0)), Relocatable::from((2, 0)))
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 1)), Relocatable::from((3, 0)))
+            .insert_value(Relocatable::from((1, 1)), Relocatable::from((3, 0)))
             .unwrap();
 
         assert!(vm
@@ -474,15 +474,15 @@ mod test {
 
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((0, 0)), 2345108766317314046)
+            .insert_value(Relocatable::from((0, 0)), 2345108766317314046)
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .insert_value(Relocatable::from((1, 0)), Relocatable::from((2, 0)))
             .unwrap();
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 1)), Relocatable::from((3, 0)))
+            .insert_value(Relocatable::from((1, 1)), Relocatable::from((3, 0)))
             .unwrap();
 
         let code = "print(ap)";
@@ -861,7 +861,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         //insert ids.relocatable
         vm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .insert_value(Relocatable::from((1, 0)), Relocatable::from((2, 0)))
             .unwrap();
         let ids = HashMap::from([
             ("relocatable".to_string(), HintReference::new_simple(0)),
@@ -882,7 +882,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         assert_eq!(
             vm.vm
                 .borrow()
-                .get_relocatable(&Relocatable::from((1, 1)))
+                .get_relocatable(Relocatable::from((1, 1)))
                 .unwrap(),
             Relocatable::from((2, 0))
         );
@@ -902,22 +902,22 @@ lista_b = [lista_a[k] for k in range(2)]";
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .insert_value(Relocatable::from((1, 0)), Relocatable::from((2, 0)))
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 0)), 1)
+            .insert_value(Relocatable::from((2, 0)), 1)
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 1)), 2)
+            .insert_value(Relocatable::from((2, 1)), 2)
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 2)), 7)
+            .insert_value(Relocatable::from((2, 2)), 7)
             .unwrap();
 
         let hint_data = HintProcessorData::new_default(code.to_string(), ids);
@@ -946,17 +946,17 @@ lista_b = [lista_a[k] for k in range(2)]";
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((1, 0)), Relocatable::from((2, 0)))
+            .insert_value(Relocatable::from((1, 0)), Relocatable::from((2, 0)))
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 0)), 9)
+            .insert_value(Relocatable::from((2, 0)), 9)
             .unwrap();
 
         pyvm.vm
             .borrow_mut()
-            .insert_value(&Relocatable::from((2, 1)), 12)
+            .insert_value(Relocatable::from((2, 1)), 12)
             .unwrap();
 
         let hint_data = HintProcessorData::new_default(code.to_string(), ids);

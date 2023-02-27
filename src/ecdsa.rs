@@ -40,7 +40,7 @@ impl PySignature {
         for (address, pair) in self.signatures.iter() {
             signature_builtin
                 .add_signature(Relocatable::from(address), pair)
-                .map_err(VirtualMachineError::MemoryError)?
+                .map_err(VirtualMachineError::Memory)?
         }
         Ok(())
     }
@@ -120,7 +120,7 @@ mod test {
         let mut binding = runner.pyvm.vm.borrow_mut();
         let signature_builtin = binding.get_signature_builtin().unwrap();
 
-        assert_eq!(signature.update_signature(signature_builtin), Ok(()));
+        assert!(signature.update_signature(signature_builtin).is_ok());
 
         assert_ne!(original_signature.signatures, signature.signatures);
     }

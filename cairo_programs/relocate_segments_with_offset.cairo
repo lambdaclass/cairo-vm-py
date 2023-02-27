@@ -21,10 +21,6 @@ func main() {
         ids.temporary_array = segments.add_temp_segment()
     %}
 
-    // Insert values into temporary_array_no_offset
-    assert temporary_array[0] = 1;
-    assert temporary_array[1] = 2;
-
     // Create array
     let (array: felt*) = alloc();
 
