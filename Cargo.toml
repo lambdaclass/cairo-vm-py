@@ -5,10 +5,13 @@ edition = "2021"
 
 [dependencies]
 pyo3 = { version = "0.18", features = ["num-bigint"] }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "e0da0be05f3b5c2dfde12570fa7604fa28729805" }
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "e0da0be05f3b5c2dfde12570fa7604fa28729805" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "c326ba8c63dc36f16e99524e4489b76891b41c96" }
+cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "c326ba8c63dc36f16e99524e4489b76891b41c96" }
 num-bigint = "0.4"
 lazy_static = "1.4.0"
+bincode = { tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git", default-features = false, features = [
+    "serde",
+] }
 
 [dev-dependencies.rusty-hook]
 version = "0.11"

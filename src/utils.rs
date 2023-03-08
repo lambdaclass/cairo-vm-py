@@ -21,6 +21,13 @@ macro_rules! biguint {
     };
 }
 
+#[macro_export]
+macro_rules! any_box {
+    ($val : expr) => {
+        Box::new($val) as Box<dyn Any>
+    };
+}
+
 pub fn const_path_to_const_name(constants: &HashMap<String, Felt>) -> HashMap<String, BigUint> {
     constants
         .iter()
@@ -35,5 +42,5 @@ pub fn const_path_to_const_name(constants: &HashMap<String, Felt>) -> HashMap<St
 pub fn biguint_to_usize(biguint: &BigUint) -> Result<usize, VirtualMachineError> {
     biguint
         .try_into()
-        .map_err(|_| VirtualMachineError::BigintToUsizeFail)
+        .map_err(|_| VirtualMachineError::SliceToArrayError)
 }

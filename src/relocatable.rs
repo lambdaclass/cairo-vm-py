@@ -56,7 +56,7 @@ impl PyRelocatable {
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
                 if self.segment_index != address.segment_index {
-                    return Err(VirtualMachineError::DiffIndexSub).map_err(to_py_error)?;
+                    return Err(VirtualMachineError::NoSignatureBuiltin).map_err(to_py_error)?;
                 }
                 Ok(PyMaybeRelocatable::Int(biguint!(self.offset - address.offset)).to_object(py))
             }

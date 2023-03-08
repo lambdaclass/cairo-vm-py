@@ -95,7 +95,7 @@ mod test {
     #[test]
     fn py_range_check_from_result_err() {
         let result_with_range_check_builtin: Result<&RangeCheckBuiltinRunner, VirtualMachineError> =
-            Err(VirtualMachineError::BigintToU32Fail);
+            Err(VirtualMachineError::SliceToArrayError);
 
         assert_eq!(
             PyRangeCheck::from(result_with_range_check_builtin),

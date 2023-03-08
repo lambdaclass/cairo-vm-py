@@ -197,13 +197,17 @@ impl PyTypedId {
                 let vm = self.vm.borrow();
                 Ok(match member.cairo_type.as_str() {
                     "felt" | "felt*" => vm
-                        .get_maybe(&(self.hint_value + member.offset))
+                        .get_maybe(&(self.hint_value + member.offset).map_err(|err| {
+                            PyValueError::new_err(format!("{}: {}", self.cairo_type, err))
+                        })?)
                         .map(|x| PyMaybeRelocatable::from(x).to_object(py))
                         .unwrap_or_else(|| py.None()),
 
                     cairo_type => PyTypedId {
                         vm: self.vm.clone(),
-                        hint_value: (self.hint_value + member.offset),
+                        hint_value: (self.hint_value + member.offset).map_err(|err| {
+                            PyValueError::new_err(format!("{}: {}", self.cairo_type, err))
+                        })?,
                         cairo_type: cairo_type.to_string(),
                         struct_types: self.struct_types.clone(),
                     }
@@ -230,7 +234,7 @@ impl PyTypedId {
         match member.cairo_type.as_str() {
             "felt" | "felt*" => {
                 let field_addr = self.hint_value + member.offset;
-                vm.insert_value(field_addr, val).map_err(|err| PyValueError::new_err(err.to_string()))
+                vm.insert_value(field_addr.map_err(|err| PyValueError::new_err(err.to_string()))?, val).map_err(|err| PyValueError::new_err(err.to_string()))
             }
 
             _cairo_type => Err(PyValueError::new_err("Error: It should be possible to assign a struct into another struct's field. See issue #86")),
@@ -1050,7 +1054,7 @@ memory[fp] = ids.inner_imm_ref
             //Check ids.inner_imm_ref is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 5))),
-                Some(MaybeRelocatable::from(relocatable + imm_offset))
+                Some(MaybeRelocatable::from((relocatable + imm_offset).unwrap()))
             );
         });
     }
