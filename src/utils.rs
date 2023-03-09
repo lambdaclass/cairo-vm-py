@@ -1,5 +1,5 @@
 use cairo_felt::Felt;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::{types::errors::math_errors::MathError, vm::errors::vm_errors::VirtualMachineError};
 use num_bigint::BigUint;
 use pyo3::{exceptions::PyValueError, PyErr};
 use std::{collections::HashMap, fmt::Display};
@@ -42,5 +42,5 @@ pub fn const_path_to_const_name(constants: &HashMap<String, Felt>) -> HashMap<St
 pub fn biguint_to_usize(biguint: &BigUint) -> Result<usize, VirtualMachineError> {
     biguint
         .try_into()
-        .map_err(|_| VirtualMachineError::SliceToArrayError)
+        .map_err(|_| MathError::FeltToUsizeConversion(biguint.into()).into())
 }

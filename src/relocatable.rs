@@ -4,9 +4,9 @@ use crate::{
     vm_core::CAIRO_PRIME,
 };
 
-use cairo_vm::{
-    types::relocatable::{MaybeRelocatable, Relocatable},
-    vm::errors::vm_errors::VirtualMachineError,
+use cairo_vm::types::{
+    errors::math_errors::MathError,
+    relocatable::{MaybeRelocatable, Relocatable},
 };
 use num_bigint::BigUint;
 use pyo3::{exceptions::PyArithmeticError, prelude::*, pyclass::CompareOp};
@@ -56,7 +56,11 @@ impl PyRelocatable {
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
                 if self.segment_index != address.segment_index {
-                    return Err(VirtualMachineError::NoSignatureBuiltin).map_err(to_py_error)?;
+                    return Err(MathError::RelocatableSubDiffIndex(
+                        self.into(),
+                        Relocatable::from(&address),
+                    ))
+                    .map_err(to_py_error)?;
                 }
                 Ok(PyMaybeRelocatable::Int(biguint!(self.offset - address.offset)).to_object(py))
             }

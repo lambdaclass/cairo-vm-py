@@ -100,7 +100,7 @@ impl PySegmentManager {
 
 #[cfg(test)]
 mod test {
-    use std::borrow::{Borrow, BorrowMut};
+    use std::borrow::Borrow;
 
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};

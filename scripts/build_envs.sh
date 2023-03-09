@@ -24,14 +24,19 @@ set -e
 
 #This is not reaaaaally a robust way to find it, but you need to be actively
 # trying to break it for this to fail :)
-SCRIPT_DIR=$(dirname $0)
+SCRIPT_DIR=$(dirname $0)    
 
 python3.9 -m venv --upgrade-deps ${SCRIPT_DIR}/cairo-lang ${SCRIPT_DIR}/cairo-rs-py
+pypy3 -m venv --upgrade-deps ${SCRIPT_DIR}/cairo-rs-pypy
 ${SCRIPT_DIR}/cairo-lang/bin/pip install cairo-lang==0.10.3 poetry
 ${SCRIPT_DIR}/cairo-rs-py/bin/pip install maturin==0.14.1 cairo-lang==0.10.3 poetry
+${SCRIPT_DIR}/cairo-rs-pypy/bin/pip install maturin==0.14.1 cairo-lang==0.10.3 poetry
+${SCRIPT_DIR}/cairo-rs-pypy/bin/maturin build --manifest-path ${SCRIPT_DIR}/../Cargo.toml --release --strip --interpreter 3.9 --no-default-features --features extension-module
 ${SCRIPT_DIR}/cairo-rs-py/bin/maturin build --manifest-path ${SCRIPT_DIR}/../Cargo.toml --release --strip --interpreter 3.9 --no-default-features --features extension-module
 ${SCRIPT_DIR}/cairo-rs-py/bin/pip install ${SCRIPT_DIR}/../target/wheels/cairo_rs_py-*.whl
+${SCRIPT_DIR}/cairo-rs-pypy/bin/pip install ${SCRIPT_DIR}/../target/wheels/cairo_rs_pypy-*.whl
 patch --directory ${SCRIPT_DIR}/cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < ${SCRIPT_DIR}/move-to-cairo-rs-py.patch
+patch --directory ${SCRIPT_DIR}/cairo-rs-pypy/lib/pypy3/site-packages/ --strip 2 < ${SCRIPT_DIR}/move-to-cairo-rs-py.patch
 
 ${SCRIPT_DIR}/cairo-rs-py/bin/cairo-run --version
 ${SCRIPT_DIR}/cairo-rs-py/bin/starknet --version
