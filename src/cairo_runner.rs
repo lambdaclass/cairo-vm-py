@@ -6,8 +6,8 @@ use crate::{
     utils::to_py_error,
     vm_core::PyVM,
 };
+use bincode::enc::write::Writer;
 use cairo_vm::{
-    cairo_run::write_output,
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     serde::deserialize_program::Member,
     types::{
@@ -17,7 +17,6 @@ use cairo_vm::{
     vm::{
         errors::{
             cairo_run_errors::CairoRunError,
-            runner_errors::RunnerError,
             trace_errors::TraceError,
             vm_exception::{get_error_attr_value, get_location, get_traceback},
         },
@@ -30,12 +29,46 @@ use pyo3::{
     prelude::*,
     types::PyIterator,
 };
+use std::io::{self, Write};
 use std::{any::Any, borrow::BorrowMut, collections::HashMap, path::PathBuf, rc::Rc};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.utils, ResourcesError);
 
 const MEMORY_GET_SEGMENT_USED_SIZE_MSG: &str = "Failed to segment used size";
 const FAILED_TO_GET_INITIAL_FP: &str = "Failed to get initial segment";
+
+struct FileWriter {
+    buf_writer: io::BufWriter<std::fs::File>,
+    bytes_written: usize,
+}
+
+impl Writer for FileWriter {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), bincode::error::EncodeError> {
+        self.buf_writer
+            .write_all(bytes)
+            .map_err(|e| bincode::error::EncodeError::Io {
+                inner: e,
+                index: self.bytes_written,
+            })?;
+
+        self.bytes_written += bytes.len();
+
+        Ok(())
+    }
+}
+
+impl FileWriter {
+    fn new(buf_writer: io::BufWriter<std::fs::File>) -> Self {
+        Self {
+            buf_writer,
+            bytes_written: 0,
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.buf_writer.flush()
+    }
+}
 
 #[pyclass(unsendable)]
 #[pyo3(name = "CairoRunner")]
@@ -59,7 +92,7 @@ impl PyCairoRunner {
         proof_mode: bool,
     ) -> PyResult<Self> {
         let program =
-            Program::from_reader(program.as_bytes(), entrypoint.as_deref()).map_err(to_py_error)?;
+            Program::from_bytes(program.as_bytes(), entrypoint.as_deref()).map_err(to_py_error)?;
         let cairo_runner = CairoRunner::new(
             &program,
             &layout.unwrap_or_else(|| "plain".to_string()),
@@ -151,18 +184,25 @@ impl PyCairoRunner {
                 .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
                 .map_err(to_py_error)?;
 
-            match cairo_vm::cairo_run::write_binary_trace(relocated_trace, &trace_path) {
-                Ok(()) => (),
-                Err(_e) => {
-                    return Err(CairoRunError::Runner(RunnerError::WriteFail)).map_err(to_py_error)
-                }
-            }
+            let trace_file = std::fs::File::create(trace_path)?;
+
+            let mut trace_writer = FileWriter::new(io::BufWriter::new(trace_file));
+
+            cairo_vm::cairo_run::write_encoded_trace(relocated_trace, &mut trace_writer)
+                .map_err(to_py_error)?;
+            trace_writer.flush()?;
         }
 
         if let Some(memory_path) = memory_file {
-            let memory_path = PathBuf::from(memory_path);
-            cairo_vm::cairo_run::write_binary_memory(&self.inner.relocated_memory, &memory_path)
-                .map_err(|_| to_py_error(CairoRunError::Runner(RunnerError::WriteFail)))?;
+            let memory_file = std::fs::File::create(memory_path)?;
+            let mut memory_writer = FileWriter::new(io::BufWriter::new(memory_file));
+
+            cairo_vm::cairo_run::write_encoded_memory(
+                &self.inner.relocated_memory,
+                &mut memory_writer,
+            )
+            .map_err(to_py_error)?;
+            memory_writer.flush()?;
         }
 
         Ok(())
@@ -230,14 +270,14 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
-    pub fn get_output(&mut self) -> PyResult<String> {
-        self.inner
-            .get_output(&mut (*self.pyvm.vm).borrow_mut())
-            .map_err(to_py_error)
-    }
-
     pub fn write_output(&mut self) -> PyResult<()> {
-        write_output(&mut self.inner, &mut (*self.pyvm.vm).borrow_mut()).map_err(to_py_error)
+        let mut buffer = String::new();
+        (*self.pyvm.vm)
+            .borrow_mut()
+            .write_output(&mut buffer)
+            .map_err(to_py_error)?;
+        println!("Program Output:\n{}", buffer);
+        Ok(())
     }
 
     pub fn add_segment(&self) -> PyRelocatable {
@@ -515,9 +555,12 @@ impl PyCairoRunner {
             );
         }
 
+        let pointer = ptr
+            .get_relocatable()
+            .ok_or_else(|| PyValueError::new_err("Cannot write to a non-relocatable pointer."))?;
         (*self.pyvm.vm)
             .borrow_mut()
-            .load_data(&ptr, &data)
+            .load_data(pointer, &data)
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
@@ -533,11 +576,13 @@ impl PyCairoRunner {
 
     /// Return a list of values from memory given an initial address and a length.
     pub fn get_range(&self, py: Python, key: &PyRelocatable, size: usize) -> PyResult<PyObject> {
+        let pointer: Relocatable = key.into();
+
         Ok(self
             .pyvm
             .vm
             .borrow()
-            .get_continuous_range(&MaybeRelocatable::RelocatableValue(key.into()), size)
+            .get_continuous_range(pointer, size)
             .map_err(to_py_error)?
             .into_iter()
             .map(PyMaybeRelocatable::from)
@@ -795,20 +840,6 @@ mod test {
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
         runner.relocate().unwrap();
-    }
-
-    #[test]
-    fn get_output() {
-        let path = "cairo_programs/fibonacci.json".to_string();
-        let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            Some("main".to_string()),
-            Some("small".to_string()),
-            false,
-        )
-        .unwrap();
-        runner.get_output().unwrap();
     }
 
     #[test]
@@ -1662,7 +1693,7 @@ mod test {
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range(&(0, 0).into(), 3),
+                .get_continuous_range((0, 0).into(), 3),
             Ok(vec![3.into(), 4.into(), 5.into(),]),
         )
     }
@@ -1687,7 +1718,7 @@ mod test {
         assert_eq!(
             (*runner.pyvm.get_vm())
                 .borrow()
-                .get_continuous_range(&(0, 0).into(), 2),
+                .get_continuous_range((0, 0).into(), 2),
             Ok(vec![3.into(), 4.into(),]),
         );
     }
@@ -2034,18 +2065,15 @@ mod test {
             let ptr = {
                 let mut vm = (*runner.pyvm.vm).borrow_mut();
                 let ptr = vm.add_memory_segment();
-                vm.load_data(
-                    &(&ptr).into(),
-                    &vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
-                )
-                .unwrap();
+                vm.load_data(ptr, &vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()])
+                    .unwrap();
 
                 ptr
             };
 
             assert_eq!(
                 runner
-                    .get_range(py, &ptr.into(), 5)
+                    .get_range(py, &PyRelocatable::from(ptr), 5)
                     .unwrap()
                     .extract::<Vec<PyMaybeRelocatable>>(py)
                     .unwrap()

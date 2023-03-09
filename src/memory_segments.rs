@@ -76,9 +76,13 @@ impl PySegmentManager {
             );
         }
 
+        let pointer = ptr
+            .get_relocatable()
+            .ok_or_else(|| to_py_error("Invalid pointer"))?;
+
         self.vm
             .borrow_mut()
-            .load_data(&ptr, &data)
+            .load_data(pointer, &data)
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
     }
@@ -96,6 +100,8 @@ impl PySegmentManager {
 
 #[cfg(test)]
 mod test {
+    use std::borrow::Borrow;
+
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
     use cairo_felt::Felt;
@@ -127,7 +133,7 @@ mod test {
                 )
                 .unwrap();
 
-            let vm_ref = vm.get_vm();
+            let vm_ref = (*(vm.vm)).borrow();
             let vm_ref = vm_ref.borrow();
 
             assert_eq!(
@@ -215,11 +221,10 @@ mod test {
         let segments = PySegmentManager::new(&vm, memory);
 
         let segment = segments.add().expect("Unable to add a new segment.");
-        assert!(vm
-            .vm
+        assert!((*(vm.vm))
             .borrow_mut()
             .load_data(
-                &Relocatable::from(&segment).into(),
+                Relocatable::from(&segment).into(),
                 &vec![
                     MaybeRelocatable::from(1),
                     MaybeRelocatable::from(2),
@@ -228,7 +233,8 @@ mod test {
                 ],
             )
             .is_ok());
-        vm.vm.borrow_mut().compute_effective_sizes();
+        (*(vm.vm)).borrow_mut().compute_segments_effective_sizes();
+
         assert_eq!(
             segments.get_segment_used_size(segment.segment_index as _),
             Some(4),

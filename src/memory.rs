@@ -61,7 +61,14 @@ impl PyMemory {
         Ok(self
             .vm
             .borrow()
-            .get_continuous_range(&MaybeRelocatable::from(addr), size)
+            .get_continuous_range(
+                MaybeRelocatable::from(addr)
+                    .get_relocatable()
+                    .ok_or_else(|| {
+                        PyTypeError::new_err("Cannot get range from non-relocatable address")
+                    })?,
+                size,
+            )
             .map_err(|_| PyTypeError::new_err(MEMORY_GET_RANGE_ERROR_MSG))?
             .into_iter()
             .map(Into::<PyMaybeRelocatable>::into)
@@ -297,7 +304,7 @@ assert memory[ap] == fp
             let addr = vm.add_memory_segment();
 
             vm.load_data(
-                &MaybeRelocatable::from(&addr),
+                MaybeRelocatable::from(&addr).get_relocatable().unwrap(),
                 &vec![1.into(), 2.into(), 3.into(), 4.into()],
             )
             .expect("memory insertion failed");
@@ -329,7 +336,7 @@ assert memory[ap] == fp
             let addr = vm.add_memory_segment();
 
             vm.load_data(
-                &MaybeRelocatable::from(&addr),
+                MaybeRelocatable::from(&addr).get_relocatable().unwrap(),
                 &vec![
                     1.into(),
                     2.into(),
@@ -358,11 +365,8 @@ assert memory[ap] == fp
             let mut vm = vm.vm.borrow_mut();
             let addr = vm.add_memory_segment();
 
-            vm.load_data(
-                &MaybeRelocatable::from(&addr),
-                &vec![1.into(), 2.into(), 3.into(), 4.into()],
-            )
-            .expect("memory insertion failed");
+            vm.load_data(addr, &vec![1.into(), 2.into(), 3.into(), 4.into()])
+                .expect("memory insertion failed");
 
             addr
         };

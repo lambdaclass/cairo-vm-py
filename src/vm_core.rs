@@ -1,3 +1,4 @@
+use crate::any_box;
 use crate::ecdsa::PySignature;
 use crate::ids::PyIds;
 use crate::pycell;
@@ -9,8 +10,7 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable,
 };
-use cairo_felt::{Felt, FIELD_HIGH, FIELD_LOW};
-use cairo_vm::any_box;
+use cairo_felt::Felt;
 use cairo_vm::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_vm::serde::deserialize_program::Member;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -51,8 +51,7 @@ const GLOBAL_NAMES: [&str; 18] = [
 ];
 
 lazy_static! {
-    pub static ref CAIRO_PRIME: BigUint =
-        (Into::<BigUint>::into(FIELD_HIGH) << 128) + Into::<BigUint>::into(FIELD_LOW);
+    pub static ref CAIRO_PRIME: BigUint = Felt::prime();
 }
 
 #[derive(Clone)]
@@ -822,9 +821,7 @@ lista_b = [lista_a[k] for k in range(2)]";
         Python::with_gil(|py| {
             assert_eq!(
                 exec_scopes
-                    .get_any_boxed_ref("felt")
-                    .unwrap()
-                    .downcast_ref::<PyObject>()
+                    .get::<PyObject>("felt")
                     .unwrap()
                     .extract::<PyMaybeRelocatable>(py)
                     .unwrap(),

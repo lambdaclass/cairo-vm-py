@@ -1,7 +1,7 @@
-use std::{any::Any, collections::HashMap};
-
-use cairo_vm::{any_box, types::exec_scope::ExecutionScopes};
+use crate::any_box;
+use cairo_vm::types::exec_scope::ExecutionScopes;
 use pyo3::{pyclass, pymethods, PyErr, PyObject};
+use std::{any::Any, collections::HashMap};
 
 use crate::utils::to_py_error;
 
