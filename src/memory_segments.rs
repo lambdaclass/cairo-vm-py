@@ -233,7 +233,7 @@ mod test {
                 ],
             )
             .is_ok());
-        (*(vm.vm)).borrow_mut().segments.compute_effective_sizes();
+        (*(vm.vm)).borrow_mut().compute_segments_effective_sizes();
 
         assert_eq!(
             segments.get_segment_used_size(segment.segment_index as _),
