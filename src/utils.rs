@@ -1,4 +1,4 @@
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use cairo_vm::{types::errors::math_errors::MathError, vm::errors::vm_errors::VirtualMachineError};
 use num_bigint::BigUint;
 use pyo3::{exceptions::PyValueError, PyErr};
@@ -28,7 +28,7 @@ macro_rules! any_box {
     };
 }
 
-pub fn const_path_to_const_name(constants: &HashMap<String, Felt>) -> HashMap<String, BigUint> {
+pub fn const_path_to_const_name(constants: &HashMap<String, Felt252>) -> HashMap<String, BigUint> {
     constants
         .iter()
         .map(|(name, value)| {
@@ -42,5 +42,5 @@ pub fn const_path_to_const_name(constants: &HashMap<String, Felt>) -> HashMap<St
 pub fn biguint_to_usize(biguint: &BigUint) -> Result<usize, VirtualMachineError> {
     biguint
         .try_into()
-        .map_err(|_| MathError::FeltToUsizeConversion(biguint.into()).into())
+        .map_err(|_| MathError::Felt252ToUsizeConversion(biguint.into()).into())
 }

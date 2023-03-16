@@ -1,5 +1,5 @@
 use crate::utils::{const_path_to_const_name, to_py_error};
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use std::{
@@ -155,7 +155,7 @@ impl PyIds {
         vm: &PyVM,
         references: &HashMap<String, HintReference>,
         ap_tracking: &ApTracking,
-        constants: &HashMap<String, Felt>,
+        constants: &HashMap<String, Felt252>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
     ) -> PyIds {
         PyIds {
@@ -318,7 +318,7 @@ mod tests {
 
             //Create constants
             let mut constants = HashMap::new();
-            constants.insert(String::from("CONST"), Felt::new(3));
+            constants.insert(String::from("CONST"), Felt252::new(3));
 
             //Insert ids.a into memory
             vm.vm
@@ -435,7 +435,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Check ids.a.x is now at memory[fp]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 0))),
-                Some(MaybeRelocatable::from(Felt::new(55)))
+                Some(MaybeRelocatable::from(Felt252::new(55)))
             );
             //Check ids.a.ptr is now at memory[fp + 1]
             assert_eq!(
@@ -445,7 +445,7 @@ memory[fp + 2] = ids.SimpleStruct.SIZE
             //Check ids.SimpleStruct.SIZE is now at memory[fp + 2]
             assert_eq!(
                 vm.vm.borrow().get_maybe(&Relocatable::from((1, 2))),
-                Some(MaybeRelocatable::from(Felt::new(2)))
+                Some(MaybeRelocatable::from(Felt252::new(2)))
             );
 
             //ids.a.y does not exist
@@ -671,7 +671,7 @@ assert ids.ssp_x_ptr == 5
 
             //Create constants
             let mut constants = HashMap::new();
-            constants.insert(String::from("CONST"), Felt::new(3));
+            constants.insert(String::from("CONST"), Felt252::new(3));
 
             vm.vm
                 .borrow_mut()
@@ -916,8 +916,8 @@ memory[fp] = ids.ok_ref
             references.insert(
                 String::from("imm_ref"),
                 HintReference {
-                    offset1: OffsetValue::Immediate(Felt::from(imm)),
-                    offset2: OffsetValue::Immediate(Felt::from(0)),
+                    offset1: OffsetValue::Immediate(Felt252::from(imm)),
+                    offset2: OffsetValue::Immediate(Felt252::from(0)),
                     dereference: true,
                     ap_tracking_data: None,
                     cairo_type: None,
