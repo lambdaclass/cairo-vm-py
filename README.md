@@ -126,6 +126,8 @@ Lastly, run make + the project you desire to try:
 benchmark-devnet
 ```
 
+You can also find benchmark comparisons between cairo-lang and cairo-rs-py using pypy [here](https://cairo-rs-benchmarks.lambdaclass.com)
+
 ## 🌞 Related Projects
 
 - [cairo-rs](https://github.com/lambdaclass/cairo-rs): A fast implementation of the Cairo VM in Rust.
