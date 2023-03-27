@@ -563,6 +563,17 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
+    pub fn load_data(&self, ptr: PyRelocatable, data: Vec<PyMaybeRelocatable>) -> PyResult<()> {
+        (*self.pyvm.vm)
+            .borrow_mut()
+            .load_data(
+                Relocatable::from(&ptr),
+                &data.iter().map(|e| MaybeRelocatable::from(e)).collect(),
+            )
+            .map_err(to_py_error)?;
+        Ok(())
+    }
+
     /// Return a value from memory given its address.
     pub fn get(&self, py: Python, key: &PyRelocatable) -> Option<PyObject> {
         self.pyvm
