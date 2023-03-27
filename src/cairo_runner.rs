@@ -498,9 +498,12 @@ impl PyCairoRunner {
     }
 
     // Initialize all the builtins and segments.
-    pub fn initialize_function_runner(&mut self) -> PyResult<()> {
+    pub fn initialize_function_runner(&mut self, add_segment_arena_builtin: bool) -> PyResult<()> {
         self.inner
-            .initialize_function_runner(&mut (*self.pyvm.vm).borrow_mut())
+            .initialize_function_runner(
+                &mut (*self.pyvm.vm).borrow_mut(),
+                add_segment_arena_builtin,
+            )
             .map_err(to_py_error)
     }
 
@@ -906,7 +909,7 @@ mod test {
             false,
         )
         .unwrap();
-        runner.initialize_function_runner().unwrap(); // Has all builtins
+        runner.initialize_function_runner(false).unwrap(); // Has all builtins
         assert_eq!(
             runner.get_poseidon_builtin_base().unwrap(),
             PyRelocatable::from((9, 0))
@@ -939,7 +942,7 @@ mod test {
             false,
         )
         .unwrap();
-        runner.initialize_function_runner().unwrap(); // Has all builtins
+        runner.initialize_function_runner(false).unwrap(); // Has all builtins
         assert_eq!(
             runner.get_range_check_builtin_base().unwrap(),
             PyRelocatable::from((3, 0))
@@ -1230,7 +1233,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1263,7 +1266,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1302,7 +1305,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1347,7 +1350,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1389,7 +1392,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1425,7 +1428,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
         let pc_before_run = runner.pyvm.vm.borrow().get_pc();
 
@@ -1465,7 +1468,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1768,7 +1771,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
@@ -1830,7 +1833,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
