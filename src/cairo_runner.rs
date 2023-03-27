@@ -15,11 +15,7 @@ use cairo_vm::{
         relocatable::{MaybeRelocatable, Relocatable},
     },
     vm::{
-        errors::{
-            cairo_run_errors::CairoRunError,
-            trace_errors::TraceError,
-            vm_exception::{get_error_attr_value, get_location, get_traceback},
-        },
+        errors::vm_exception::{get_error_attr_value, get_location, get_traceback},
         runners::cairo_runner::{CairoRunner, ExecutionResources},
         security::verify_secure_runner,
     },
@@ -177,12 +173,8 @@ impl PyCairoRunner {
 
         if let Some(trace_path) = trace_file {
             let trace_path = PathBuf::from(trace_path);
-            let relocated_trace = self
-                .inner
-                .relocated_trace
-                .as_ref()
-                .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
-                .map_err(to_py_error)?;
+            let vm_ref = self.pyvm.vm.borrow();
+            let relocated_trace = vm_ref.get_relocated_trace().map_err(to_py_error)?;
 
             let trace_file = std::fs::File::create(trace_path)?;
 
@@ -289,13 +281,13 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .filter(|(builtin_name, _builtin_runner)| {
+            .filter(|builtin_runner| {
                 self.inner
                     .get_program_builtins()
                     .iter()
-                    .any(|name| &name.name() == builtin_name)
+                    .any(|name| &name.name() == &builtin_runner.name())
             })
-            .flat_map(|(_builtin_name, builtin_runner)| {
+            .flat_map(|builtin_runner| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
@@ -311,7 +303,7 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .map(|(_builtin_name, builtin_runner)| {
+            .map(|builtin_runner| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
@@ -842,6 +834,8 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
+        let address = runner.initialize().unwrap();
+        runner.run_until_pc(&address, None).unwrap();
         runner.relocate().unwrap();
     }
 
@@ -945,7 +939,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1002,48 +996,6 @@ mod test {
     }
 
     #[test]
-    fn get_builtins_initial_stack_filters_non_program_builtins() {
-        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
-        let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            Some("main".to_string()),
-            Some("small".to_string()),
-            false,
-        )
-        .unwrap();
-        runner
-            .cairo_run_py(false, None, None, None, None, Some("main"))
-            .unwrap();
-        // Make a copy of the builtin in order to insert a second "fake" one
-        // BuiltinRunner api is private, so we can create a new one for this test
-        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
-            .1
-            .clone();
-        // Insert our fake builtin into our vm
-        (*runner.pyvm.vm)
-            .borrow_mut()
-            .get_builtin_runners_as_mut()
-            .push(("fake", fake_builtin));
-        // The fake builtin we added should be filtered out when getting the initial stacks,
-        // so we should only get the range_check builtin's initial stack
-        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
-            segment_index: 2,
-            offset: 0,
-        })];
-
-        Python::with_gil(|py| {
-            assert_eq!(
-                runner
-                    .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<PyMaybeRelocatable>>(py)
-                    .unwrap(),
-                expected_output
-            );
-        });
-    }
-
-    #[test]
     fn final_stack_when_not_using_builtins() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -1067,43 +1019,6 @@ mod test {
             expected_output
         );
     }
-    #[test]
-    fn get_builtins_final_stack_filters_non_program_builtins() {
-        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
-        let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            Some("main".to_string()),
-            Some("small".to_string()),
-            false,
-        )
-        .unwrap();
-
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
-
-        // Make a copy of the builtin in order to insert a second "fake" one
-        // BuiltinRunner api is private, so we can create a new one for this test
-        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
-            .1
-            .clone();
-        // Insert our fake builtin into our vm
-        (*runner.pyvm.vm)
-            .borrow_mut()
-            .get_builtin_runners_as_mut()
-            .push(("fake", fake_builtin));
-        // The fake builtin we added should be filtered out when getting the final stacks,
-        // so we should only get the range_check builtin's final stack
-
-        let expected_output = PyRelocatable::from((1, 8));
-
-        let final_stack = PyRelocatable::from((1, 9));
-        assert_eq!(
-            runner.get_builtins_final_stack(final_stack).unwrap(),
-            expected_output
-        );
-    }
 
     #[test]
     fn final_stack_when_using_two_builtins() {
@@ -1112,7 +1027,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1733,7 +1648,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some(String::from("all")),
+            Some(String::from("all_cairo")),
             false,
         )
         .unwrap();
@@ -1753,7 +1668,7 @@ mod test {
         let runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some(String::from("all")),
+            Some(String::from("all_cairo")),
             false,
         )
         .unwrap();
@@ -1768,7 +1683,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1806,6 +1721,10 @@ mod test {
                 segment_index: 8,
                 offset: 0,
             })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 9,
+                offset: 0,
+            })],
         ];
 
         Python::with_gil(|py| {
@@ -1826,7 +1745,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1856,7 +1775,7 @@ mod test {
             let runner = PyCairoRunner::new(
                 program,
                 Some("main".to_string()),
-                Some("all".to_string()),
+                Some("all_cairo".to_string()),
                 false,
             )
             .unwrap();
@@ -1952,7 +1871,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1978,7 +1897,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -2107,15 +2026,6 @@ mod test {
             };
             let relocatable = runner.add_additional_hash_builtin();
             assert_eq!(expected_relocatable, relocatable);
-
-            assert_eq!(
-                (*runner.pyvm.vm)
-                    .borrow()
-                    .get_builtin_runners()
-                    .last()
-                    .map(|(key, _)| key),
-                Some(&"hash_builtin"),
-            );
 
             let mut vm = (*runner.pyvm.vm).borrow_mut();
             // Check that the segment exists by writing to it.
@@ -2589,7 +2499,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
