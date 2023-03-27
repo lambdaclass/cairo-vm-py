@@ -664,6 +664,11 @@ impl PyCairoRunner {
     pub fn vm_memory(&self) -> PyMemory {
         PyMemory::new(&self.pyvm)
     }
+
+    #[getter]
+    pub fn program_base(&self) -> Option<PyRelocatable> {
+        self.inner.program_base.map(Into::into)
+    }
 }
 
 pyo3::import_exception!(starkware.cairo.lang.vm.vm_exceptions, VmException);
