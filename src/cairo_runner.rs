@@ -622,14 +622,23 @@ impl PyCairoRunner {
         Ok(cairo_args.to_object(py))
     }
 
-    /// Add (or replace if already present) a custom hash builtin.
-    /// Returns a Relocatable with the new hash builtin base.
+    /// Returns a the poseidon builtin's base if present
     pub fn get_poseidon_builtin_base(&self) -> PyResult<PyRelocatable> {
         let vm = (*self.pyvm.vm).borrow_mut();
         vm.get_builtin_runners()
             .iter()
             .find(|b| b.name() == "poseidon")
             .ok_or(PyValueError::new_err("poseidon builtin not present"))
+            .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
+    }
+
+    /// Returns a the range_check builtin's base if present
+    pub fn get_range_check_builtin_base(&self) -> PyResult<PyRelocatable> {
+        let vm = (*self.pyvm.vm).borrow_mut();
+        vm.get_builtin_runners()
+            .iter()
+            .find(|b| b.name() == "range_check")
+            .ok_or(PyValueError::new_err("range_check builtin not present"))
             .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
 
@@ -901,6 +910,39 @@ mod test {
         assert_eq!(
             runner.get_poseidon_builtin_base().unwrap(),
             PyRelocatable::from((9, 0))
+        );
+    }
+
+    #[test]
+    fn get_range_check_builtin_base_no_range_check() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize().unwrap();
+        assert!(runner.get_range_check_builtin_base().is_err());
+    }
+
+    #[test]
+    fn get_range_check_builtin_base_with_range_check() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize_function_runner().unwrap(); // Has all builtins
+        assert_eq!(
+            runner.get_range_check_builtin_base().unwrap(),
+            PyRelocatable::from((3, 0))
         );
     }
 
