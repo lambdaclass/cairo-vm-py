@@ -624,9 +624,13 @@ impl PyCairoRunner {
 
     /// Add (or replace if already present) a custom hash builtin.
     /// Returns a Relocatable with the new hash builtin base.
-    pub fn add_additional_hash_builtin(&self) -> PyRelocatable {
-        let mut vm = (*self.pyvm.vm).borrow_mut();
-        self.inner.add_additional_hash_builtin(&mut vm).into()
+    pub fn get_poseidon_builtin_base(&self) -> PyResult<PyRelocatable> {
+        let vm = (*self.pyvm.vm).borrow_mut();
+        vm.get_builtin_runners()
+            .iter()
+            .find(|b| b.name() == "poseidon")
+            .ok_or(PyValueError::new_err("poseidon builtin not present"))
+            .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
 
     #[getter]
@@ -865,6 +869,39 @@ mod test {
         )
         .unwrap();
         assert_eq!(runner.get_ap().unwrap(), PyRelocatable::from((1, 0)));
+    }
+
+    #[test]
+    fn get_poseidon_builtin_base_no_poseidon() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize().unwrap();
+        assert!(runner.get_poseidon_builtin_base().is_err());
+    }
+
+    #[test]
+    fn get_poseidon_builtin_base_with_poseidon() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize_function_runner().unwrap(); // Has all builtins
+        assert_eq!(
+            runner.get_poseidon_builtin_base().unwrap(),
+            PyRelocatable::from((9, 0))
+        );
     }
 
     #[test]
@@ -2004,33 +2041,6 @@ mod test {
                     .collect::<Vec<_>>(),
                 vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into(),],
             );
-        });
-    }
-
-    /// Test that add_additional_hash_builtin() returns successfully.
-    #[test]
-    fn add_additional_hash_builtin() {
-        Python::with_gil(|_| {
-            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
-            let runner = PyCairoRunner::new(
-                program,
-                Some("main".to_string()),
-                Some("small".to_string()),
-                false,
-            )
-            .unwrap();
-
-            let expected_relocatable = PyRelocatable {
-                segment_index: 0,
-                offset: 0,
-            };
-            let relocatable = runner.add_additional_hash_builtin();
-            assert_eq!(expected_relocatable, relocatable);
-
-            let mut vm = (*runner.pyvm.vm).borrow_mut();
-            // Check that the segment exists by writing to it.
-            vm.insert_value(Relocatable::from((0, 0)), MaybeRelocatable::from(42))
-                .expect("memory insert failed");
         });
     }
 
