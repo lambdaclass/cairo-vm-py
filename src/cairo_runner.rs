@@ -303,14 +303,14 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .flat_map(|builtin_runner| {
+            .map(|builtin_runner| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
                     .map(Into::<PyMaybeRelocatable>::into)
                     .collect::<Vec<PyMaybeRelocatable>>()
             })
-            .collect::<Vec<PyMaybeRelocatable>>()
+            .collect::<Vec<Vec<PyMaybeRelocatable>>>()
             .to_object(py)
     }
 
