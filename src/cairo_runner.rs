@@ -26,7 +26,7 @@ use pyo3::{
     types::PyIterator,
 };
 use std::io::{self, Write};
-use std::{any::Any, borrow::BorrowMut, collections::HashMap, path::PathBuf, rc::Rc};
+use std::{borrow::BorrowMut, collections::HashMap, path::PathBuf, rc::Rc};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.utils, ResourcesError);
 
@@ -376,27 +376,13 @@ impl PyCairoRunner {
         py: Python,
         entrypoint: &PyAny,
         typed_args: Option<Py<PyAny>>,
-        non_typed_args: Option<Vec<PyMaybeRelocatable>>,
+        non_typed_args: Option<Vec<&PyAny>>,
         hint_locals: Option<HashMap<String, PyObject>>,
         static_locals: Option<HashMap<String, PyObject>>,
         verify_secure: Option<bool>,
         run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
-        enum Either {
-            MaybeRelocatable(MaybeRelocatable),
-            VecMaybeRelocatable(Vec<MaybeRelocatable>),
-        }
-
-        impl Either {
-            pub fn as_any(&self) -> &dyn Any {
-                match self {
-                    Self::MaybeRelocatable(x) => x as &dyn Any,
-                    Self::VecMaybeRelocatable(x) => x as &dyn Any,
-                }
-            }
-        }
-
         if typed_args.is_some() && non_typed_args.is_some() {
             return Err(PyValueError::new_err(
                 "Cant have typed_args & non_typed_args",
@@ -431,11 +417,21 @@ impl PyCairoRunner {
         } else {
             let args =
                 non_typed_args.ok_or(PyValueError::new_err("Missing entrypoint arguments"))?;
-            args.iter().map(|x| MaybeRelocatable::from(x)).collect()
+            let mut stack = vec![];
+            for arg in args {
+                if let Ok(element) = arg.extract::<PyMaybeRelocatable>() {
+                    stack.push(MaybeRelocatable::from(element))
+                } else if let Ok(arg) = arg.extract::<Vec<PyMaybeRelocatable>>() {
+                    stack.push(MaybeRelocatable::from(
+                        self.gen_arg(py, arg.to_object(py), false)?
+                            .extract::<PyMaybeRelocatable>(py)?,
+                    ));
+                }
+            }
+            stack
         };
 
         let return_fp = MaybeRelocatable::from(0);
-
         let end = self
             .inner
             .initialize_function_entrypoint(
