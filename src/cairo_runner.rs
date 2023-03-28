@@ -375,10 +375,10 @@ impl PyCairoRunner {
         &mut self,
         py: Python,
         entrypoint: &PyAny,
-        args: Py<PyAny>,
+        typed_args: Option<Py<PyAny>>,
+        non_typed_args: Option<Vec<PyMaybeRelocatable>>,
         hint_locals: Option<HashMap<String, PyObject>>,
         static_locals: Option<HashMap<String, PyObject>>,
-        typed_args: Option<bool>,
         verify_secure: Option<bool>,
         run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
@@ -397,6 +397,12 @@ impl PyCairoRunner {
             }
         }
 
+        if typed_args.is_some() && non_typed_args.is_some() {
+            return Err(PyValueError::new_err(
+                "Cant have typed_args & non_typed_args",
+            ));
+        }
+
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
@@ -411,7 +417,7 @@ impl PyCairoRunner {
             return Err(PyTypeError::new_err("entrypoint must be int or str"));
         };
 
-        let stack = if typed_args.unwrap_or(false) {
+        let stack = if let Some(args) = typed_args {
             let args = self
                 .gen_typed_args(py, args.to_object(py))
                 .map_err(to_py_error)?;
@@ -423,30 +429,9 @@ impl PyCairoRunner {
             }
             stack
         } else {
-            let mut processed_args = Vec::new();
-            for arg in args.extract::<Vec<&PyAny>>(py)? {
-                let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
-                    Either::MaybeRelocatable(x.into())
-                } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
-                    Either::VecMaybeRelocatable(x.into_iter().map(|x| x.into()).collect())
-                } else {
-                    return Err(PyTypeError::new_err("Argument has unsupported type."));
-                };
-
-                processed_args.push(arg_box);
-            }
-            let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
-            let mut stack = Vec::new();
-            for arg in processed_args {
-                stack.push(
-                    (*self.pyvm.vm)
-                        .borrow_mut()
-                        .gen_arg(arg)
-                        .map_err(to_py_error)?,
-                );
-            }
-
-            stack
+            let args =
+                non_typed_args.ok_or(PyValueError::new_err("Missing entrypoint arguments"))?;
+            args.iter().map(|x| MaybeRelocatable::from(x)).collect()
         };
 
         let return_fp = MaybeRelocatable::from(0);
