@@ -162,7 +162,7 @@ impl PyCairoRunner {
         self.inner
             .read_return_values(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
-        verify_secure_runner(&self.inner, true, &mut (*self.pyvm.vm).borrow_mut())
+        verify_secure_runner(&self.inner, true, None, &mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
         self.relocate()?;
@@ -380,6 +380,7 @@ impl PyCairoRunner {
         hint_locals: Option<HashMap<String, PyObject>>,
         static_locals: Option<HashMap<String, PyObject>>,
         verify_secure: Option<bool>,
+        program_segment_size: Option<usize>,
         run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
@@ -463,8 +464,13 @@ impl PyCairoRunner {
             .map_err(to_py_error)?;
 
         if verify_secure.unwrap_or(true) {
-            verify_secure_runner(&self.inner, false, &mut (*self.pyvm.vm).borrow_mut())
-                .map_err(to_py_error)?;
+            verify_secure_runner(
+                &self.inner,
+                false,
+                program_segment_size,
+                &mut (*self.pyvm.vm).borrow_mut(),
+            )
+            .map_err(to_py_error)?;
         }
 
         Ok(())
