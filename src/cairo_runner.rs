@@ -165,7 +165,7 @@ impl PyCairoRunner {
         verify_secure_runner(&self.inner, true, None, &mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
-        self.relocate()?;
+        self.relocate(memory_file.is_some())?;
 
         if print_output {
             self.write_output()?;
@@ -256,9 +256,9 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
-    pub fn relocate(&mut self) -> PyResult<()> {
+    pub fn relocate(&mut self, relocate_mem: bool) -> PyResult<()> {
         self.inner
-            .relocate(&mut (*self.pyvm.vm).borrow_mut())
+            .relocate(&mut (*self.pyvm.vm).borrow_mut(), relocate_mem)
             .map_err(to_py_error)
     }
 
@@ -847,7 +847,7 @@ mod test {
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
         let address = runner.initialize().unwrap();
         runner.run_until_pc(&address, None).unwrap();
-        runner.relocate().unwrap();
+        runner.relocate(true).unwrap();
     }
 
     #[test]
