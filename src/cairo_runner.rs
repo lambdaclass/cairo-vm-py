@@ -376,7 +376,7 @@ impl PyCairoRunner {
         py: Python,
         entrypoint: &PyAny,
         typed_args: Option<Py<PyAny>>,
-        non_typed_args: Option<Vec<&PyAny>>,
+        non_typed_args: Option<Py<PyAny>>,
         hint_locals: Option<HashMap<String, PyObject>>,
         static_locals: Option<HashMap<String, PyObject>>,
         verify_secure: Option<bool>,
@@ -419,7 +419,7 @@ impl PyCairoRunner {
             let args =
                 non_typed_args.ok_or(PyValueError::new_err("Missing entrypoint arguments"))?;
             let mut stack = vec![];
-            for arg in args {
+            for arg in args.extract::<Vec<&PyAny>>(py)? {
                 if let Ok(element) = arg.extract::<PyMaybeRelocatable>() {
                     stack.push(MaybeRelocatable::from(element))
                 } else if let Ok(arg) = arg.extract::<Vec<PyMaybeRelocatable>>() {
