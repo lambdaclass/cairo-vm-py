@@ -375,21 +375,15 @@ impl PyCairoRunner {
         &mut self,
         py: Python,
         entrypoint: &PyAny,
-        typed_args: Option<Py<PyAny>>,
-        non_typed_args: Option<Py<PyAny>>,
+        args: Py<PyAny>,
         hint_locals: Option<HashMap<String, PyObject>>,
         static_locals: Option<HashMap<String, PyObject>>,
+        typed_args: Option<bool>,
         verify_secure: Option<bool>,
         program_segment_size: Option<usize>,
         run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
-        if typed_args.is_some() && non_typed_args.is_some() {
-            return Err(PyValueError::new_err(
-                "Cant have typed_args & non_typed_args",
-            ));
-        }
-
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
@@ -404,7 +398,7 @@ impl PyCairoRunner {
             return Err(PyTypeError::new_err("entrypoint must be int or str"));
         };
 
-        let stack = if let Some(args) = typed_args {
+        let stack = if typed_args.unwrap_or_default() {
             let args = self
                 .gen_typed_args(py, args.to_object(py))
                 .map_err(to_py_error)?;
@@ -416,8 +410,6 @@ impl PyCairoRunner {
             }
             stack
         } else {
-            let args =
-                non_typed_args.ok_or(PyValueError::new_err("Missing entrypoint arguments"))?;
             let mut stack = vec![];
             for arg in args.extract::<Vec<&PyAny>>(py)? {
                 if let Ok(element) = arg.extract::<PyMaybeRelocatable>() {
@@ -1251,6 +1243,7 @@ mod test {
                     None,
                     None,
                     None,
+                    None,
                 )
                 .unwrap();
         });
@@ -1287,6 +1280,7 @@ mod test {
                     None,
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                     Some(false),
@@ -1334,6 +1328,7 @@ mod test {
                     Some(true),
                     None,
                     None,
+                    None,
                     Some(false),
                 )
                 .unwrap();
@@ -1374,6 +1369,7 @@ mod test {
                     None,
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                     None,
@@ -1443,6 +1439,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 Some(PyRunResources { n_steps: Some(0) }),
                 None,
