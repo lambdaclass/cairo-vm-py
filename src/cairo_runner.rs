@@ -1405,6 +1405,7 @@ mod test {
                 None,
                 None,
                 None,
+                None,
             );
             // using a named entrypoint in run_from_entrypoint is not implemented yet
             assert_eq!(
@@ -1482,6 +1483,7 @@ mod test {
                 None,
                 None,
                 None,
+                None,
             );
             assert_eq!(
                 format!("{:?}", result),
@@ -1519,6 +1521,7 @@ mod test {
                     )])),
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                     None,
@@ -1563,6 +1566,7 @@ mod test {
                         100.to_object(py),
                     )])),
                     Some(false),
+                    None,
                     None,
                     None,
                     None,
@@ -1614,6 +1618,7 @@ mod test {
                 None,
                 None,
                 None,
+                None,
             )
         };
         Python::with_gil(|py| {
@@ -1655,6 +1660,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
                 None,
