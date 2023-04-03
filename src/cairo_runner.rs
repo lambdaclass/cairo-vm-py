@@ -477,6 +477,7 @@ impl PyCairoRunner {
     }
 
     // Initialize all the builtins and segments.
+    #[pyo3(signature = (add_segment_arena_builtin=false))]
     pub fn initialize_function_runner(&mut self, add_segment_arena_builtin: bool) -> PyResult<()> {
         self.inner
             .initialize_function_runner(
