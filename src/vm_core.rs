@@ -10,7 +10,7 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable,
 };
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use cairo_vm::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_vm::serde::deserialize_program::Member;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -51,7 +51,7 @@ const GLOBAL_NAMES: [&str; 18] = [
 ];
 
 lazy_static! {
-    pub static ref CAIRO_PRIME: BigUint = Felt::prime();
+    pub static ref CAIRO_PRIME: BigUint = Felt252::prime();
 }
 
 #[derive(Clone)]
@@ -87,7 +87,7 @@ impl PyVM {
         hint_data: &HintProcessorData,
         hint_locals: &mut HashMap<String, PyObject>,
         exec_scopes: &mut ExecutionScopes,
-        constants: &HashMap<String, Felt>,
+        constants: &HashMap<String, Felt252>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
@@ -171,7 +171,7 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
-        constants: &HashMap<String, Felt>,
+        constants: &HashMap<String, Felt252>,
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
         let pc_offset = (*self.vm).borrow().get_pc().offset;
@@ -224,7 +224,7 @@ impl PyVM {
         exec_scopes: &mut ExecutionScopes,
         hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
         struct_types: Rc<HashMap<String, HashMap<String, Member>>>,
-        constants: &HashMap<String, Felt>,
+        constants: &HashMap<String, Felt252>,
         static_locals: Option<&HashMap<String, PyObject>>,
     ) -> Result<(), PyErr> {
         self.step_hint(
@@ -244,7 +244,7 @@ impl PyVM {
         hint_executor: &mut dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
-        constants: &HashMap<String, Felt>,
+        constants: &HashMap<String, Felt252>,
         hint_index: usize,
     ) -> Result<bool, VirtualMachineError> {
         let mut vm = self.vm.borrow_mut();
@@ -297,7 +297,7 @@ pub(crate) fn update_scope_hint_locals(
 mod test {
     use super::*;
     use crate::{biguint, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_felt::Felt;
+    use cairo_felt::Felt252;
     use cairo_vm::{
         hint_processor::{
             builtin_hint_processor::builtin_hint_processor_definition::{
@@ -384,7 +384,7 @@ mod test {
     fn const_ids() {
         let mut vm = PyVM::new(false);
 
-        let constants = HashMap::from([(String::from("CONST"), Felt::new(1))]);
+        let constants = HashMap::from([(String::from("CONST"), Felt252::new(1))]);
 
         let mut exec_scopes = ExecutionScopes::new();
         let code_1 = "assert(ids.CONST != 2)";

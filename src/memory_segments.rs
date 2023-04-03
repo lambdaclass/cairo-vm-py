@@ -104,7 +104,7 @@ mod test {
 
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_felt::Felt;
+    use cairo_felt::Felt252;
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use pyo3::{Python, ToPyObject};
 
@@ -142,7 +142,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(1),
+                &Felt252::new(1),
             );
             assert_eq!(
                 vm_ref
@@ -150,7 +150,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(2),
+                &Felt252::new(2),
             );
 
             let relocatable = vm_ref
@@ -165,7 +165,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(3),
+                &Felt252::new(3),
             );
             assert_eq!(
                 vm_ref
@@ -173,7 +173,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(4),
+                &Felt252::new(4),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 
@@ -189,7 +189,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(5),
+                &Felt252::new(5),
             );
             assert_eq!(
                 vm_ref
@@ -197,7 +197,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(6),
+                &Felt252::new(6),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 

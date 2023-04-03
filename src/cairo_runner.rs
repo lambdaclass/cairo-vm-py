@@ -290,7 +290,10 @@ impl PyCairoRunner {
             .get_builtin_runners()
             .iter()
             .filter(|(builtin_name, _builtin_runner)| {
-                self.inner.get_program_builtins().contains(builtin_name)
+                self.inner
+                    .get_program_builtins()
+                    .iter()
+                    .any(|name| &name.name() == builtin_name)
             })
             .flat_map(|(_builtin_name, builtin_runner)| {
                 builtin_runner
@@ -715,7 +718,7 @@ mod test {
     use super::*;
     use crate::biguint;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
-    use cairo_felt::Felt;
+    use cairo_felt::Felt252;
     use num_bigint::BigUint;
     use std::env::temp_dir;
     use std::fs;
@@ -1879,7 +1882,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(1),
+                &Felt252::new(1),
             );
             assert_eq!(
                 vm_ref
@@ -1887,7 +1890,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(2),
+                &Felt252::new(2),
             );
 
             let relocatable = vm_ref
@@ -1902,7 +1905,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(3),
+                &Felt252::new(3),
             );
             assert_eq!(
                 vm_ref
@@ -1910,7 +1913,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(4),
+                &Felt252::new(4),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 
@@ -1926,7 +1929,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(5),
+                &Felt252::new(5),
             );
             assert_eq!(
                 vm_ref
@@ -1934,7 +1937,7 @@ mod test {
                     .unwrap()
                     .get_int_ref()
                     .unwrap(),
-                &Felt::new(6),
+                &Felt252::new(6),
             );
             assert!(vm_ref.get_maybe(&(&relocatable + 2)).is_none());
 

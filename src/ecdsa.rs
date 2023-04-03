@@ -6,7 +6,7 @@ use cairo_vm::{
     vm::{errors::vm_errors::VirtualMachineError, runners::builtin_runner::SignatureBuiltinRunner},
 };
 
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use pyo3::prelude::*;
 
 use crate::relocatable::PyRelocatable;
@@ -14,7 +14,7 @@ use crate::relocatable::PyRelocatable;
 #[pyclass(name = "Signature")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PySignature {
-    signatures: HashMap<PyRelocatable, (Felt, Felt)>,
+    signatures: HashMap<PyRelocatable, (Felt252, Felt252)>,
 }
 
 #[pymethods]
