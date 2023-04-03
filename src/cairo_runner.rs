@@ -285,7 +285,7 @@ impl PyCairoRunner {
                 self.inner
                     .get_program_builtins()
                     .iter()
-                    .any(|name| &name.name() == &builtin_runner.name())
+                    .any(|name| name.name() == builtin_runner.name())
             })
             .flat_map(|builtin_runner| {
                 builtin_runner
@@ -547,7 +547,7 @@ impl PyCairoRunner {
             .borrow_mut()
             .load_data(
                 Relocatable::from(&ptr),
-                &data.iter().map(|e| MaybeRelocatable::from(e)).collect(),
+                &data.iter().map(MaybeRelocatable::from).collect(),
             )
             .map_err(to_py_error)?;
         Ok(())

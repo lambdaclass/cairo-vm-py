@@ -40,7 +40,7 @@ impl PyRelocatable {
 
     pub fn __add__(&self, value: isize) -> PyRelocatable {
         let new_offset = if value.is_negative() {
-            self.offset - value.abs() as usize
+            self.offset - value.unsigned_abs()
         } else {
             self.offset + value as usize
         };

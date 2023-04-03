@@ -228,7 +228,7 @@ mod test {
         assert!((*(vm.vm))
             .borrow_mut()
             .load_data(
-                Relocatable::from(&segment).into(),
+                Relocatable::from(&segment),
                 &vec![
                     MaybeRelocatable::from(1),
                     MaybeRelocatable::from(2),
