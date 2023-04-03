@@ -18,7 +18,7 @@ index 01d1886..4a8c94f 100644
 +            runner = cairo_rs_py.CairoRunner(
 +            program=contract_class.program.dumps(),
 +            entrypoint=None,
-+            layout="all",
++            layout="all_cairo",
 +            proof_mode=False,
 +            )
 +            runner.initialize_function_runner()
