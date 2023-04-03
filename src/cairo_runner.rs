@@ -621,7 +621,7 @@ impl PyCairoRunner {
         vm.get_builtin_runners()
             .iter()
             .find(|b| b.name() == "poseidon")
-            .ok_or(PyValueError::new_err("poseidon builtin not present"))
+            .ok_or_else(|| PyValueError::new_err("poseidon builtin not present"))
             .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
 
@@ -631,7 +631,7 @@ impl PyCairoRunner {
         vm.get_builtin_runners()
             .iter()
             .find(|b| b.name() == "range_check")
-            .ok_or(PyValueError::new_err("range_check builtin not present"))
+            .ok_or_else(|| PyValueError::new_err("range_check builtin not present"))
             .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
 
