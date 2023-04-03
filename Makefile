@@ -33,10 +33,10 @@ deps:
 	git submodule add git@github.com:ZeroSync/ZeroSync.git
 
 deps-default-version:
-	pip install ecdsa fastecdsa sympy cairo-lang==0.11.0 maturin typeguard==2.13.0
+	pip install ecdsa fastecdsa sympy cairo-lang==0.11.0 maturin
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
-	pip install cairo-lang==0.11.0 typeguard==2.13.0 && \
+	pip install cairo-lang==0.11.0 && \
 	cargo install cargo-tarpaulin && \
 	deactivate
 
