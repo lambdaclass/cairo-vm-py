@@ -236,9 +236,15 @@ index a6104fd..eaec9ed 100644
          use_full_name=True,
          verify_secure=False,
 diff --git a/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py b/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py
-index d321b06..33cf79a 100644
+index d321b06..7498007 100644
 --- a/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py
 +++ b/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py
+@@ -1,4 +1,4 @@
+-from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
++from cairo_rs_py import CairoRunner
+ from starkware.starknet.core.os.contract_class.compiled_class_hash_utils import (
+     get_compiled_class_struct,
+     load_compiled_class_cairo_program,
 @@ -30,11 +30,13 @@ def _compute_compiled_class_hash_inner(compiled_class: CompiledClass) -> int:
      compiled_class_struct = get_compiled_class_struct(
          identifiers=program.identifiers, compiled_class=compiled_class
