@@ -102,7 +102,7 @@ index 2a60a2d..b4e1ece 100644
 +
 +    return implicit_retvals, explicit_retvals
 diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-index 848de27..1e3366f 100644
+index 848de27..b70c6d8 100644
 --- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 +++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 @@ -3,11 +3,12 @@ import dataclasses
@@ -160,6 +160,15 @@ index 848de27..1e3366f 100644
          builtin_costs = [0, 0, 0, 0, 0]
          # Use allocate_segment to mark it as read-only.
          builtin_cost_ptr = syscall_handler.allocate_segment(data=builtin_costs)
+@@ -305,7 +295,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+             entry_point_args=entry_point_args,
+             hint_locals={"syscall_handler": syscall_handler},
+             run_resources=tx_execution_context.run_resources,
+-            program_segment_size=len(runner.program.data) + len(program_extra_data),
++            program_segment_size=len(program.data) + len(program_extra_data),
+             allow_tmp_segments=True,
+         )
+ 
 @@ -351,7 +341,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
          try:
              runner.run_from_entrypoint(
