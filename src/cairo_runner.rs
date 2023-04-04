@@ -920,7 +920,7 @@ mod test {
         runner.initialize_function_runner(false).unwrap(); // Has all builtins
         assert_eq!(
             runner.get_poseidon_builtin_base().unwrap(),
-            PyRelocatable::from((2, 0))
+            PyRelocatable::from((9, 0))
         );
     }
 
@@ -953,7 +953,7 @@ mod test {
         runner.initialize_function_runner(false).unwrap(); // Has all builtins
         assert_eq!(
             runner.get_hash_builtin_base().unwrap(),
-            PyRelocatable::from((9, 0))
+            PyRelocatable::from((2, 0))
         );
     }
 
