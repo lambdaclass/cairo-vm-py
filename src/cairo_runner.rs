@@ -925,6 +925,39 @@ mod test {
     }
 
     #[test]
+    fn get_hash_builtin_base_no_hash() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize().unwrap();
+        assert!(runner.get_hash_builtin_base().is_err());
+    }
+
+    #[test]
+    fn get_hash_builtin_base_with_hash() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize_function_runner(false).unwrap(); // Has all builtins
+        assert_eq!(
+            runner.get_hash_builtin_base().unwrap(),
+            PyRelocatable::from((9, 0))
+        );
+    }
+
+    #[test]
     fn get_range_check_builtin_base_no_range_check() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
