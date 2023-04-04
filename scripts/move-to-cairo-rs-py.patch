@@ -256,7 +256,7 @@ index d321b06..33cf79a 100644
          use_full_name=True,
          verify_secure=False,
 diff --git a/src/starkware/starknet/core/os/contract_class/deprecated_class_hash.py b/src/starkware/starknet/core/os/contract_class/deprecated_class_hash.py
-index 1b5922e..b8a11ec 100644
+index 1b5922e..c071faf 100644
 --- a/src/starkware/starknet/core/os/contract_class/deprecated_class_hash.py
 +++ b/src/starkware/starknet/core/os/contract_class/deprecated_class_hash.py
 @@ -1,3 +1,4 @@
@@ -273,7 +273,7 @@ index 1b5922e..b8a11ec 100644
  from starkware.cairo.common.structs import CairoStructFactory, CairoStructProxy
  from starkware.cairo.lang.builtins.hash.hash_builtin_runner import HashBuiltinRunner
  from starkware.cairo.lang.cairo_constants import DEFAULT_PRIME
-@@ -68,7 +69,9 @@ def compute_deprecated_class_hash_inner(
+@@ -68,18 +69,16 @@ def compute_deprecated_class_hash_inner(
      compiled_class_struct = get_deprecated_contract_class_struct(
          identifiers=program.identifiers, contract_class=contract_class
      )
@@ -282,12 +282,12 @@ index 1b5922e..b8a11ec 100644
 +    runner.initialize_function_runner(add_segment_arena_builtin=False)
 +    hash_ptr = runner.get_hash_builtin_base()
  
-     hash_builtin = HashBuiltinRunner(
-         name="custom_hasher", included=True, ratio=32, hash_func=hash_func
-@@ -76,10 +79,12 @@ def compute_deprecated_class_hash_inner(
-     runner.builtin_runners["hash_builtin"] = hash_builtin
-     hash_builtin.initialize_segments(runner)
- 
+-    hash_builtin = HashBuiltinRunner(
+-        name="custom_hasher", included=True, ratio=32, hash_func=hash_func
+-    )
+-    runner.builtin_runners["hash_builtin"] = hash_builtin
+-    hash_builtin.initialize_segments(runner)
+-
 -    runner.run(
 +    run_function_runner(
 +        runner,
