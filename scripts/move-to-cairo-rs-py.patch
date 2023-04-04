@@ -405,9 +405,22 @@ index dffdbae..0ccb627 100644
  
      def post_run(self, runner: CairoFunctionRunner, syscall_stop_ptr: MaybeRelocatable):
 diff --git a/src/starkware/starknet/core/os/syscall_utils.py b/src/starkware/starknet/core/os/syscall_utils.py
-index 80bebc3..a96aaa2 100644
+index 80bebc3..6933be3 100644
 --- a/src/starkware/starknet/core/os/syscall_utils.py
 +++ b/src/starkware/starknet/core/os/syscall_utils.py
+@@ -1,3 +1,4 @@
++from cairo_rs_py import RelocatableValue
+ import contextlib
+ import dataclasses
+ import functools
+@@ -10,7 +11,6 @@ from starkware.cairo.common.structs import CairoStructFactory, CairoStructProxy
+ from starkware.cairo.lang.compiler.ast.cairo_types import CairoType, TypeFelt, TypePointer
+ from starkware.cairo.lang.compiler.identifier_definition import StructDefinition
+ from starkware.cairo.lang.compiler.program import Program
+-from starkware.cairo.lang.vm.relocatable import RelocatableValue
+ from starkware.python.utils import safe_zip
+ from starkware.starknet.business_logic.execution.execute_entry_point_base import (
+     ExecuteEntryPointBase,
 @@ -165,6 +165,8 @@ class HandlerException(Exception):
      called_contract_address: int
      stark_exception: StarkException
