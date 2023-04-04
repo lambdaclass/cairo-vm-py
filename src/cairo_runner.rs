@@ -618,6 +618,16 @@ impl PyCairoRunner {
         Ok(cairo_args.to_object(py))
     }
 
+    /// Returns a the hash builtin's base if present
+    pub fn get_hash_builtin_base(&self) -> PyResult<PyRelocatable> {
+        let vm = (*self.pyvm.vm).borrow_mut();
+        vm.get_builtin_runners()
+            .iter()
+            .find(|b| b.name() == "pedersen")
+            .ok_or_else(|| PyValueError::new_err("hash builtin not present"))
+            .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
+    }
+
     /// Returns a the poseidon builtin's base if present
     pub fn get_poseidon_builtin_base(&self) -> PyResult<PyRelocatable> {
         let vm = (*self.pyvm.vm).borrow_mut();
