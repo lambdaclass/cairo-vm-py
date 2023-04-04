@@ -102,7 +102,7 @@ index 2a60a2d..b4e1ece 100644
 +
 +    return implicit_retvals, explicit_retvals
 diff --git a/src/starkware/starknet/business_logic/execution/execute_entry_point.py b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
-index 848de27..e556d48 100644
+index 848de27..1e3366f 100644
 --- a/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 +++ b/src/starkware/starknet/business_logic/execution/execute_entry_point.py
 @@ -3,11 +3,12 @@ import dataclasses
@@ -151,6 +151,15 @@ index 848de27..e556d48 100644
  
          # Prepare implicit arguments.
          implicit_args = os_utils.prepare_os_implicit_args(runner=runner, gas=self.initial_gas)
+@@ -279,7 +269,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
+ 
+         # Load the builtin costs; Cairo 1.0 programs are expected to end with a `ret` opcode
+         # followed by a pointer to the builtin costs.
+-        core_program_end_ptr = runner.program_base + len(runner.program.data)
++        core_program_end_ptr = runner.program_base + len(program.data)
+         builtin_costs = [0, 0, 0, 0, 0]
+         # Use allocate_segment to mark it as read-only.
+         builtin_cost_ptr = syscall_handler.allocate_segment(data=builtin_costs)
 @@ -351,7 +341,7 @@ class ExecuteEntryPoint(ExecuteEntryPointBase):
          try:
              runner.run_from_entrypoint(
