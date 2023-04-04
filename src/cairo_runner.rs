@@ -419,7 +419,9 @@ impl PyCairoRunner {
                         self.gen_arg(py, arg.to_object(py), false)?
                             .extract::<PyMaybeRelocatable>(py)?,
                     ));
-                }
+                } else {
+                    return Err(PyTypeError::new_err("Argument has unsupported type."));
+                };
             }
             stack
         };
