@@ -205,7 +205,7 @@ index 848de27..e556d48 100644
          # Prepare implicit arguments.
          implicit_args = os_utils.prepare_os_implicit_args_for_version0_class(runner=runner)
 diff --git a/src/starkware/starknet/core/os/contract_class/class_hash.py b/src/starkware/starknet/core/os/contract_class/class_hash.py
-index a6104fd..eaec9ed 100644
+index a6104fd..ff528a6 100644
 --- a/src/starkware/starknet/core/os/contract_class/class_hash.py
 +++ b/src/starkware/starknet/core/os/contract_class/class_hash.py
 @@ -1,4 +1,5 @@
@@ -215,18 +215,21 @@ index a6104fd..eaec9ed 100644
  from starkware.starknet.core.os.contract_class.class_hash_utils import (
      get_contract_class_struct,
      load_contract_class_cairo_program,
-@@ -27,12 +28,15 @@ def _compute_class_hash_inner(contract_class: ContractClass) -> int:
+@@ -27,12 +28,17 @@ def _compute_class_hash_inner(contract_class: ContractClass) -> int:
      contract_class_struct = get_contract_class_struct(
          identifiers=program.identifiers, contract_class=contract_class
      )
 -    runner = CairoFunctionRunner(program=program)
+-
+-    runner.run(
 +    runner = CairoRunner(program=program.dumps(), entrypoint=None)
 +    runner.initialize_function_runner(add_segment_arena_builtin=False)
 +    poseidon_ptr = runner.get_poseidon_builtin_base()
 +    range_check_ptr = runner.get_range_check_builtin_base()
- 
--    runner.run(
++
 +    run_function_runner(
++        runner,
++        program,
          "starkware.starknet.core.os.contract_class.contract_class.class_hash",
 -        poseidon_ptr=runner.poseidon_builtin.base,
 -        range_check_ptr=runner.range_check_builtin.base,
@@ -236,16 +239,17 @@ index a6104fd..eaec9ed 100644
          use_full_name=True,
          verify_secure=False,
 diff --git a/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py b/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py
-index d321b06..7498007 100644
+index d321b06..33dd7ab 100644
 --- a/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py
 +++ b/src/starkware/starknet/core/os/contract_class/compiled_class_hash.py
-@@ -1,4 +1,4 @@
+@@ -1,4 +1,5 @@
 -from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 +from cairo_rs_py import CairoRunner
++from starkware.cairo.common.cairo_function_runner import run_function_runner
  from starkware.starknet.core.os.contract_class.compiled_class_hash_utils import (
      get_compiled_class_struct,
      load_compiled_class_cairo_program,
-@@ -30,11 +30,13 @@ def _compute_compiled_class_hash_inner(compiled_class: CompiledClass) -> int:
+@@ -30,11 +31,15 @@ def _compute_compiled_class_hash_inner(compiled_class: CompiledClass) -> int:
      compiled_class_struct = get_compiled_class_struct(
          identifiers=program.identifiers, compiled_class=compiled_class
      )
@@ -254,7 +258,10 @@ index d321b06..7498007 100644
 +    runner.initialize_function_runner(add_segment_arena_builtin=False)
 +    poseidon_ptr = runner.get_poseidon_builtin_base()
  
-     runner.run(
+-    runner.run(
++    run_function_runner(
++        runner,
++        program,
          "starkware.starknet.core.os.contract_class.compiled_class.compiled_class_hash",
 -        poseidon_ptr=runner.poseidon_builtin.base,
 +        poseidon_ptr=poseidon_ptr,
