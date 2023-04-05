@@ -82,7 +82,7 @@ mod test {
     fn py_range_check_from_result_ok() {
         let value = 12;
         let bound = biguint!(1usize << 16).pow(value);
-        let range_check_builtin = RangeCheckBuiltinRunner::new(value, value, true);
+        let range_check_builtin = RangeCheckBuiltinRunner::new(Some(value), value, true);
         let result_with_range_check_builtin: Result<&RangeCheckBuiltinRunner, VirtualMachineError> =
             Ok(&range_check_builtin);
 
@@ -107,7 +107,7 @@ mod test {
     fn py_range_check_from_range_check_builtin_runner() {
         let value = 12;
         let bound = biguint!(1usize << 16).pow(value);
-        let range_check_builtin = RangeCheckBuiltinRunner::new(value, value, true);
+        let range_check_builtin = RangeCheckBuiltinRunner::new(Some(value), value, true);
 
         assert_eq!(
             PyRangeCheck::from(&range_check_builtin),

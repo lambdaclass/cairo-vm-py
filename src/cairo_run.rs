@@ -21,7 +21,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some(String::from("all")),
+            Some(String::from("all_cairo")),
             false,
         )
         .unwrap();

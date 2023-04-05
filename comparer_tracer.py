@@ -3,7 +3,7 @@ import sys
 
 def new_runner(program_name: str):
     with open(f"cairo_programs/{program_name}.json") as file:
-        cairo_runner =  cairo_rs_py.CairoRunner(file.read(), "main", "all", False)
+        cairo_runner =  cairo_rs_py.CairoRunner(file.read(), "main", "starknet_with_keccak", False)
         return cairo_runner.cairo_run(False, f"cairo_programs/{program_name}.rs.trace", f"cairo_programs/{program_name}.rs.memory")
 
 if __name__ == "__main__":

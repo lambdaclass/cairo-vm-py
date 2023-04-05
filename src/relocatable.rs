@@ -38,10 +38,15 @@ impl PyRelocatable {
         }
     }
 
-    pub fn __add__(&self, value: usize) -> PyRelocatable {
+    pub fn __add__(&self, value: isize) -> PyRelocatable {
+        let new_offset = if value.is_negative() {
+            self.offset - value.unsigned_abs()
+        } else {
+            self.offset + value as usize
+        };
         PyRelocatable {
             segment_index: self.segment_index,
-            offset: self.offset + value,
+            offset: new_offset,
         }
     }
 

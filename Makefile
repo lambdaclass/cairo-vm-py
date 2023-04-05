@@ -19,7 +19,7 @@ $(TEST_DIR)/%.rs.trace $(TEST_DIR)/%.rs.memory: $(TEST_DIR)/%.json build
 	python comparer_tracer.py $(*F)
 
 $(TEST_DIR)/%.trace $(TEST_DIR)/%.memory: $(TEST_DIR)/%.json
-	cairo-run --layout all --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
+	cairo-run --layout starknet_with_keccak --program $< --trace_file $@ --memory_file $(@D)/$(*F).memory
 
 $(BAD_TEST_DIR)/%.json: $(BAD_TEST_DIR)/%.cairo
 	cairo-compile $< --output $@
@@ -33,10 +33,10 @@ deps:
 	git submodule add git@github.com:ZeroSync/ZeroSync.git
 
 deps-default-version:
-	pip install ecdsa fastecdsa sympy cairo-lang==0.10.3 maturin typeguard==2.13.0
+	pip install ecdsa fastecdsa sympy cairo-lang==0.11.0 maturin
 	python3 -m venv cairo-rs-py-env
 	. cairo-rs-py-env/bin/activate && \
-	pip install cairo-lang==0.10.3 typeguard==2.13.0 && \
+	pip install cairo-lang==0.11.0 && \
 	cargo install cargo-tarpaulin && \
 	deactivate
 

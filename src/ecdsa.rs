@@ -110,7 +110,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();

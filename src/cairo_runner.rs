@@ -15,11 +15,7 @@ use cairo_vm::{
         relocatable::{MaybeRelocatable, Relocatable},
     },
     vm::{
-        errors::{
-            cairo_run_errors::CairoRunError,
-            trace_errors::TraceError,
-            vm_exception::{get_error_attr_value, get_location, get_traceback},
-        },
+        errors::vm_exception::{get_error_attr_value, get_location, get_traceback},
         runners::cairo_runner::{CairoRunner, ExecutionResources},
         security::verify_secure_runner,
     },
@@ -30,7 +26,7 @@ use pyo3::{
     types::PyIterator,
 };
 use std::io::{self, Write};
-use std::{any::Any, borrow::BorrowMut, collections::HashMap, path::PathBuf, rc::Rc};
+use std::{borrow::BorrowMut, collections::HashMap, path::PathBuf, rc::Rc};
 
 pyo3::import_exception!(starkware.cairo.lang.vm.utils, ResourcesError);
 
@@ -166,10 +162,10 @@ impl PyCairoRunner {
         self.inner
             .read_return_values(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
-        verify_secure_runner(&self.inner, true, &mut (*self.pyvm.vm).borrow_mut())
+        verify_secure_runner(&self.inner, true, None, &mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)?;
 
-        self.relocate()?;
+        self.relocate(memory_file.is_some())?;
 
         if print_output {
             self.write_output()?;
@@ -177,12 +173,8 @@ impl PyCairoRunner {
 
         if let Some(trace_path) = trace_file {
             let trace_path = PathBuf::from(trace_path);
-            let relocated_trace = self
-                .inner
-                .relocated_trace
-                .as_ref()
-                .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))
-                .map_err(to_py_error)?;
+            let vm_ref = self.pyvm.vm.borrow();
+            let relocated_trace = vm_ref.get_relocated_trace().map_err(to_py_error)?;
 
             let trace_file = std::fs::File::create(trace_path)?;
 
@@ -264,9 +256,9 @@ impl PyCairoRunner {
             .map_err(to_py_error)
     }
 
-    pub fn relocate(&mut self) -> PyResult<()> {
+    pub fn relocate(&mut self, relocate_mem: bool) -> PyResult<()> {
         self.inner
-            .relocate(&mut (*self.pyvm.vm).borrow_mut())
+            .relocate(&mut (*self.pyvm.vm).borrow_mut(), relocate_mem)
             .map_err(to_py_error)
     }
 
@@ -289,13 +281,13 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .filter(|(builtin_name, _builtin_runner)| {
+            .filter(|builtin_runner| {
                 self.inner
                     .get_program_builtins()
                     .iter()
-                    .any(|name| &name.name() == builtin_name)
+                    .any(|name| name.name() == builtin_runner.name())
             })
-            .flat_map(|(_builtin_name, builtin_runner)| {
+            .flat_map(|builtin_runner| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
@@ -311,7 +303,7 @@ impl PyCairoRunner {
             .borrow_mut()
             .get_builtin_runners()
             .iter()
-            .map(|(_builtin_name, builtin_runner)| {
+            .map(|builtin_runner| {
                 builtin_runner
                     .initial_stack()
                     .into_iter()
@@ -388,23 +380,10 @@ impl PyCairoRunner {
         static_locals: Option<HashMap<String, PyObject>>,
         typed_args: Option<bool>,
         verify_secure: Option<bool>,
+        program_segment_size: Option<usize>,
         run_resources: Option<PyRunResources>,
         apply_modulo_to_args: Option<bool>,
     ) -> PyResult<()> {
-        enum Either {
-            MaybeRelocatable(MaybeRelocatable),
-            VecMaybeRelocatable(Vec<MaybeRelocatable>),
-        }
-
-        impl Either {
-            pub fn as_any(&self) -> &dyn Any {
-                match self {
-                    Self::MaybeRelocatable(x) => x as &dyn Any,
-                    Self::VecMaybeRelocatable(x) => x as &dyn Any,
-                }
-            }
-        }
-
         if let Some(locals) = hint_locals {
             self.hint_locals = locals
         }
@@ -419,7 +398,7 @@ impl PyCairoRunner {
             return Err(PyTypeError::new_err("entrypoint must be int or str"));
         };
 
-        let stack = if typed_args.unwrap_or(false) {
+        let stack = if typed_args.unwrap_or_default() {
             let args = self
                 .gen_typed_args(py, args.to_object(py))
                 .map_err(to_py_error)?;
@@ -431,34 +410,23 @@ impl PyCairoRunner {
             }
             stack
         } else {
-            let mut processed_args = Vec::new();
+            let mut stack = vec![];
             for arg in args.extract::<Vec<&PyAny>>(py)? {
-                let arg_box = if let Ok(x) = arg.extract::<PyMaybeRelocatable>() {
-                    Either::MaybeRelocatable(x.into())
-                } else if let Ok(x) = arg.extract::<Vec<PyMaybeRelocatable>>() {
-                    Either::VecMaybeRelocatable(x.into_iter().map(|x| x.into()).collect())
+                if let Ok(element) = arg.extract::<PyMaybeRelocatable>() {
+                    stack.push(MaybeRelocatable::from(element))
+                } else if let Ok(arg) = arg.extract::<Vec<PyMaybeRelocatable>>() {
+                    stack.push(MaybeRelocatable::from(
+                        self.gen_arg(py, arg.to_object(py), false)?
+                            .extract::<PyMaybeRelocatable>(py)?,
+                    ));
                 } else {
                     return Err(PyTypeError::new_err("Argument has unsupported type."));
                 };
-
-                processed_args.push(arg_box);
             }
-            let processed_args: Vec<&dyn Any> = processed_args.iter().map(|x| x.as_any()).collect();
-            let mut stack = Vec::new();
-            for arg in processed_args {
-                stack.push(
-                    (*self.pyvm.vm)
-                        .borrow_mut()
-                        .gen_arg(arg)
-                        .map_err(to_py_error)?,
-                );
-            }
-
             stack
         };
 
         let return_fp = MaybeRelocatable::from(0);
-
         let end = self
             .inner
             .initialize_function_entrypoint(
@@ -490,8 +458,13 @@ impl PyCairoRunner {
             .map_err(to_py_error)?;
 
         if verify_secure.unwrap_or(true) {
-            verify_secure_runner(&self.inner, false, &mut (*self.pyvm.vm).borrow_mut())
-                .map_err(to_py_error)?;
+            verify_secure_runner(
+                &self.inner,
+                false,
+                program_segment_size,
+                &mut (*self.pyvm.vm).borrow_mut(),
+            )
+            .map_err(to_py_error)?;
         }
 
         Ok(())
@@ -506,9 +479,13 @@ impl PyCairoRunner {
     }
 
     // Initialize all the builtins and segments.
-    pub fn initialize_function_runner(&mut self) -> PyResult<()> {
+    #[pyo3(signature = (add_segment_arena_builtin=false))]
+    pub fn initialize_function_runner(&mut self, add_segment_arena_builtin: bool) -> PyResult<()> {
         self.inner
-            .initialize_function_runner(&mut (*self.pyvm.vm).borrow_mut())
+            .initialize_function_runner(
+                &mut (*self.pyvm.vm).borrow_mut(),
+                add_segment_arena_builtin,
+            )
             .map_err(to_py_error)
     }
 
@@ -566,6 +543,17 @@ impl PyCairoRunner {
             .load_data(pointer, &data)
             .map(|x| PyMaybeRelocatable::from(x).to_object(py))
             .map_err(to_py_error)
+    }
+
+    pub fn load_data(&self, ptr: PyRelocatable, data: Vec<PyMaybeRelocatable>) -> PyResult<()> {
+        (*self.pyvm.vm)
+            .borrow_mut()
+            .load_data(
+                Relocatable::from(&ptr),
+                &data.iter().map(MaybeRelocatable::from).collect(),
+            )
+            .map_err(to_py_error)?;
+        Ok(())
     }
 
     /// Return a value from memory given its address.
@@ -630,11 +618,34 @@ impl PyCairoRunner {
         Ok(cairo_args.to_object(py))
     }
 
-    /// Add (or replace if already present) a custom hash builtin.
-    /// Returns a Relocatable with the new hash builtin base.
-    pub fn add_additional_hash_builtin(&self) -> PyRelocatable {
-        let mut vm = (*self.pyvm.vm).borrow_mut();
-        self.inner.add_additional_hash_builtin(&mut vm).into()
+    /// Returns a the hash builtin's base if present
+    pub fn get_hash_builtin_base(&self) -> PyResult<PyRelocatable> {
+        let vm = (*self.pyvm.vm).borrow_mut();
+        vm.get_builtin_runners()
+            .iter()
+            .find(|b| b.name() == "pedersen")
+            .ok_or_else(|| PyValueError::new_err("hash builtin not present"))
+            .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
+    }
+
+    /// Returns a the poseidon builtin's base if present
+    pub fn get_poseidon_builtin_base(&self) -> PyResult<PyRelocatable> {
+        let vm = (*self.pyvm.vm).borrow_mut();
+        vm.get_builtin_runners()
+            .iter()
+            .find(|b| b.name() == "poseidon")
+            .ok_or_else(|| PyValueError::new_err("poseidon builtin not present"))
+            .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
+    }
+
+    /// Returns a the range_check builtin's base if present
+    pub fn get_range_check_builtin_base(&self) -> PyResult<PyRelocatable> {
+        let vm = (*self.pyvm.vm).borrow_mut();
+        vm.get_builtin_runners()
+            .iter()
+            .find(|b| b.name() == "range_check")
+            .ok_or_else(|| PyValueError::new_err("range_check builtin not present"))
+            .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
 
     #[getter]
@@ -655,6 +666,11 @@ impl PyCairoRunner {
     #[getter]
     pub fn vm_memory(&self) -> PyMemory {
         PyMemory::new(&self.pyvm)
+    }
+
+    #[getter]
+    pub fn program_base(&self) -> Option<PyRelocatable> {
+        self.inner.program_base.map(Into::into)
     }
 }
 
@@ -842,7 +858,9 @@ mod test {
         let program = fs::read_to_string(path).unwrap();
         let mut runner =
             PyCairoRunner::new(program, Some("main".to_string()), None, false).unwrap();
-        runner.relocate().unwrap();
+        let address = runner.initialize().unwrap();
+        runner.run_until_pc(&address, None).unwrap();
+        runner.relocate(true).unwrap();
     }
 
     #[test]
@@ -871,6 +889,105 @@ mod test {
         )
         .unwrap();
         assert_eq!(runner.get_ap().unwrap(), PyRelocatable::from((1, 0)));
+    }
+
+    #[test]
+    fn get_poseidon_builtin_base_no_poseidon() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize().unwrap();
+        assert!(runner.get_poseidon_builtin_base().is_err());
+    }
+
+    #[test]
+    fn get_poseidon_builtin_base_with_poseidon() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize_function_runner(false).unwrap(); // Has all builtins
+        assert_eq!(
+            runner.get_poseidon_builtin_base().unwrap(),
+            PyRelocatable::from((9, 0))
+        );
+    }
+
+    #[test]
+    fn get_hash_builtin_base_no_hash() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize().unwrap();
+        assert!(runner.get_hash_builtin_base().is_err());
+    }
+
+    #[test]
+    fn get_hash_builtin_base_with_hash() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize_function_runner(false).unwrap(); // Has all builtins
+        assert_eq!(
+            runner.get_hash_builtin_base().unwrap(),
+            PyRelocatable::from((2, 0))
+        );
+    }
+
+    #[test]
+    fn get_range_check_builtin_base_no_range_check() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize().unwrap();
+        assert!(runner.get_range_check_builtin_base().is_err());
+    }
+
+    #[test]
+    fn get_range_check_builtin_base_with_range_check() {
+        let path = "cairo_programs/fibonacci.json".to_string();
+        let program = fs::read_to_string(path).unwrap();
+        let mut runner = PyCairoRunner::new(
+            program,
+            Some("main".to_string()),
+            Some("small".to_string()),
+            false,
+        )
+        .unwrap();
+        runner.initialize_function_runner(false).unwrap(); // Has all builtins
+        assert_eq!(
+            runner.get_range_check_builtin_base().unwrap(),
+            PyRelocatable::from((3, 0))
+        );
     }
 
     #[test]
@@ -945,7 +1062,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1002,48 +1119,6 @@ mod test {
     }
 
     #[test]
-    fn get_builtins_initial_stack_filters_non_program_builtins() {
-        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
-        let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            Some("main".to_string()),
-            Some("small".to_string()),
-            false,
-        )
-        .unwrap();
-        runner
-            .cairo_run_py(false, None, None, None, None, Some("main"))
-            .unwrap();
-        // Make a copy of the builtin in order to insert a second "fake" one
-        // BuiltinRunner api is private, so we can create a new one for this test
-        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
-            .1
-            .clone();
-        // Insert our fake builtin into our vm
-        (*runner.pyvm.vm)
-            .borrow_mut()
-            .get_builtin_runners_as_mut()
-            .push(("fake", fake_builtin));
-        // The fake builtin we added should be filtered out when getting the initial stacks,
-        // so we should only get the range_check builtin's initial stack
-        let expected_output: Vec<PyMaybeRelocatable> = vec![RelocatableValue(PyRelocatable {
-            segment_index: 2,
-            offset: 0,
-        })];
-
-        Python::with_gil(|py| {
-            assert_eq!(
-                runner
-                    .get_program_builtins_initial_stack(py)
-                    .extract::<Vec<PyMaybeRelocatable>>(py)
-                    .unwrap(),
-                expected_output
-            );
-        });
-    }
-
-    #[test]
     fn final_stack_when_not_using_builtins() {
         let path = "cairo_programs/fibonacci.json".to_string();
         let program = fs::read_to_string(path).unwrap();
@@ -1067,43 +1142,6 @@ mod test {
             expected_output
         );
     }
-    #[test]
-    fn get_builtins_final_stack_filters_non_program_builtins() {
-        let path = "cairo_programs/get_builtins_initial_stack.json".to_string();
-        let program = fs::read_to_string(path).unwrap();
-        let mut runner = PyCairoRunner::new(
-            program,
-            Some("main".to_string()),
-            Some("small".to_string()),
-            false,
-        )
-        .unwrap();
-
-        runner
-            .cairo_run_py(false, None, None, None, None, None)
-            .unwrap();
-
-        // Make a copy of the builtin in order to insert a second "fake" one
-        // BuiltinRunner api is private, so we can create a new one for this test
-        let fake_builtin = (*runner.pyvm.vm).borrow_mut().get_builtin_runners_as_mut()[0]
-            .1
-            .clone();
-        // Insert our fake builtin into our vm
-        (*runner.pyvm.vm)
-            .borrow_mut()
-            .get_builtin_runners_as_mut()
-            .push(("fake", fake_builtin));
-        // The fake builtin we added should be filtered out when getting the final stacks,
-        // so we should only get the range_check builtin's final stack
-
-        let expected_output = PyRelocatable::from((1, 8));
-
-        let final_stack = PyRelocatable::from((1, 9));
-        assert_eq!(
-            runner.get_builtins_final_stack(final_stack).unwrap(),
-            expected_output
-        );
-    }
 
     #[test]
     fn final_stack_when_using_two_builtins() {
@@ -1112,7 +1150,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1236,7 +1274,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1248,6 +1286,7 @@ mod test {
                     None,
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                     None,
@@ -1269,7 +1308,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1287,6 +1326,7 @@ mod test {
                     None,
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                     Some(false),
@@ -1308,7 +1348,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1334,6 +1374,7 @@ mod test {
                     Some(true),
                     None,
                     None,
+                    None,
                     Some(false),
                 )
                 .unwrap();
@@ -1353,7 +1394,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1377,6 +1418,7 @@ mod test {
                     None,
                     None,
                     None,
+                    None,
                 )
                 .is_err());
         });
@@ -1395,7 +1437,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1406,6 +1448,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
                 None,
@@ -1431,7 +1474,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
         let pc_before_run = runner.pyvm.vm.borrow().get_pc();
 
@@ -1443,6 +1486,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 Some(PyRunResources { n_steps: Some(0) }),
                 None,
@@ -1471,7 +1515,7 @@ mod test {
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         Python::with_gil(|py| {
@@ -1482,6 +1526,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
                 None,
@@ -1522,6 +1567,7 @@ mod test {
                     )])),
                     None,
                     Some(false),
+                    None,
                     None,
                     None,
                     None,
@@ -1566,6 +1612,7 @@ mod test {
                         100.to_object(py),
                     )])),
                     Some(false),
+                    None,
                     None,
                     None,
                     None,
@@ -1617,6 +1664,7 @@ mod test {
                 None,
                 None,
                 None,
+                None,
             )
         };
         Python::with_gil(|py| {
@@ -1658,6 +1706,7 @@ mod test {
                 None,
                 None,
                 Some(false),
+                None,
                 None,
                 None,
                 None,
@@ -1733,7 +1782,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some(String::from("all")),
+            Some(String::from("all_cairo")),
             false,
         )
         .unwrap();
@@ -1753,7 +1802,7 @@ mod test {
         let runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some(String::from("all")),
+            Some(String::from("all_cairo")),
             false,
         )
         .unwrap();
@@ -1768,13 +1817,13 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![
@@ -1806,6 +1855,10 @@ mod test {
                 segment_index: 8,
                 offset: 0,
             })],
+            vec![RelocatableValue(PyRelocatable {
+                segment_index: 9,
+                offset: 0,
+            })],
         ];
 
         Python::with_gil(|py| {
@@ -1826,13 +1879,13 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
 
         runner
-            .initialize_function_runner()
+            .initialize_function_runner(false)
             .expect("Failed to initialize function runner");
 
         let expected_output: Vec<Vec<PyMaybeRelocatable>> = vec![];
@@ -1856,7 +1909,7 @@ mod test {
             let runner = PyCairoRunner::new(
                 program,
                 Some("main".to_string()),
-                Some("all".to_string()),
+                Some("all_cairo".to_string()),
                 false,
             )
             .unwrap();
@@ -1952,7 +2005,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -1978,7 +2031,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
@@ -2085,42 +2138,6 @@ mod test {
                     .collect::<Vec<_>>(),
                 vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into(),],
             );
-        });
-    }
-
-    /// Test that add_additional_hash_builtin() returns successfully.
-    #[test]
-    fn add_additional_hash_builtin() {
-        Python::with_gil(|_| {
-            let program = fs::read_to_string("cairo_programs/fibonacci.json").unwrap();
-            let runner = PyCairoRunner::new(
-                program,
-                Some("main".to_string()),
-                Some("small".to_string()),
-                false,
-            )
-            .unwrap();
-
-            let expected_relocatable = PyRelocatable {
-                segment_index: 0,
-                offset: 0,
-            };
-            let relocatable = runner.add_additional_hash_builtin();
-            assert_eq!(expected_relocatable, relocatable);
-
-            assert_eq!(
-                (*runner.pyvm.vm)
-                    .borrow()
-                    .get_builtin_runners()
-                    .last()
-                    .map(|(key, _)| key),
-                Some(&"hash_builtin"),
-            );
-
-            let mut vm = (*runner.pyvm.vm).borrow_mut();
-            // Check that the segment exists by writing to it.
-            vm.insert_value(Relocatable::from((0, 0)), MaybeRelocatable::from(42))
-                .expect("memory insert failed");
         });
     }
 
@@ -2589,7 +2606,7 @@ mod test {
         let mut runner = PyCairoRunner::new(
             program,
             Some("main".to_string()),
-            Some("all".to_string()),
+            Some("all_cairo".to_string()),
             false,
         )
         .unwrap();
