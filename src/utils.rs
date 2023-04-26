@@ -1,5 +1,7 @@
-use cairo_felt::Felt252;
-use cairo_vm::{types::errors::math_errors::MathError, vm::errors::vm_errors::VirtualMachineError};
+use cairo_vm::{
+    felt::Felt252, types::errors::math_errors::MathError,
+    vm::errors::vm_errors::VirtualMachineError,
+};
 use num_bigint::BigUint;
 use pyo3::{exceptions::PyValueError, PyErr};
 use std::{collections::HashMap, fmt::Display};

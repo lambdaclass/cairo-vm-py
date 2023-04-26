@@ -108,8 +108,10 @@ mod test {
 
     use super::PySegmentManager;
     use crate::{memory::PyMemory, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_felt::Felt252;
-    use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+    use cairo_vm::{
+        felt::Felt252,
+        types::relocatable::{MaybeRelocatable, Relocatable},
+    };
     use pyo3::{Python, ToPyObject};
 
     #[test]
@@ -211,9 +213,9 @@ mod test {
 
     #[test]
     fn add_temp_segment_test() {
-        let mut vm = PyVM::new(false);
+        let vm = PyVM::new(false);
         let memory = PyMemory::new(&vm);
-        let mut segments = PySegmentManager::new(&mut vm, memory);
+        let mut segments = PySegmentManager::new(&vm, memory);
         assert!(segments.add_temp_segment().is_ok());
     }
 

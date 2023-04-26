@@ -2,11 +2,11 @@ use num_bigint::BigUint;
 use std::collections::HashMap;
 
 use cairo_vm::{
+    felt::Felt252,
     types::relocatable::Relocatable,
     vm::{errors::vm_errors::VirtualMachineError, runners::builtin_runner::SignatureBuiltinRunner},
 };
 
-use cairo_felt::Felt252;
 use pyo3::prelude::*;
 
 use crate::relocatable::PyRelocatable;

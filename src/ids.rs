@@ -1,5 +1,5 @@
 use crate::utils::{const_path_to_const_name, to_py_error};
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use std::{
