@@ -16,7 +16,10 @@ use cairo_vm::{
     },
     vm::{
         errors::vm_exception::{get_error_attr_value, get_location, get_traceback},
-        runners::cairo_runner::{CairoRunner, ExecutionResources},
+        runners::{
+            builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME},
+            cairo_runner::{CairoRunner, ExecutionResources},
+        },
         security::verify_secure_runner,
     },
 };
@@ -97,8 +100,7 @@ impl PyCairoRunner {
         .map_err(to_py_error)?;
 
         let struct_types = program
-            .identifiers
-            .iter()
+            .iter_identifiers()
             .filter_map(|(path, identifier)| match identifier.type_.as_deref() {
                 Some("struct") => Some((path.to_string(), identifier.members.clone().unwrap())),
                 _ => None,
@@ -623,7 +625,7 @@ impl PyCairoRunner {
         let vm = (*self.pyvm.vm).borrow_mut();
         vm.get_builtin_runners()
             .iter()
-            .find(|b| b.name() == "pedersen")
+            .find(|b| b.name() == HASH_BUILTIN_NAME)
             .ok_or_else(|| PyValueError::new_err("hash builtin not present"))
             .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
@@ -633,7 +635,7 @@ impl PyCairoRunner {
         let vm = (*self.pyvm.vm).borrow_mut();
         vm.get_builtin_runners()
             .iter()
-            .find(|b| b.name() == "poseidon")
+            .find(|b| b.name() == POSEIDON_BUILTIN_NAME)
             .ok_or_else(|| PyValueError::new_err("poseidon builtin not present"))
             .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
@@ -643,7 +645,7 @@ impl PyCairoRunner {
         let vm = (*self.pyvm.vm).borrow_mut();
         vm.get_builtin_runners()
             .iter()
-            .find(|b| b.name() == "range_check")
+            .find(|b| b.name() == RANGE_CHECK_BUILTIN_NAME)
             .ok_or_else(|| PyValueError::new_err("range_check builtin not present"))
             .map(|b| PyRelocatable::from((b.base() as isize, 0_usize)))
     }
@@ -715,17 +717,7 @@ impl PyExecutionResources {
 
     #[getter]
     fn builtin_instance_counter(&self) -> HashMap<String, usize> {
-        let mut instance_counters = self.0.builtin_instance_counter.clone();
-        // replace the builtin name with "<name>_builtin" as expected in the Starknet code.
-        for builtin_name in self.0.builtin_instance_counter.keys() {
-            if let Some((key, counter)) = instance_counters.remove_entry(builtin_name) {
-                instance_counters
-                    .entry(format!("{key}_builtin").to_string())
-                    .or_insert(counter);
-            }
-        }
-
-        instance_counters
+        self.0.builtin_instance_counter.clone()
     }
 }
 
@@ -734,7 +726,7 @@ mod test {
     use super::*;
     use crate::biguint;
     use crate::relocatable::PyMaybeRelocatable::RelocatableValue;
-    use cairo_felt::Felt252;
+    use cairo_vm::felt::Felt252;
     use num_bigint::BigUint;
     use std::env::temp_dir;
     use std::fs;

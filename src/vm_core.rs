@@ -10,7 +10,7 @@ use crate::{
     memory::PyMemory, memory_segments::PySegmentManager, range_check::PyRangeCheck,
     relocatable::PyRelocatable,
 };
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_vm::serde::deserialize_program::Member;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -297,8 +297,8 @@ pub(crate) fn update_scope_hint_locals(
 mod test {
     use super::*;
     use crate::{biguint, relocatable::PyMaybeRelocatable, vm_core::PyVM};
-    use cairo_felt::Felt252;
     use cairo_vm::{
+        felt::Felt252,
         hint_processor::{
             builtin_hint_processor::builtin_hint_processor_definition::{
                 BuiltinHintProcessor, HintProcessorData,
