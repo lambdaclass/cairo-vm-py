@@ -133,7 +133,7 @@ impl From<&PyMaybeRelocatable> for MaybeRelocatable {
             PyMaybeRelocatable::RelocatableValue(rel) => MaybeRelocatable::RelocatableValue(
                 Relocatable::from((rel.segment_index, rel.offset)),
             ),
-            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int((num.clone()).into()),
+            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int((num).into()),
         }
     }
 }
