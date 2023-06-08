@@ -481,13 +481,10 @@ impl PyCairoRunner {
     }
 
     // Initialize all the builtins and segments.
-    #[pyo3(signature = (add_segment_arena_builtin=false))]
-    pub fn initialize_function_runner(&mut self, add_segment_arena_builtin: bool) -> PyResult<()> {
+    #[pyo3(signature = (_add_segment_arena_builtin=false))]
+    pub fn initialize_function_runner(&mut self, _add_segment_arena_builtin: bool) -> PyResult<()> {
         self.inner
-            .initialize_function_runner(
-                &mut (*self.pyvm.vm).borrow_mut(),
-                add_segment_arena_builtin,
-            )
+            .initialize_function_runner(&mut (*self.pyvm.vm).borrow_mut())
             .map_err(to_py_error)
     }
 

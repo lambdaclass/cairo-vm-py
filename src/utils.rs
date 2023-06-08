@@ -44,5 +44,5 @@ pub fn const_path_to_const_name(constants: &HashMap<String, Felt252>) -> HashMap
 pub fn biguint_to_usize(biguint: &BigUint) -> Result<usize, VirtualMachineError> {
     biguint
         .try_into()
-        .map_err(|_| MathError::Felt252ToUsizeConversion(biguint.into()).into())
+        .map_err(|_| MathError::Felt252ToUsizeConversion(Box::new((biguint.clone()).into())).into())
 }
