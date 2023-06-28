@@ -1,15 +1,15 @@
 <div align="center">
 <img src="https://i.ibb.co/mTqJq4k/cairo-rs-py2.jpg" alt="drawing" width="150"/>
 
-### 🐍 Cairo-rs-py 🐍
+### 🐍 Cairo-vm-py 🐍
 
-FFI Python bindings for cairo-rs
+FFI Python bindings for cairo-vm
  
-[Report Bug](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=bug&title=bug%3A+) · [Request Feature](https://github.com/lambdaclass/cairo-rs-py/issues/new?labels=enhancement&title=feat%3A+)
+[Report Bug](https://github.com/lambdaclass/cairo-vm-py/issues/new?labels=bug&title=bug%3A+) · [Request Feature](https://github.com/lambdaclass/cairo-vm-py/issues/new?labels=enhancement&title=feat%3A+)
 
-[![rust](https://github.com/lambdaclass/cairo-rs-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-rs/actions/workflows/rust.yml) 
-[![codecov](https://img.shields.io/codecov/c/github/lambdaclass/cairo-rs-py)](https://codecov.io/gh/lambdaclass/cairo-rs-py)
-[![license](https://img.shields.io/github/license/lambdaclass/cairo-rs-py)](/LICENSE)
+[![rust](https://github.com/lambdaclass/cairo-vm-py/actions/workflows/rust.yml/badge.svg)](https://github.com/lambdaclass/cairo-vm/actions/workflows/rust.yml) 
+[![codecov](https://img.shields.io/codecov/c/github/lambdaclass/cairo-vm-py)](https://codecov.io/gh/lambdaclass/cairo-vm-py)
+[![license](https://img.shields.io/github/license/lambdaclass/cairo-vm-py)](/LICENSE)
 [![Telegram Chat][tg-badge]][tg-url]
 
 [tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
@@ -34,7 +34,7 @@ FFI Python bindings for cairo-rs
 
 ## 📖 About
 
-`cairo-rs-py` adds Python bindings to the [cairo-rs](https://github.com/lambdaclass/cairo-rs) Cairo VM.
+`cairo-vm-py` adds Python bindings to the [Cairo VM](https://github.com/lambdaclass/cairo-vm).
 
 ## 🌅 Getting Started
 
@@ -50,12 +50,12 @@ To set up the Python environment, and install necessary Python libraries, run `m
 
 After setting up the environments, you can install the python binary using `maturin develop --release`.
 
-Finally, install into the python environment with `maturin develop --release`. For mac installation, these flags might be necessary:
-`maturin develop --release -m cairo-rs-py/Cargo.toml --no-default-features --features extension`.
+Finally, install into the Python environment with `maturin develop --release`. For mac installation, these flags might be necessary:
+`maturin develop --release -m cairo-vm-py/Cargo.toml --no-default-features --features extension`.
 
 ## 🚀 Usage
 
-After installation, you can access the cairo-rs VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
+After installation, you can access the Cairo VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
 
 ```python
 import cairo_rs_py
@@ -75,7 +75,7 @@ make full-test
 
 The `build_envs.sh` script will build two Python virtual environments:
 - `cairo-lang` containing a pristine installation of `cairo-lang==0.10.3`;
-- `cairo-rs-py` containing a patched installation of `cairo-lang==0.10.3` that uses `cairo-rs-py` as dependency.
+- `cairo-vm-py` containing a patched installation of `cairo-lang==0.10.3` that uses `cairo-vm-py` as dependency.
 It will also install the required dependencies automatically in Debian-based distributions, CentOs, Fedora and OSX. 
 If you use another OS, you can check how to install them manually below.
 
@@ -86,13 +86,13 @@ To run the script:
 
 Both virtual environment will be created under the `/scripts` directory.
 
-To actually use any of the implementations, you would have to activate the environment you want. For example, to use the cairo-rs-py integration you need to run:
+To actually use any of the implementations, you would have to activate the environment you want. For example, to use the cairo-vm-py integration you need to run:
 
 ```shell
-source scripts/cairo-rs-py/bin/activate
+source scripts/cairo-vm-py/bin/activate
 ```
 
-After activating the cairo-rs-py virtualenv you can try out any Cairo project and it will use cairo-rs. In some cases some projects are coupled to cairo-run or need some extra patching to be able to use the Cairo-rs runner (e.g. Protostar, Zerosync).
+After activating the cairo-vm-py virtualenv you can try out any Cairo project and it will use cairo-vm. In some cases some projects are coupled to cairo-run or need some extra patching to be able to use the cairo-vm runner (e.g. Protostar, Zerosync).
 
 Note that the script assumes you have a Rust toolchain, Python 3.9 and the `venv` program installed.
 
@@ -128,8 +128,8 @@ benchmark-devnet
 
 ## 🌞 Related Projects
 
-- [cairo-rs](https://github.com/lambdaclass/cairo-rs): A fast implementation of the Cairo VM in Rust.
-- [starknet_in_rust](https://github.com/lambdaclass/starknet_in_rust): implementation of Starknet in Rust, powered by the cairo-rs VM.
+- [cairo-vm](https://github.com/lambdaclass/cairo-vm): A fast implementation of the Cairo VM in Rust.
+- [starknet_in_rust](https://github.com/lambdaclass/starknet_in_rust): implementation of Starknet in Rust, powered by the cairo-vm.
 
 ## ⚖️ License
 
