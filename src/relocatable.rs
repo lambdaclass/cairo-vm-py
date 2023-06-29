@@ -61,10 +61,10 @@ impl PyRelocatable {
             }
             PyMaybeRelocatable::RelocatableValue(address) => {
                 if self.segment_index != address.segment_index {
-                    return Err(MathError::RelocatableSubDiffIndex(
+                    return Err(MathError::RelocatableSubDiffIndex(Box::new((
                         self.into(),
                         Relocatable::from(&address),
-                    ))
+                    ))))
                     .map_err(to_py_error)?;
                 }
                 Ok(PyMaybeRelocatable::Int(biguint!(self.offset - address.offset)).to_object(py))
@@ -133,7 +133,7 @@ impl From<&PyMaybeRelocatable> for MaybeRelocatable {
             PyMaybeRelocatable::RelocatableValue(rel) => MaybeRelocatable::RelocatableValue(
                 Relocatable::from((rel.segment_index, rel.offset)),
             ),
-            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int(num.into()),
+            PyMaybeRelocatable::Int(num) => MaybeRelocatable::Int((num).into()),
         }
     }
 }

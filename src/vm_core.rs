@@ -191,10 +191,10 @@ impl PyVM {
                     let hint_data = hint_data
                         .downcast_ref::<HintProcessorData>()
                         .ok_or_else(|| {
-                            VirtualMachineError::Hint(
+                            VirtualMachineError::Hint(Box::new((
                                 hint_index,
-                                Box::new(HintError::WrongHintData),
-                            )
+                                HintError::WrongHintData,
+                            )))
                         })
                         .map_err(to_py_error)?;
 
@@ -253,7 +253,7 @@ impl PyVM {
             Err(HintError::UnknownHint(_)) => Ok(true),
             Err(e) => {
                 self.failed_hint_index = Some(hint_index);
-                Err(VirtualMachineError::Hint(hint_index, Box::new(e)))
+                Err(VirtualMachineError::Hint(Box::new((hint_index, e))))
             }
         }
     }

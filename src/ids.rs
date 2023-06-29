@@ -100,7 +100,11 @@ impl PyIds {
                         &self.vm.borrow(),
                         &self.ap_tracking,
                     )
-                    .ok_or_else(|| to_py_error(HintError::UnknownIdentifier(name.to_string())))?,
+                    .ok_or_else(|| {
+                        to_py_error(HintError::UnknownIdentifier(
+                            name.to_string().into_boxed_str(),
+                        ))
+                    })?,
                     cairo_type: cairo_type.to_string(),
                     struct_types: Rc::clone(&self.struct_types),
                 }
@@ -109,10 +113,9 @@ impl PyIds {
                 let addr =
                     compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)
                         .ok_or_else(|| {
-                            to_py_error(HintError::UnknownIdentifier(format!(
-                                "{}.{}",
-                                name, clear_ref
-                            )))
+                            to_py_error(HintError::UnknownIdentifier(
+                                format!("{}.{}", name, clear_ref).into_boxed_str(),
+                            ))
                         })?;
 
                 let hint_value = self
@@ -132,7 +135,11 @@ impl PyIds {
         }
 
         get_value_from_reference(&self.vm.borrow(), hint_ref, &self.ap_tracking)
-            .ok_or_else(|| to_py_error(HintError::UnknownIdentifier(name.to_string())))
+            .ok_or_else(|| {
+                to_py_error(HintError::UnknownIdentifier(
+                    name.to_string().into_boxed_str(),
+                ))
+            })
             .map(|x| x.to_object(py))
     }
 
@@ -142,7 +149,11 @@ impl PyIds {
             .get(name)
             .ok_or_else(|| PyValueError::new_err(IDS_SET_ERROR_MSG))?;
         let var_addr = compute_addr_from_reference(hint_ref, &self.vm.borrow(), &self.ap_tracking)
-            .ok_or_else(|| to_py_error(HintError::UnknownIdentifier(name.to_string())))?;
+            .ok_or_else(|| {
+                to_py_error(HintError::UnknownIdentifier(
+                    name.to_string().into_boxed_str(),
+                ))
+            })?;
         self.vm
             .borrow_mut()
             .insert_value(var_addr, &val)
@@ -885,7 +896,8 @@ memory[fp] = ids.ok_ref
 
             assert!(py_result.unwrap_err().to_string().contains(
                 &PyValueError::new_err(
-                    HintError::UnknownIdentifier("bad_ref".to_string()).to_string()
+                    HintError::UnknownIdentifier("bad_ref".to_string().into_boxed_str())
+                        .to_string()
                 )
                 .to_string()
             ));
@@ -895,7 +907,8 @@ memory[fp] = ids.ok_ref
             let py_result = py.run(code, Some(globals), None);
             assert!(py_result.unwrap_err().to_string().contains(
                 &PyValueError::new_err(
-                    HintError::UnknownIdentifier("none_ref".to_string()).to_string()
+                    HintError::UnknownIdentifier("none_ref".to_string().into_boxed_str())
+                        .to_string()
                 )
                 .to_string()
             ));
@@ -971,10 +984,10 @@ memory[fp] = ids.ok_ref
 
             let py_result = py.run(code, Some(globals), None);
 
-            assert!(py_result
-                .unwrap_err()
-                .to_string()
-                .contains(&HintError::UnknownIdentifier("no_reg_ref".to_string()).to_string()));
+            assert!(py_result.unwrap_err().to_string().contains(
+                &HintError::UnknownIdentifier("no_reg_ref".to_string().into_boxed_str())
+                    .to_string()
+            ));
         });
     }
 
