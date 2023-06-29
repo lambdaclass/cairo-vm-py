@@ -154,18 +154,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cairo-rs-py"
-version = "0.2.0"
-dependencies = [
- "bincode",
- "cairo-vm",
- "lazy_static",
- "num-bigint",
- "pyo3",
- "rusty-hook",
-]
-
-[[package]]
 name = "cairo-take_until_unbalanced"
 version = "0.27.0"
 source = "git+https://github.com/lambdaclass/cairo-rs.git#061b2c3388d2a4ab54cbc1cd9483aa49157458b7"
@@ -204,6 +192,18 @@ dependencies = [
  "starknet-crypto",
  "thiserror",
  "thiserror-no-std",
+]
+
+[[package]]
+name = "cairo-vm-py"
+version = "0.2.0"
+dependencies = [
+ "bincode",
+ "cairo-vm",
+ "lazy_static",
+ "num-bigint",
+ "pyo3",
+ "rusty-hook",
 ]
 
 [[package]]

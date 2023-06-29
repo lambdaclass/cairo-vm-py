@@ -1,5 +1,5 @@
 [package]
-name = "cairo-rs-py"
+name = "cairo-vm-py"
 version = "0.2.0"
 edition = "2021"
 
@@ -21,7 +21,7 @@ embedded-python = ["pyo3/auto-initialize"]
 default = ["extension-module"]
 
 [lib]
-name = "cairo_rs_py"
+name = "cairo_vm_py"
 crate-type = ["cdylib"]
 required-features = ["extension-module"]
 

@@ -10,7 +10,7 @@ fi
 
 set -e
 
-. scripts/cairo-rs-py/bin/activate
+. scripts/cairo-vm-py/bin/activate
 maturin develop --release
 cd kakarot
 pip install poetry
@@ -18,7 +18,7 @@ make setup
 make build
 cd ..
 cd scripts
-patch --directory cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < move-to-cairo-rs-py.patch
+patch --directory cairo-vm-py/lib/python3.9/site-packages/ --strip 2 < move-to-cairo-vm-py.patch
 cd ..
 deactivate
 . scripts/cairo-lang/bin/activate

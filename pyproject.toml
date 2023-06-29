@@ -3,7 +3,7 @@ requires = ["maturin>=0.13,<0.14"]
 build-backend = "maturin"
 
 [project]
-name = "cairo-rs-py"
+name = "cairo-vm-py"
 version = "0.2.0"
 requires-python = ">=3.7"
 classifiers = [

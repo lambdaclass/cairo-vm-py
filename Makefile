@@ -34,8 +34,8 @@ deps:
 
 deps-default-version:
 	pip install ecdsa fastecdsa sympy cairo-lang==0.11.0 maturin
-	python3 -m venv cairo-rs-py-env
-	. cairo-rs-py-env/bin/activate && \
+	python3 -m venv cairo-vm-py-env
+	. cairo-vm-py-env/bin/activate && \
 	pip install cairo-lang==0.11.0 && \
 	cargo install cargo-tarpaulin && \
 	deactivate
@@ -50,7 +50,7 @@ check:
 	cargo check
 
 coverage:
-	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-vm-py-env/bin/activate && \
 	cargo tarpaulin --no-default-features --features embedded-python --out Xml && \
 	deactivate
 
@@ -63,10 +63,10 @@ benchmark-deps:
 	sh scripts/install-protostar-deps.sh
 
 benchmark-devnet: 
-	. scripts/cairo-rs-py/bin/activate && \
+	. scripts/cairo-vm-py/bin/activate && \
 	maturin develop --release 
 	hyperfine -w 0 -r 1 --show-output \
-	-n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && \
+	-n cairo-vm-py "source scripts/cairo-vm-py/bin/activate && \
 	cd starknet-devnet && \
 	export STARKNET_DEVNET_CAIRO_VM='rust' poetry run pytest test --ignore=test/test_postman.py" \
 	-n cairo-lang "source scripts/cairo-lang/bin/activate && \
@@ -74,13 +74,13 @@ benchmark-devnet:
 	export STARKNET_DEVNET_CAIRO_VM='python' poetry run pytest test --ignore=test/test_postman.py"
 
 benchmark-kakarot:
-	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && cd kakarot && make test-integration" -n cairo-lang "source scripts/cairo-lang/bin/activate && cd kakarot && make test-integration"
+	hyperfine -w 0 -r 1 --show-output -i -n cairo-vm-py "source scripts/cairo-vm-py/bin/activate && cd kakarot && make test-integration" -n cairo-lang "source scripts/cairo-lang/bin/activate && cd kakarot && make test-integration"
 
 benchmark-protostar:
-	hyperfine -w 0 -r 1 --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py -R < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes"
+	hyperfine -w 0 -r 1 --show-output -i -n cairo-vm-py "source scripts/cairo-vm-py/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch protostar/protostar/starknet/cheatable_execute_entry_point.py -R < scripts/cheatable-entrypoint-protostar.patch && cd protostar && pytest -vv tests/integration/ --ignore=tests/integration/cheatcodes"
 
 benchmark-zerosync:
-	hyperfine -w 0 -r 1 --setup "source scripts/cairo-rs-py/bin/activate && cd zerosync && make bridge_node &" --cleanup "lsof -i:2121 && pwd && kill $(lsof -t -sTCP:LISTEN -i:2121) || true" --show-output -i -n cairo-rs-py "source scripts/cairo-rs-py/bin/activate && patch zerosync/src/utils/benchmark_block.py < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch zerosync/src/utils/benchmark_block.py -R < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block"
+	hyperfine -w 0 -r 1 --setup "source scripts/cairo-vm-py/bin/activate && cd zerosync && make bridge_node &" --cleanup "lsof -i:2121 && pwd && kill $(lsof -t -sTCP:LISTEN -i:2121) || true" --show-output -i -n cairo-vm-py "source scripts/cairo-vm-py/bin/activate && patch zerosync/src/utils/benchmark_block.py < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block" -n cairo-lang "source scripts/cairo-lang/bin/activate && patch zerosync/src/utils/benchmark_block.py -R < scripts/zerosync-runner-changes.patch && cd zerosync && make BLOCK=123456 benchmark_block"
 
 clippy:
 	cargo clippy --all --all-targets -- -D warnings
@@ -92,10 +92,10 @@ clean:
 	rm -f $(BAD_TEST_DIR)/*.json
 	rm -f $(BAD_TEST_DIR)/*.memory
 	rm -f $(BAD_TEST_DIR)/*.trace
-	rm -rf cairo-rs-py-env
+	rm -rf cairo-vm-py-env
 
 run-python-test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
-	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-vm-py-env/bin/activate && \
 	maturin develop --release && \
 	python3 hints_tests.py && \
 	python3 errors_tests.py && \
@@ -103,7 +103,7 @@ run-python-test: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS)
 	deactivate
 
 run-comparer-tracer: 
-	PYENV_VERSION=pypy3.7-7.3.9 . cairo-rs-py-env/bin/activate && \
+	PYENV_VERSION=pypy3.7-7.3.9 . cairo-vm-py-env/bin/activate && \
 	maturin develop --release && \
 	make compare_trace_memory && \
 	deactivate

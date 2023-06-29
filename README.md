@@ -58,10 +58,10 @@ Finally, install into the Python environment with `maturin develop --release`. F
 After installation, you can access the Cairo VM from Python code. As an example, after compiling the program `array_sum` into `cairo_programs/array_sum.json`, you can run it with the VM using:
 
 ```python
-import cairo_rs_py
+import cairo_vm_py
 
 with open(f"cairo_programs/array_sum.json") as file:
-    runner = cairo_rs_py.CairoRunner(file.read(), "main", "all", False)
+    runner = cairo_vm_py.CairoRunner(file.read(), "main", "all", False)
     runner.cairo_run(True)
 ```
 

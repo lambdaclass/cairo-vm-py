@@ -1,3 +1,3 @@
 import unittest
-import cairo_rs_py
+import cairo_vm_py
 
