@@ -6,7 +6,7 @@ index d009077..279e215 100644
  import os
  import json
  from utxo_dummy_generator import generate_utxo_dummys, fetch_block
-+import cairo_rs_py
++import cairo_vm_py
 +from starkware.cairo.lang.vm.vm_exceptions import VmException
  import urllib3
  import time
@@ -21,7 +21,7 @@ index d009077..279e215 100644
 -    # program output
 +def new_runner():
 +    with open(f"{output_dir}/program.json") as file:
-+        return cairo_rs_py.CairoRunner(file.read(), "main", "all", False)
++        return cairo_vm_py.CairoRunner(file.read(), "main", "all", False)
 +    
 +def parse_cairo_output(cairo_output, debug=False):
 +        # Split at line break. Then cut off all lines until the start of the program output

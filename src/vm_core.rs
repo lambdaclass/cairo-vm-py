@@ -417,7 +417,7 @@ mod test {
     }
 
     #[test]
-    // This test is analogous to the `test_step_for_preset_memory` unit test in the cairo-rs crate.
+    // This test is analogous to the `test_step_for_preset_memory` unit test in the cairo-vm crate.
     fn test_step_with_no_hint() {
         let mut vm = PyVM::new(false);
 

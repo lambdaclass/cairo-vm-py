@@ -22,7 +22,7 @@ def main():
 
         with open(filename2, 'rb') as f:
             cairo_rs_raw = f.read()
-            assert len(cairo_rs_raw) % 40 == 0, f'{filename2}: malformed memory file from cairo-rs'
+            assert len(cairo_rs_raw) % 40 == 0, f'{filename2}: malformed memory file from cairo-vm'
             chunks = len(cairo_rs_raw) // 40
             for i in range(0, chunks):
                 chunk = cairo_rs_raw[i*40:(i+1)*40]
@@ -34,7 +34,7 @@ def main():
         assert len(cairo_mem) == len(cairo_rs_mem), f'{filename2}: len(cairo_mem)={len(cairo_mem)} len(cairo_mem)={len(cairo_rs_mem)}'
         if cairo_mem != cairo_rs_mem:
             print(f'Mismatch between {filename1} (Cairo) and {filename2} (cairo_rs)')
-            print('keys in Cairo but not cairo-rs:')
+            print('keys in Cairo but not cairo-vm:')
             for k in cairo_mem:
                 if k in cairo_rs_mem:
                     continue

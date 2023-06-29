@@ -4,4 +4,10 @@
 **/*.memory
 **/*.json
 scripts/cairo-lang
-scripts/cairo-rs-py
+scripts/cairo-vm-py
+.python-version
+cairo-vm-py-env/
+kakarot/
+ZeroSync/
+protostar/
+starknet-devnet/

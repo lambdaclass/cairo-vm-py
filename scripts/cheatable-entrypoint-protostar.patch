@@ -6,7 +6,7 @@ index 01d1886..4a8c94f 100644
  from protostar.starknet.cheatable_cached_state import CheatableCachedState
  from protostar.starknet.cheatable_syscall_handler import CheatableSysCallHandler
  from protostar.starknet.cheatcode import Cheatcode
-+import cairo_rs_py
++import cairo_vm_py
  
  if TYPE_CHECKING:
      from protostar.starknet.cheatcode_factory import CheatcodeFactory
@@ -15,7 +15,7 @@ index 01d1886..4a8c94f 100644
          # Run the specified contract entry point with given calldata.
          with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
 -            runner = CairoFunctionRunner(program=contract_class.program, layout="all")
-+            runner = cairo_rs_py.CairoRunner(
++            runner = cairo_vm_py.CairoRunner(
 +            program=contract_class.program.dumps(),
 +            entrypoint=None,
 +            layout="all_cairo",

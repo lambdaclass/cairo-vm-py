@@ -26,12 +26,12 @@ set -e
 # trying to break it for this to fail :)
 SCRIPT_DIR=$(dirname $0)
 
-python3.9 -m venv --upgrade-deps ${SCRIPT_DIR}/cairo-lang ${SCRIPT_DIR}/cairo-rs-py
+python3.9 -m venv --upgrade-deps ${SCRIPT_DIR}/cairo-lang ${SCRIPT_DIR}/cairo-vm-py
 ${SCRIPT_DIR}/cairo-lang/bin/pip install cairo-lang==0.10.3 typeguard==2.13.0 poetry
-${SCRIPT_DIR}/cairo-rs-py/bin/pip install maturin==0.14.1 cairo-lang==0.10.3 typeguard==2.13.0 poetry
-${SCRIPT_DIR}/cairo-rs-py/bin/maturin build --manifest-path ${SCRIPT_DIR}/../Cargo.toml --release --strip --interpreter 3.9 --no-default-features --features extension-module
-${SCRIPT_DIR}/cairo-rs-py/bin/pip install ${SCRIPT_DIR}/../target/wheels/cairo_rs_py-*.whl
-patch --directory ${SCRIPT_DIR}/cairo-rs-py/lib/python3.9/site-packages/ --strip 2 < ${SCRIPT_DIR}/move-to-cairo-rs-py.patch
+${SCRIPT_DIR}/cairo-vm-py/bin/pip install maturin==0.14.1 cairo-lang==0.10.3 typeguard==2.13.0 poetry
+${SCRIPT_DIR}/cairo-vm-py/bin/maturin build --manifest-path ${SCRIPT_DIR}/../Cargo.toml --release --strip --interpreter 3.9 --no-default-features --features extension-module
+${SCRIPT_DIR}/cairo-vm-py/bin/pip install ${SCRIPT_DIR}/../target/wheels/cairo_vm_py-*.whl
+patch --directory ${SCRIPT_DIR}/cairo-vm-py/lib/python3.9/site-packages/ --strip 2 < ${SCRIPT_DIR}/move-to-cairo-vm-py.patch
 
-${SCRIPT_DIR}/cairo-rs-py/bin/cairo-run --version
-${SCRIPT_DIR}/cairo-rs-py/bin/starknet --version
+${SCRIPT_DIR}/cairo-vm-py/bin/cairo-run --version
+${SCRIPT_DIR}/cairo-vm-py/bin/starknet --version

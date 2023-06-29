@@ -10,7 +10,7 @@ fi
 
 set -e
 
-. scripts/cairo-rs-py/bin/activate
+. scripts/cairo-vm-py/bin/activate
 maturin develop --release
 cd starknet-devnet
 pip install poetry
